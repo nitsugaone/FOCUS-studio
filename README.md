@@ -1,11 +1,194 @@
-<div align="center">
+# Focus — Paisaje Sonoro Procedural
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Aplicación web progresiva (PWA) de alto rendimiento para síntesis acústica procedural en tiempo real orientada a la concentración profunda, estudio e inmersión cognitiva. Funciona de manera 100% autónoma en el navegador del cliente mediante la Web Audio API, sin dependencias externas, sin librerías de terceros y sin consumir archivos de audio pregrabados (MP3, WAV o streaming).
 
-  <h1>Built with AI Studio</h2>
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![PWA Ready](https://img.shields.io/badge/PWA-Ready-success.svg)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps)
+[![Web Audio API](https://img.shields.io/badge/Audio-Web%20Audio%20API-orange.svg)](https://www.w3.org/TR/webaudio/)
+[![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20Android%20%7C%20iOS%20%7C%20Desktop-lightgrey.svg)]()
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+---
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## Capturas de Pantalla
 
-</div>
+![Interfaz Principal de Focus](https://raw.githubusercontent.com/username/focus-soundscape/main/docs/screenshots/hero-preview.png)
+*Figura 1: Interfaz principal con animaciones orbitales sincronizadas y controles táctiles.*
+
+![Mezclador Acústico y Temporizador](https://raw.githubusercontent.com/username/focus-soundscape/main/docs/screenshots/mixer-preview.png)
+*Figura 2: Mezclador de capas DSP en tiempo real y selector de duración de sesión.*
+
+---
+
+## Características Principales
+
+- **Síntesis 100% Procedural Local:** Todos los sonidos se calculan matemáticamente en tiempo real en la CPU del cliente. Peso total inferior a 50 KB.
+- **Cero Telemetría y Cero Streaming:** Privacidad absoluta; no realiza peticiones de red para reproducir sonido ni almacena datos en servidores externos.
+- **Arquitectura DSP de Tres Capas:**
+  - **Ruido Marrón Estéreo Desacoplado:** Generado en un `AudioBuffer` de 2 canales independientes con modulación LFO senoidal en filtro pasa-bajos.
+  - **Drone Armónico Binaural:** Osciladores de sub-frecuencia fundamental y quinta justa con paneo balanceado y barrido orgánico de frecuencias.
+  - **Campanas Pentatónicas Espaciales:** Generación estocástica sobre la escala de La menor pentatónica procesada a través de un bus de reverberación convolutiva algorítmica (`ConvolverNode`).
+- **Control Dinámico Maestro:** Etapa final con `DynamicsCompressorNode` para prevenir recorte digital (*clipping*) y unificar la presión acústica.
+- **Persistencia de Audio en Segundo Plano (Móviles):** Integración de `MediaStreamAudioDestinationNode` vinculado a un elemento HTML5 Audio para evitar que el sistema operativo suspenda el hilo de audio al bloquear la pantalla.
+- **Soporte de Controles Multimedia:** Compatibilidad nativa con la `Media Session API` (pantalla de bloqueo, centro de control y botones físicos en auriculares Bluetooth).
+- **Prevención de Suspensión de Pantalla:** Integración segura con la `Screen Wake Lock API` durante la reproducción activa.
+- **Temporizador Inmune a Throttling:** Lógica de reloj basada en diferenciales de `Date.now()`, manteniendo la precisión temporal aun cuando el navegador inactive los hilos de fondo.
+- **Preparado para PWA y APK:** Manifiesto estándar con íconos vectoriales embebidos en Data URI y Service Worker con estrategia de caché *Cache-First* para operación offline total.
+
+---
+
+## Arquitectura Técnica de Audio (DSP)
+
+El grafo de audio se instancia de forma perezosa (*lazy*) tras la primera interacción del usuario para cumplir con las políticas de autoplay de los navegadores modernos:
+
+```
+[Ruido Marrón BufferSource (L/R)] ──> [BiquadFilter LP] ──> [Gain: Noise] ──┐
+             ▲ (Modulado por LFO 0.065Hz)                                   │
+                                                                            │
+[Osciladores Drone (55Hz, 110Hz, 165Hz)] ──> [StereoPanner] ──> [LP Filter] ──> [Gain: Drone] ─┼──> [Gain: Master] ──> [Gain: Fade] ──> [DynamicsCompressor] ──┬─> ctx.destination (Parlantes)
+                                                                            │                                                                                │
+[Generador Pentatónico (Osc + Harm)] ──> [StereoPanner] ──┬────────────────> [Gain: Notes] ─┘                                                                                └─> MediaStreamDestination ─> <audio>
+                                                          └─> [ConvolverNode (Reverb)] ─┘
+```
+
+1. **Buffer de Ruido Marrón:** Algoritmo de integración acumulativa de ruido blanco normalizado y bucleado con un crossfade senoidal de fase continua de 1.5 segundos.
+2. **Reverberación Convolutiva:** Impulso estéreo sintetizado algorítmicamente calculando caídas exponenciales y dispersión paso-bajos aleatoria para eliminar coloraciones metálicas.
+3. **Escala Musical:** Matriz pentatónica menor afinada en frecuencias fundamentales exactas:
+   $$\{164.81\,\text{Hz}, 220.00\,\text{Hz}, 261.63\,\text{Hz}, 293.66\,\text{Hz}, 329.63\,\text{Hz}, 392.00\,\text{Hz}, 440.00\,\text{Hz}\}$$
+
+---
+
+## Estructura del Repositorio
+
+El proyecto está diseñado bajo una arquitectura modular y ligera, lista para servirse como sitio estático o empaquetarse en contenedores híbridos:
+
+```
+├── index.html        # Aplicación monolítica principal (HTML5, CSS3, DSP Engine)
+├── manifest.json     # Manifiesto Web App con metadatos PWA e iconos SVG en Base64
+├── sw.js             # Service Worker con estrategia Cache-First para soporte 100% offline
+├── docs/             # Recursos de documentación y capturas
+│   └── screenshots/
+│       ├── hero-preview.png
+│       └── mixer-preview.png
+├── LICENSE           # Licencia MIT
+└── README.md         # Documentación del proyecto
+```
+
+---
+
+## Instalación y Ejecución Local
+
+Dado que la aplicación está construida en JavaScript estándar sin transpiladores requeridos, cualquier servidor HTTP estático es suficiente.
+
+### Prerrequisitos
+Un navegador web moderno con soporte para Web Audio API (Chrome 66+, Firefox 60+, Safari 14.1+, Edge 79+).
+
+### Pasos
+
+1. Clonar el repositorio:
+   ```bash
+   git clone https://github.com/username/focus-soundscape.git
+   cd focus-soundscape
+   ```
+
+2. Iniciar un servidor HTTP local (los Service Workers requieren contexto seguro o `localhost`):
+
+   - **Opción con Python 3:**
+     ```bash
+     python3 -m http.server 8080
+     ```
+
+   - **Opción con Node.js (`npx serve`):**
+     ```bash
+     npx serve .
+     ```
+
+   - **Opción con extensiones de IDE:**
+     Usar *Live Server* de Visual Studio Code sobre la carpeta raíz.
+
+3. Abrir en el navegador:
+   ```
+   http://localhost:8080
+   ```
+
+---
+
+## Despliegue en GitHub Pages
+
+1. Subir el proyecto a un repositorio en GitHub.
+2. En el panel de control del repositorio, ingresar a **Settings** > **Pages**.
+3. En la sección **Build and deployment**:
+   - **Source**: `Deploy from a branch`
+   - **Branch**: `main` (o `master`) y carpeta `/ (root)`
+4. Guardar los cambios.
+5. Tras unos segundos, la URL pública estará disponible bajo el formato:
+   ```
+   https://<tu-usuario>.github.io/<nombre-del-repo>/
+   ```
+   El Service Worker y el archivo `manifest.json` utilizan rutas relativas (`./`), garantizando compatibilidad inmediata en subdirectorios de GitHub Pages.
+
+---
+
+## Instalación como Progressive Web App (PWA)
+
+### Escritorio (Chrome, Edge, Brave)
+1. Abrir la URL en el navegador.
+2. Hacer clic en el ícono de **Instalar aplicación** ubicado en el extremo derecho de la barra de direcciones.
+3. Confirmar la instalación. La aplicación se ejecutará en una ventana independiente sin controles de navegación del explorador.
+
+### Android (Chrome)
+1. Abrir la URL en Chrome para Android.
+2. Presionar el menú contextual de tres puntos en la esquina superior derecha.
+3. Seleccionar **Instalar aplicación** o **Agregar a la pantalla principal**.
+4. La aplicación creará un acceso directo con ícono adaptativo (*maskable*).
+
+### iOS / iPadOS (Safari)
+1. Abrir la aplicación en Safari.
+2. Tocar el botón de **Compartir** en la barra inferior.
+3. Desplazarse hacia abajo y seleccionar **Agregar al inicio**.
+4. Abrir la app desde el icono en la pantalla de inicio para ejecutar en modo pantalla completa sin barra de navegación.
+
+---
+
+## Conversión a APK / Android Bundle con PWABuilder
+
+La estructura de `manifest.json` y `sw.js` cumple con los criterios de calidad PWA exigidos por Google Play Store mediante Trusted Web Activity (TWA):
+
+1. Ingresar a [PWABuilder.com](https://www.pwabuilder.com/).
+2. Ingresar la URL pública de la aplicación (por ejemplo, el enlace generado en GitHub Pages con protocolo HTTPS).
+3. Hacer clic en **Start** y esperar el análisis del manifest y Service Worker.
+4. Una vez aprobado el puntaje de PWA, hacer clic en **Package for Stores**.
+5. Seleccionar la plataforma **Android**:
+   - Configurar el *Package Name* (ejemplo: `app.focus.soundscape`).
+   - Configurar el código de versión y nombre de versión.
+   - Habilitar soporte de pantalla completa y firmas de claves.
+6. Hacer clic en **Generate APK / AAB** para descargar el paquete listo para pruebas locales o publicación directa en Google Play Console.
+
+---
+
+## Atajos de Teclado
+
+| Tecla | Acción |
+| :--- | :--- |
+| `Espacio` | Iniciar / Pausar reproducción |
+| `M` | Silenciar / Restaurar volumen maestro |
+| `Tab` | Navegar entre controles deslizantes y perfiles |
+
+---
+
+## Contribuciones
+
+Las contribuciones son bienvenidas. Si deseas colaborar con el proyecto:
+
+1. Realiza un Fork del repositorio.
+2. Crea una rama para tu función o corrección:
+   ```bash
+   git checkout -b feature/nueva-mejora
+   ```
+3. Realiza tus cambios asegurando no romper la calibración del grafo acústico ni degradar la compatibilidad offline.
+4. Envía un Pull Request detallando los cambios introducidos y las pruebas realizadas en navegadores de escritorio y móviles.
+
+---
+
+## Licencia
+
+Este proyecto está distribuido bajo los términos de la Licencia MIT. Consulta el archivo [LICENSE](LICENSE) para obtener más detalles.

@@ -1,0 +1,6 @@
+{
+  "name": "Focus — Paisaje Sonoro",
+  "description": "Motor binaural estéreo y síntesis adaptativa para concentración profunda. PWA y APK ready.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
