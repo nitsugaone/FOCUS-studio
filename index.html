@@ -1501,7 +1501,7 @@
       // Soporte para accesos directos PWA (shortcuts)
       try {
         const urlParams = new URLSearchParams(window.location.search);
-        const modeParam = Number(urlParams.get('mode'));
+        const modeParam = Number(urlParams.get('duration') || urlParams.get('mode'));
         if (modeParam > 0) {
           targetDurationMinutes = modeParam;
           document.querySelectorAll('.mode-chip').forEach((c) => {

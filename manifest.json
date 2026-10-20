@@ -18,9 +18,7 @@
   "theme_color": "#090c12",
   "categories": [
     "productivity",
-    "health",
     "lifestyle",
-    "music",
     "utilities"
   ],
   "icons": [
@@ -61,10 +59,10 @@
   ],
   "shortcuts": [
     {
-      "name": "Iniciar Concentración",
-      "short_name": "Iniciar",
-      "description": "Comenzar paisaje sonoro ambiental estéreo",
-      "url": "./index.html?action=play",
+      "name": "Start Focus (25m)",
+      "short_name": "Focus 25m",
+      "description": "Start a 25-minute focus session",
+      "url": "./index.html?duration=25",
       "icons": [
         {
           "src": "./icons/icon-192.png",
@@ -74,10 +72,10 @@
       ]
     },
     {
-      "name": "Sesión Pomodoro 25m",
-      "short_name": "25 min",
-      "description": "Iniciar sesión de concentración de 25 minutos",
-      "url": "./index.html?mode=25",
+      "name": "Start Focus (60m)",
+      "short_name": "Focus 60m",
+      "description": "Start a 60-minute focus session",
+      "url": "./index.html?duration=60",
       "icons": [
         {
           "src": "./icons/icon-192.png",
