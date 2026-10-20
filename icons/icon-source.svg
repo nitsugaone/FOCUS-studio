@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="iconBg" cx="30%" cy="20%" r="85%">
+      <stop offset="0%" stop-color="#182032"/>
+      <stop offset="100%" stop-color="#090c12"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#9bb4ff" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#9bb4ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="orbitGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c0d0ff"/>
+      <stop offset="100%" stop-color="#6682d8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Fondo con bordes redondeados estándar para propósito any -->
+  <rect width="512" height="512" rx="115" fill="url(#iconBg)"/>
+  <rect width="504" height="504" x="4" y="4" rx="111" fill="none" stroke="rgba(155, 180, 255, 0.25)" stroke-width="3"/>
+
+  <!-- Halo de resplandor central -->
+  <circle cx="256" cy="256" r="180" fill="url(#glow)"/>
+
+  <!-- Órbitas concéntricas -->
+  <circle cx="256" cy="256" r="160" fill="none" stroke="rgba(155, 180, 255, 0.16)" stroke-width="8"/>
+  <circle cx="256" cy="256" r="120" fill="none" stroke="rgba(155, 180, 255, 0.28)" stroke-width="10"/>
+  <circle cx="256" cy="256" r="82" fill="none" stroke="url(#orbitGrad)" stroke-width="12"/>
+
+  <!-- Órbitas elípticas rotadas -->
+  <ellipse cx="256" cy="256" rx="155" ry="90" fill="none" stroke="rgba(155, 180, 255, 0.16)" stroke-width="6" transform="rotate(35 256 256)"/>
+  <ellipse cx="256" cy="256" rx="155" ry="90" fill="none" stroke="rgba(155, 180, 255, 0.16)" stroke-width="6" transform="rotate(-35 256 256)"/>
+
+  <!-- Núcleo central de foco (Menta) -->
+  <circle cx="256" cy="256" r="44" fill="#8ce5c5"/>
+  <circle cx="256" cy="256" r="32" fill="#a7f0d7"/>
+
+  <!-- Líneas sutiles de la marca Focus -->
+  <line x1="190" y1="210" x2="322" y2="210" stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-opacity="0.95"/>
+  <line x1="220" y1="302" x2="322" y2="302" stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-opacity="0.7"/>
+</svg>

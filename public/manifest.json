@@ -3,30 +3,74 @@
   "name": "Focus — Paisaje Sonoro",
   "short_name": "Focus",
   "description": "Motor binaural estéreo y síntesis adaptativa para concentración profunda.",
+  "lang": "es",
+  "dir": "ltr",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui",
+    "window-controls-overlay"
+  ],
   "orientation": "portrait",
   "background_color": "#090c12",
   "theme_color": "#090c12",
+  "categories": [
+    "health",
+    "productivity",
+    "music",
+    "lifestyle"
+  ],
   "icons": [
     {
-      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjExMiIgZmlsbD0iIzA5MGMxMiIvPjxyZWN0IHg9IjI0IiB5PSIyNCIgd2lkdGg9IjQ2NCIgaGVpZ2h0PSI0NjQiIHJ4PSI5NiIgZmlsbD0iIzEyMTcyMiIgc3Ryb2tlPSIjOWJiNGZmIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1vcGFjaXR5PSIwLjMiLz48Y2lyY2xlIGN4PSIyNTYiIGN5PSIyNTYiIHI9IjE1MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOWJiNGZmIiBzdHJva2Utd2lkdGg9IjEwIiBzdHJva2Utb3BhY2l0eT0iMC4yIi8+PGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSIxMDUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzliYjRmZiIgc3Ryb2tlLXdpZHRoPSIxNCIgc3Ryb2tlLW9wYWNpdHk9IjAuNDUiLz48Y2lyY2xlIGN4PSIyNTYiIGN5PSIyNTYiIHI9IjQ4IiBmaWxsPSIjOGNlNWM1IiBmaWxsLW9wYWNpdHk9IjAuODUiLz48cGF0aCBkPSJNMTg1IDIyMGgxNDJNMjE1IDI4NWgxMTIiIHN0cm9rZT0iI2MwZDBmZiIgc3Ryb2tlLXdpZHRoPSIxNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+",
+      "src": "./icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjExMiIgZmlsbD0iIzA5MGMxMiIvPjxyZWN0IHg9IjI0IiB5PSIyNCIgd2lkdGg9IjQ2NCIgaGVpZ2h0PSI0NjQiIHJ4PSI5NiIgZmlsbD0iIzEyMTcyMiIgc3Ryb2tlPSIjOWJiNGZmIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1vcGFjaXR5PSIwLjMiLz48Y2lyY2xlIGN4PSIyNTYiIGN5PSIyNTYiIHI9IjE1MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOWJiNGZmIiBzdHJva2Utd2lkdGg9IjEwIiBzdHJva2Utb3BhY2l0eT0iMC4yIi8+PGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSIxMDUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzliYjRmZiIgc3Ryb2tlLXdpZHRoPSIxNCIgc3Ryb2tlLW9wYWNpdHk9IjAuNDUiLz48Y2lyY2xlIGN4PSIyNTYiIGN5PSIyNTYiIHI9IjQ4IiBmaWxsPSIjOGNlNWM1IiBmaWxsLW9wYWNpdHk9IjAuODUiLz48cGF0aCBkPSJNMTg1IDIyMGgxNDJNMjE1IDI4NWgxMTIiIHN0cm9rZT0iI2MwZDBmZiIgc3Ryb2tlLXdpZHRoPSIxNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+",
+      "src": "./icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iIzA5MGMxMiIvPjxjaXJjbGUgY3g9IjI1NiIgY3k9IjI1NiIgcj0iMTgwIiBmaWxsPSIjMTIxNzIyIiBzdHJva2U9IiM5YmI0ZmYiIHN0cm9rZS13aWR0aD0iNiIgc3Ryb2tlLW9wYWNpdHk9IjAuMyIvPjxjaXJjbGUgY3g9IjI1NiIgY3k9IjI1NiIgcj0iMTMwIiBmaWxsPSJub25lIiBzdHJva2U9IiM5YmI0ZmYiIHN0cm9rZS13aWR0aD0iMTAiIHN0cm9rZS1vcGFjaXR5PSIwLjI1Ii8+PGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSI4NSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOWJiNGZmIiBzdHJva2Utd2lkdGg9IjE0IiBzdHJva2Utb3BhY2l0eT0iMC41Ii8+PGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSIzOCIgZmlsbD0iIzhjZTVjNSIvPjxwYXRoIGQ9Ik0xOTUgMjI1aDEyMk0yMjAgMjgwaDk1IiBzdHJva2U9IiNjMGQwZmYiIHN0cm9rZS13aWR0aD0iMTQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==",
+      "src": "./icons/icon-maskable-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./screenshots/screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Vista de escritorio con reproductor y mezclador"
+    },
+    {
+      "src": "./screenshots/screenshot-mobile.png",
+      "sizes": "640x1136",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Vista móvil con paisaje sonoro y controles táctiles"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Iniciar Sesión",
+      "short_name": "Iniciar",
+      "description": "Iniciar paisaje sonoro de concentración",
+      "url": "./index.html",
+      "icons": [
+        {
+          "src": "./icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

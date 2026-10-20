@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="maskBg" cx="40%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#182032"/>
+      <stop offset="100%" stop-color="#090c12"/>
+    </radialGradient>
+    <radialGradient id="maskGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#9bb4ff" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#9bb4ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="maskOrbitGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c0d0ff"/>
+      <stop offset="100%" stop-color="#6682d8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Full-bleed background for Android maskable icon -->
+  <rect width="512" height="512" fill="url(#maskBg)"/>
+
+  <!-- Inner safe zone (all artwork within central 80%) -->
+  <circle cx="256" cy="256" r="145" fill="url(#maskGlow)"/>
+
+  <circle cx="256" cy="256" r="140" fill="none" stroke="rgba(155, 180, 255, 0.16)" stroke-width="7"/>
+  <circle cx="256" cy="256" r="105" fill="none" stroke="rgba(155, 180, 255, 0.28)" stroke-width="8"/>
+  <circle cx="256" cy="256" r="70" fill="none" stroke="url(#maskOrbitGrad)" stroke-width="10"/>
+
+  <ellipse cx="256" cy="256" rx="130" ry="75" fill="none" stroke="rgba(155, 180, 255, 0.16)" stroke-width="5" transform="rotate(35 256 256)"/>
+  <ellipse cx="256" cy="256" rx="130" ry="75" fill="none" stroke="rgba(155, 180, 255, 0.16)" stroke-width="5" transform="rotate(-35 256 256)"/>
+
+  <circle cx="256" cy="256" r="38" fill="#8ce5c5"/>
+  <circle cx="256" cy="256" r="28" fill="#a7f0d7"/>
+
+  <line x1="200" y1="216" x2="312" y2="216" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-opacity="0.95"/>
+  <line x1="225" y1="295" x2="312" y2="295" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-opacity="0.7"/>
+</svg>

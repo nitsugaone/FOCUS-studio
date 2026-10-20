@@ -1,8 +1,14 @@
-const CACHE_NAME = 'focus-audio-v2';
+const CACHE_NAME = 'focus-audio-v2.1';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
+  './icons/apple-touch-icon.png',
+  './screenshots/screenshot-desktop.png',
+  './screenshots/screenshot-mobile.png'
 ];
 
 // Instalación y pre-cacheo de recursos críticos

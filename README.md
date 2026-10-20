@@ -62,10 +62,18 @@ El grafo de audio se instancia de forma perezosa (*lazy*) tras la primera intera
 El proyecto está diseñado bajo una arquitectura modular y ligera, lista para servirse como sitio estático o empaquetarse en contenedores híbridos:
 
 ```
-├── index.html        # Aplicación monolítica principal (HTML5, CSS3, DSP Engine)
-├── manifest.json     # Manifiesto Web App con metadatos PWA e iconos SVG en Base64
-├── sw.js             # Service Worker con estrategia Cache-First para soporte 100% offline
-├── docs/             # Recursos de documentación y capturas
+├── index.html        # Aplicación principal (HTML5, CSS3, DSP Engine)
+├── manifest.json     # Manifiesto PWA compatible con PWABuilder (icons, screenshots, categories)
+├── sw.js             # Service Worker con estrategia Cache-First (pre-cache de iconos y screenshots)
+├── icons/            # Iconos PNG requeridos para tiendas e instalación PWA
+│   ├── icon-192.png
+│   ├── icon-512.png
+│   ├── icon-maskable-512.png
+│   └── apple-touch-icon.png
+├── screenshots/      # Capturas PNG (desktop y mobile) para validación de PWABuilder
+│   ├── screenshot-desktop.png
+│   └── screenshot-mobile.png
+├── docs/             # Recursos de documentación
 │   └── screenshots/
 │       ├── hero-preview.svg
 │       └── mixer-preview.svg
