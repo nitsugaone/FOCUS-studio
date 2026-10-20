@@ -17,10 +17,11 @@
   "background_color": "#090c12",
   "theme_color": "#090c12",
   "categories": [
-    "health",
     "productivity",
+    "health",
+    "lifestyle",
     "music",
-    "lifestyle"
+    "utilities"
   ],
   "icons": [
     {
@@ -48,22 +49,35 @@
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Vista de escritorio con reproductor y mezclador"
+      "label": "Vista de escritorio de Focus con reproductor acústico y mezclador de capas"
     },
     {
       "src": "./screenshots/screenshot-mobile.png",
       "sizes": "640x1136",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Vista móvil con paisaje sonoro y controles táctiles"
+      "label": "Vista móvil de Focus con síntesis procedural y temporizador"
     }
   ],
   "shortcuts": [
     {
-      "name": "Iniciar Sesión",
+      "name": "Iniciar Concentración",
       "short_name": "Iniciar",
-      "description": "Iniciar paisaje sonoro de concentración",
-      "url": "./index.html",
+      "description": "Comenzar paisaje sonoro ambiental estéreo",
+      "url": "./index.html?action=play",
+      "icons": [
+        {
+          "src": "./icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Sesión Pomodoro 25m",
+      "short_name": "25 min",
+      "description": "Iniciar sesión de concentración de 25 minutos",
+      "url": "./index.html?mode=25",
       "icons": [
         {
           "src": "./icons/icon-192.png",
@@ -72,5 +86,6 @@
         }
       ]
     }
-  ]
+  ],
+  "prefer_related_applications": false
 }

@@ -1497,6 +1497,20 @@
 
       loadSettings();
       loadHistory();
+
+      // Soporte para accesos directos PWA (shortcuts)
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const modeParam = Number(urlParams.get('mode'));
+        if (modeParam > 0) {
+          targetDurationMinutes = modeParam;
+          document.querySelectorAll('.mode-chip').forEach((c) => {
+            c.setAttribute('aria-pressed', String(Number(c.dataset.minutes) === modeParam));
+          });
+          modeLabelEl.textContent = `Cuenta regresiva (${modeParam} min)`;
+        }
+      } catch (_) {}
+
       renderTimer();
       renderHistoryChart();
       syncUI();
