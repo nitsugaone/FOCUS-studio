@@ -11,11 +11,11 @@ Aplicación web progresiva (PWA) de alto rendimiento para síntesis acústica pr
 
 ## Capturas de Pantalla
 
-![Interfaz Principal de Focus](https://raw.githubusercontent.com/username/focus-soundscape/main/docs/screenshots/hero-preview.png)
+![Interfaz Principal de Focus](./docs/screenshots/hero-preview.svg)
 *Figura 1: Interfaz principal con animaciones orbitales sincronizadas y controles táctiles.*
 
-![Mezclador Acústico y Temporizador](https://raw.githubusercontent.com/username/focus-soundscape/main/docs/screenshots/mixer-preview.png)
-*Figura 2: Mezclador de capas DSP en tiempo real y selector de duración de sesión.*
+![Mezclador Acústico e Historial](./docs/screenshots/mixer-preview.svg)
+*Figura 2: Mezclador de capas DSP en tiempo real y gráfico de hábitos de foco.*
 
 ---
 
@@ -67,8 +67,8 @@ El proyecto está diseñado bajo una arquitectura modular y ligera, lista para s
 ├── sw.js             # Service Worker con estrategia Cache-First para soporte 100% offline
 ├── docs/             # Recursos de documentación y capturas
 │   └── screenshots/
-│       ├── hero-preview.png
-│       └── mixer-preview.png
+│       ├── hero-preview.svg
+│       └── mixer-preview.svg
 ├── LICENSE           # Licencia MIT
 └── README.md         # Documentación del proyecto
 ```

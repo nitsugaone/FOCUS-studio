@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 350" width="100%" height="auto">
+  <defs>
+    <radialGradient id="cardBgGrad" cx="50%" cy="0%" r="90%">
+      <stop offset="0%" stop-color="#141a27"/>
+      <stop offset="100%" stop-color="#0c1017"/>
+    </radialGradient>
+    <linearGradient id="prevBar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9bb4ff" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#5573ca" stop-opacity="0.8"/>
+    </linearGradient>
+    <linearGradient id="todayBar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8ce5c5" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#46a386" stop-opacity="0.85"/>
+    </linearGradient>
+    <filter id="todayGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#8ce5c5" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Fondo base -->
+  <rect width="940" height="350" fill="#090c12"/>
+
+  <!-- Tarjeta de Historial -->
+  <g transform="translate(40, 20)">
+    <rect x="0" y="0" width="860" height="310" rx="20" fill="url(#cardBgGrad)" stroke="rgba(161, 178, 219, 0.16)" stroke-width="1"/>
+
+    <!-- Cabecera -->
+    <g transform="translate(30, 24)">
+      <!-- Badge de sección -->
+      <text x="0" y="10" fill="#9bb4ff" font-family="system-ui, sans-serif" font-size="10" font-weight="800" letter-spacing="1.8">HÁBITOS DE FOCO</text>
+      <!-- Chip Racha -->
+      <rect x="120" y="-3" width="108" height="20" rx="10" fill="rgba(140, 229, 197, 0.1)" stroke="rgba(140, 229, 197, 0.3)"/>
+      <text x="174" y="11" fill="#8ce5c5" font-family="system-ui, sans-serif" font-size="10.5" font-weight="600" text-anchor="middle">🔥 Racha: 5 días</text>
+
+      <text x="0" y="36" fill="#eef2ff" font-family="system-ui, sans-serif" font-size="18" font-weight="700">Registro de concentración</text>
+      <text x="0" y="52" fill="#8e98b0" font-family="system-ui, sans-serif" font-size="11.5">Minutos acumulados en los últimos 7 días. Sincronizado en tiempo real.</text>
+    </g>
+
+    <!-- Métricas del encabezado (Derecha) -->
+    <g transform="translate(480, 24)">
+      <!-- Total 7d -->
+      <rect x="0" y="0" width="100" height="48" rx="10" fill="rgba(255,255,255,0.02)" stroke="rgba(161,178,219,0.14)"/>
+      <text x="50" y="16" fill="#8e98b0" font-family="system-ui, sans-serif" font-size="8.5" font-weight="700" letter-spacing="0.8" text-anchor="middle">TOTAL 7 DÍAS</text>
+      <text x="50" y="38" fill="#c0d0ff" font-family="system-ui, sans-serif" font-size="16" font-weight="800" text-anchor="middle">245 min</text>
+
+      <!-- Promedio -->
+      <rect x="110" y="0" width="112" height="48" rx="10" fill="rgba(255,255,255,0.02)" stroke="rgba(161,178,219,0.14)"/>
+      <text x="166" y="16" fill="#8e98b0" font-family="system-ui, sans-serif" font-size="8.5" font-weight="700" letter-spacing="0.8" text-anchor="middle">PROMEDIO DIARIO</text>
+      <text x="166" y="38" fill="#c0d0ff" font-family="system-ui, sans-serif" font-size="16" font-weight="800" text-anchor="middle">35 min</text>
+
+      <!-- Hoy -->
+      <rect x="232" y="0" width="115" height="48" rx="10" fill="rgba(140,229,197,0.04)" stroke="rgba(140,229,197,0.22)"/>
+      <text x="289.5" y="16" fill="#8ce5c5" font-family="system-ui, sans-serif" font-size="8.5" font-weight="700" letter-spacing="0.8" text-anchor="middle">SESIÓN HOY</text>
+      <text x="289.5" y="38" fill="#8ce5c5" font-family="system-ui, sans-serif" font-size="16" font-weight="800" text-anchor="middle">25 min</text>
+    </g>
+
+    <!-- Gráfico SVG dentro de contenedor -->
+    <g transform="translate(30, 95)">
+      <rect x="0" y="0" width="800" height="155" rx="12" fill="rgba(9, 12, 18, 0.45)" stroke="rgba(161, 178, 219, 0.1)"/>
+
+      <!-- Líneas de escala y marcas Y -->
+      <!-- 60m -->
+      <line x1="45" y1="25" x2="780" y2="25" stroke="rgba(161, 178, 219, 0.12)" stroke-dasharray="3 3"/>
+      <text x="36" y="28" fill="#606b82" font-family="system-ui, sans-serif" font-size="9" text-anchor="end">60m</text>
+
+      <!-- 40m -->
+      <line x1="45" y1="55" x2="780" y2="55" stroke="rgba(161, 178, 219, 0.12)" stroke-dasharray="3 3"/>
+      <text x="36" y="58" fill="#606b82" font-family="system-ui, sans-serif" font-size="9" text-anchor="end">40m</text>
+
+      <!-- 20m -->
+      <line x1="45" y1="85" x2="780" y2="85" stroke="rgba(161, 178, 219, 0.12)" stroke-dasharray="3 3"/>
+      <text x="36" y="88" fill="#606b82" font-family="system-ui, sans-serif" font-size="9" text-anchor="end">20m</text>
+
+      <!-- Línea base 0 -->
+      <line x1="45" y1="115" x2="780" y2="115" stroke="rgba(161, 178, 219, 0.22)"/>
+
+      <!-- 7 Barras Diarias -->
+      <!-- Día 1: Mié 14 (30m) -->
+      <g transform="translate(80, 25)">
+        <rect x="0" y="0" width="46" height="90" rx="7" fill="rgba(155, 180, 255, 0.035)"/>
+        <rect x="0" y="45" width="46" height="45" rx="6" fill="url(#prevBar)"/>
+        <text x="23" y="39" fill="#c0d0ff" font-family="system-ui, sans-serif" font-size="10.5" font-weight="700" text-anchor="middle">30m</text>
+        <text x="23" y="105" fill="#8e98b0" font-family="system-ui, sans-serif" font-size="11" font-weight="500" text-anchor="middle">Mié</text>
+        <text x="23" y="117" fill="#58637c" font-family="system-ui, sans-serif" font-size="9" text-anchor="middle">14/10</text>
+      </g>
+
+      <!-- Día 2: Jue 15 (45m) -->
+      <g transform="translate(185, 25)">
+        <rect x="0" y="0" width="46" height="90" rx="7" fill="rgba(155, 180, 255, 0.035)"/>
+        <rect x="0" y="23" width="46" height="67" rx="6" fill="url(#prevBar)"/>
+        <text x="23" y="17" fill="#c0d0ff" font-family="system-ui, sans-serif" font-size="10.5" font-weight="700" text-anchor="middle">45m</text>
+        <text x="23" y="105" fill="#8e98b0" font-family="system-ui, sans-serif" font-size="11" font-weight="500" text-anchor="middle">Jue</text>
+        <text x="23" y="117" fill="#58637c" font-family="system-ui, sans-serif" font-size="9" text-anchor="middle">15/10</text>
+      </g>
+
+      <!-- Día 3: Vie 16 (60m) -->
+      <g transform="translate(290, 25)">
+        <rect x="0" y="0" width="46" height="90" rx="7" fill="rgba(155, 180, 255, 0.035)"/>
+        <rect x="0" y="0" width="46" height="90" rx="6" fill="url(#prevBar)"/>
+        <text x="23" y="-5" fill="#c0d0ff" font-family="system-ui, sans-serif" font-size="10.5" font-weight="700" text-anchor="middle">60m</text>
+        <text x="23" y="105" fill="#8e98b0" font-family="system-ui, sans-serif" font-size="11" font-weight="500" text-anchor="middle">Vie</text>
+        <text x="23" y="117" fill="#58637c" font-family="system-ui, sans-serif" font-size="9" text-anchor="middle">16/10</text>
+      </g>
+
+      <!-- Día 4: Sáb 17 (35m) -->
+      <g transform="translate(395, 25)">
+        <rect x="0" y="0" width="46" height="90" rx="7" fill="rgba(155, 180, 255, 0.035)"/>
+        <rect x="0" y="38" width="46" height="52" rx="6" fill="url(#prevBar)"/>
+        <text x="23" y="32" fill="#c0d0ff" font-family="system-ui, sans-serif" font-size="10.5" font-weight="700" text-anchor="middle">35m</text>
+        <text x="23" y="105" fill="#8e98b0" font-family="system-ui, sans-serif" font-size="11" font-weight="500" text-anchor="middle">Sáb</text>
+        <text x="23" y="117" fill="#58637c" font-family="system-ui, sans-serif" font-size="9" text-anchor="middle">17/10</text>
+      </g>
+
+      <!-- Día 5: Dom 18 (50m) -->
+      <g transform="translate(500, 25)">
+        <rect x="0" y="0" width="46" height="90" rx="7" fill="rgba(155, 180, 255, 0.035)"/>
+        <rect x="0" y="15" width="46" height="75" rx="6" fill="url(#prevBar)"/>
+        <text x="23" y="9" fill="#c0d0ff" font-family="system-ui, sans-serif" font-size="10.5" font-weight="700" text-anchor="middle">50m</text>
+        <text x="23" y="105" fill="#8e98b0" font-family="system-ui, sans-serif" font-size="11" font-weight="500" text-anchor="middle">Dom</text>
+        <text x="23" y="117" fill="#58637c" font-family="system-ui, sans-serif" font-size="9" text-anchor="middle">18/10</text>
+      </g>
+
+      <!-- Día 6: Lun 19 (70m) -->
+      <g transform="translate(605, 25)">
+        <rect x="0" y="0" width="46" height="90" rx="7" fill="rgba(155, 180, 255, 0.035)"/>
+        <rect x="0" y="-10" width="46" height="100" rx="6" fill="url(#prevBar)"/>
+        <text x="23" y="-15" fill="#c0d0ff" font-family="system-ui, sans-serif" font-size="10.5" font-weight="700" text-anchor="middle">70m</text>
+        <text x="23" y="105" fill="#8e98b0" font-family="system-ui, sans-serif" font-size="11" font-weight="500" text-anchor="middle">Lun</text>
+        <text x="23" y="117" fill="#58637c" font-family="system-ui, sans-serif" font-size="9" text-anchor="middle">19/10</text>
+      </g>
+
+      <!-- Día 7: Hoy (25m) con brillo menta -->
+      <g transform="translate(710, 25)">
+        <rect x="0" y="0" width="46" height="90" rx="7" fill="rgba(140, 229, 197, 0.06)" stroke="rgba(140,229,197,0.2)"/>
+        <rect x="0" y="52" width="46" height="38" rx="6" fill="url(#todayBar)" filter="url(#todayGlow)"/>
+        <text x="23" y="46" fill="#c7f5e4" font-family="system-ui, sans-serif" font-size="10.5" font-weight="800" text-anchor="middle">25m</text>
+        <text x="23" y="105" fill="#8ce5c5" font-family="system-ui, sans-serif" font-size="11" font-weight="750" text-anchor="middle">Hoy</text>
+        <text x="23" y="117" fill="#8ce5c5" font-family="system-ui, sans-serif" font-size="9" text-anchor="middle">20/10</text>
+      </g>
+    </g>
+
+    <!-- Leyenda inferior -->
+    <g transform="translate(30, 275)">
+      <circle cx="5" cy="5" r="4" fill="#7391e8"/>
+      <text x="16" y="8.5" fill="#8e98b0" font-family="system-ui, sans-serif" font-size="10.5">Días anteriores</text>
+
+      <circle cx="115" cy="5" r="4" fill="#8ce5c5"/>
+      <text x="126" y="8.5" fill="#c7f5e4" font-family="system-ui, sans-serif" font-size="10.5">Hoy (en progreso)</text>
+    </g>
+  </g>
+</svg>
