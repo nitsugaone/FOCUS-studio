@@ -9,6 +9,22 @@ Aplicación web progresiva (PWA) de alto rendimiento para síntesis acústica pr
 
 ---
 
+## FOCUS Studio v3 — ambientes y sesiones
+
+- Cuatro ambientes procedurales: lluvia cálida, océano profundo, espacio y textura para cubrir conversaciones.
+- Control de evolución (0–100), brillo y melodía independiente; filtros y afinación con transiciones suaves.
+- Mezclas personales con nombre, volúmenes, ambiente, evolución, brillo, melodía y duración. Hasta 50 mezclas locales.
+- Entrada progresiva de 20 segundos y cierre progresivo durante los últimos 20 segundos de una sesión con duración.
+- Valoración opcional al completar una sesión con duración; se conservan hasta 200 valoraciones locales.
+- El historial nuevo empieza en cero; no se borran historiales existentes.
+- Los perfiles acústicos anteriores siguen disponibles como ajustes de volumen del ambiente seleccionado.
+
+### Validación
+
+Ejecutar `node tests/studio.test.mjs` desde la raíz. Comprueba inicio del grafo simulado, cuatro ambientes, afinaciones, persistencia, protección de la sesión activa y ausencia de historial ficticio. No verifica salida acústica ni compatibilidad real del navegador.
+
+Antes de integrar: seguir [la guía de escucha y móviles](docs/VALIDACION-V3.md). La calidad percibida, el volumen equivalente entre ambientes y la continuidad al bloquear el teléfono requieren pruebas reales.
+
 ## Capturas de Pantalla
 
 ![Interfaz Principal de Focus](./docs/screenshots/hero-preview.svg)
@@ -21,7 +37,7 @@ Aplicación web progresiva (PWA) de alto rendimiento para síntesis acústica pr
 
 ## Características Principales
 
-- **Síntesis 100% Procedural Local:** Todos los sonidos se calculan matemáticamente en tiempo real en la CPU del cliente. Peso total inferior a 50 KB.
+- **Síntesis 100% Procedural Local:** Todos los sonidos se calculan matemáticamente en tiempo real en la CPU del cliente. Sin descargas de audio para reproducir.
 - **Cero Telemetría y Cero Streaming:** Privacidad absoluta; no realiza peticiones de red para reproducir sonido ni almacena datos en servidores externos.
 - **Arquitectura DSP de Tres Capas:**
   - **Ruido Marrón Estéreo Desacoplado:** Generado en un `AudioBuffer` de 2 canales independientes con modulación LFO senoidal en filtro pasa-bajos.

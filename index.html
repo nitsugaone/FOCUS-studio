@@ -479,7 +479,13 @@
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
     }
-  </style>
+  .studio-controls {display:grid;gap:10px;margin-bottom:24px}
+.studio-controls select,.studio-controls input:not([type=range]):not([type=checkbox]) {width:100%;padding:10px;border:1px solid var(--line-strong);border-radius:10px;background:var(--panel-strong)}
+.studio-controls input[type=range]{width:100%;accent-color:var(--accent)}
+.studio-controls p,.studio-controls small{margin:0;color:var(--muted);font-size:12px;line-height:1.6}
+.studio-controls [hidden]{display:none}
+#session-feedback{display:grid;gap:10px}
+</style>
 </head>
 <body>
   <audio id="bg-audio" playsinline loop style="display:none"></audio>
@@ -543,6 +549,35 @@
           </span>
         </div>
 
+        
+        <div class="studio-controls">
+          <label for="soundscape">Ambiente</label>
+          <select id="soundscape">
+            <option value="rain">Lluvia cálida</option><option value="ocean">Océano profundo</option>
+            <option value="space">Espacio</option><option value="speech">Cubrir conversaciones</option>
+          </select>
+          <p id="scene-description"></p>
+          <label for="evolution">Evolución: <output id="evolution-value">35%</output></label>
+          <input id="evolution" type="range" min="0" max="100" value="35">
+          <small>Estable ← → Evolutivo · cambios lentos, sin aumentos de volumen</small>
+          <label for="brightness">Brillo</label><input id="brightness" type="range" min="0" max="100" value="50">
+          <label for="melody"><input id="melody" type="checkbox" checked> Incluir melodía</label>
+          <label for="preset-name">Nombre de tu mezcla</label>
+          <input id="preset-name" maxlength="60" placeholder="Mi ambiente de lectura">
+          <button id="save-mix" type="button" class="subtle-button">Guardar mezcla</button>
+          <label for="saved-mixes">Mis mezclas</label><select id="saved-mixes"><option value="">Elegí una mezcla</option></select>
+          <button id="load-mix" type="button" class="subtle-button">Cargar</button>
+          <button id="delete-mix" type="button" class="subtle-button">Eliminar</button>
+          <p id="studio-status" role="status" aria-live="polite"></p>
+          <p id="session-phase" role="status">Lista para comenzar</p>
+          <div id="session-feedback" hidden>
+            <label for="session-rating">¿Cuánto te ayudó esta sesión?</label>
+            <select id="session-rating"><option value="1">1 · Poco</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5 · Mucho</option></select>
+            <label for="session-distraction">Distracciones percibidas</label>
+            <select id="session-distraction"><option value="low">Pocas</option><option value="medium">Algunas</option><option value="high">Muchas</option></select>
+            <button id="save-feedback" type="button" class="subtle-button">Guardar valoración</button>
+          </div>
+        </div>
         <div class="master-block">
           <div class="control-heading">
             <label class="control-label" for="vol-master">Volumen maestro</label>
@@ -556,11 +591,11 @@
             <div class="layer-top">
               <div class="layer-title">
                 <span class="layer-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 9c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 13c2-2 4-2 6 0s4 2 6 0 4-2 6 0M5 17c1.5-1.5 3-1.5 4.5 0s3 1.5 4.5 0 3-1.5 4.5 0"/></svg></span>
-                <div><p class="layer-name">Ruido marrón estéreo</p><p class="layer-description">Doble canal desacoplado con oleaje orgánico</p></div>
+                <div><p class="layer-name">Textura ambiental</p><p class="layer-description">Fondo continuo según el ambiente elegido</p></div>
               </div>
               <output class="volume-value" id="out-noise" for="vol-noise">70%</output>
             </div>
-            <input class="range" id="vol-noise" type="range" min="0" max="100" value="70" aria-label="Volumen de ruido marrón">
+            <input class="range" id="vol-noise" type="range" min="0" max="100" value="70" aria-label="Volumen de textura ambiental">
           </div>
 
           <div class="layer">
@@ -636,14 +671,13 @@
           <span class="legend-item"><span class="legend-dot today"></span>Hoy (en progreso)</span>
         </div>
         <div class="history-btns">
-          <button type="button" class="subtle-button" id="btn-add-simulated">+15m hoy</button>
           <button type="button" class="subtle-button" id="btn-reset-history">Reiniciar historial</button>
         </div>
       </div>
     </section>
 
     <footer class="footer">
-      <p>Síntesis 100% local en Web Audio API. Reloj preciso inmune al ahorro de energía en pestañas ocultas.</p>
+      <p>Síntesis 100% local en Web Audio API. Guardá tus mezclas y retomá tu ambiente.</p>
       <p class="keyboard-note"><span class="key">Tab</span> navegar · <span class="key">Espacio</span> iniciar/pausar · <span class="key">M</span> silenciar</p>
     </footer>
   </main>
@@ -690,6 +724,115 @@
       let targetDurationMinutes = 0; // 0 = Modo libre
 
       let lastNote = -1;
+
+
+      const SCENES = {
+        rain: { label:'Lluvia cálida', description:'Lluvia filtrada, fondo cálido y notas suaves.', cutoff:1900, root:65.406, rate:0.023, depth:70, white:0.65, interval:12, mix:{noise:75,drone:22,notes:18} },
+        ocean: { label:'Océano profundo', description:'Ruido grave que respira lentamente como el oleaje.', cutoff:420, root:49, rate:0.065, depth:180, white:0.12, interval:18, mix:{noise:82,drone:35,notes:10} },
+        space: { label:'Espacio', description:'Drone abierto y campanas sobre una armonía compartida.', cutoff:650, root:55, rate:0.014, depth:100, white:0.04, interval:8, mix:{noise:30,drone:65,notes:48} },
+        speech: { label:'Cubrir conversaciones', description:'Textura continua más amplia, sin melodía por defecto. Ajustá a un volumen cómodo.', cutoff:2600, root:55, rate:0.01, depth:0, white:0.85, interval:25, mix:{noise:82,drone:0,notes:0} }
+      };
+      const STUDIO_KEY = 'focus-studio-v3';
+      let studio = {scene:'rain',evolution:35,brightness:50,melody:true};
+      let savedMixes = [];
+      let feedbackSession = null;
+      function readLocal(key, fallback) {
+        try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch (_) { return fallback; }
+      }
+      function writeLocal(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+        catch (_) { $('studio-status').textContent = 'No se pudo guardar en este dispositivo.'; return false; }
+      }
+      function validStudio(value) {
+        return value && SCENES[value.scene] && Number.isFinite(value.evolution) && value.evolution >= 0 && value.evolution <= 100
+          && Number.isFinite(value.brightness) && value.brightness >= 0 && value.brightness <= 100 && typeof value.melody === 'boolean';
+      }
+      function syncStudio() {
+        $('soundscape').value=studio.scene; $('evolution').value=studio.evolution;
+        $('brightness').value=studio.brightness; $('melody').checked=studio.melody;
+        $('evolution-value').textContent=studio.evolution+'%';
+        $('scene-description').textContent=SCENES[studio.scene].description;
+      }
+      function applyScene(smooth=1.5) {
+        syncStudio();
+        if (!ctx || !nodes.textureGain) return;
+        const scene=SCENES[studio.scene], evolution=studio.evolution/100;
+        const progress=targetDurationMinutes ? Math.min(1, accumulatedMs/(targetDurationMinutes*60000)) : 0;
+        const drift=1+0.12*evolution*Math.sin(accumulatedMs/110000);
+        ramp(nodes.lp.frequency,scene.cutoff*(0.65+studio.brightness/100)*drift,smooth);
+        ramp(nodes.lfo.frequency,scene.rate,smooth);
+        ramp(nodes.lfoDepth.gain,scene.depth*evolution,smooth);
+        ramp(nodes.textureFilter.frequency,scene.cutoff*(0.65+studio.brightness/100)*drift,smooth);
+        ramp(nodes.textureGain.gain,scene.white,smooth);
+        ramp(nodes.brownGain.gain,1-scene.white,smooth);
+        ramp(nodes.droneFilter.frequency,220+studio.brightness*6,smooth);
+        ramp(nodes.droneLfoDepth.gain,110*evolution,smooth);
+        const ratios=[1,2,3];
+        nodes.droneOscs.forEach((osc,i)=>ramp(osc.frequency,scene.root*ratios[i]*(1+0.002*evolution*Math.sin(accumulatedMs/150000)),smooth));
+        // Session envelope is independent of user volume and holds on pause.
+        const entry=Math.min(1,0.4+accumulatedMs/20000);
+        const remaining=targetDurationMinutes*60000-accumulatedMs;
+        const exit=targetDurationMinutes ? Math.min(1,Math.max(0,remaining/20000)) : 1;
+        ramp(nodes.sessionGain.gain,entry*exit,0.4);
+        $('session-phase').textContent=exit<1 ? 'Cierre gradual' : entry<1 ? 'Entrada suave' : progress>0 ? 'Concentración sostenida' : 'Sesión libre';
+      }
+      function renderMixes() {
+        const select=$('saved-mixes'); select.replaceChildren(new Option('Elegí una mezcla',''));
+        savedMixes.forEach((mix,i)=>select.add(new Option(mix.name,String(i))));
+      }
+      function initStudio() {
+        const loaded=readLocal(STUDIO_KEY,null);
+        if(validStudio(loaded)) studio={scene:loaded.scene,evolution:loaded.evolution,brightness:loaded.brightness,melody:loaded.melody};
+        const mixes=readLocal('focus-mixes-v3',[]);
+        savedMixes=Array.isArray(mixes) ? mixes.filter(m=>validStudio(m)&&typeof m.name==='string'&&m.levels&&Object.keys(DEFAULTS).every(k=>Number.isFinite(m.levels[k])&&m.levels[k]>=0&&m.levels[k]<=100)).slice(0,50) : [];
+        syncStudio();renderMixes();
+        ['soundscape','evolution','brightness','melody'].forEach(id=>$(id).addEventListener('input',()=>{
+          if(id==='soundscape') {
+            studio.scene=$('soundscape').value;
+            studio.melody=studio.scene!=='speech';
+            Object.entries(SCENES[studio.scene].mix).forEach(([k,v])=>{$('vol-'+k).value=v;updateRange(k,false);});
+            persistSettings();
+          }
+          if(id==='evolution')studio.evolution=Number($('evolution').value);
+          if(id==='brightness')studio.brightness=Number($('brightness').value);
+          if(id==='melody')studio.melody=$('melody').checked;
+          applyScene();writeLocal(STUDIO_KEY,studio);
+        }));
+        $('save-mix').addEventListener('click',()=>{
+          const name=$('preset-name').value.trim(); if(!name){$('studio-status').textContent='Escribí un nombre para tu mezcla.';return;}
+          if(savedMixes.length>=50){$('studio-status').textContent='Podés guardar hasta 50 mezclas.';return;}
+          const levels=Object.fromEntries(Object.keys(DEFAULTS).map(k=>[k,Number($('vol-'+k).value)]));
+          savedMixes.push({...studio,name,levels,duration:targetDurationMinutes});
+          if(writeLocal('focus-mixes-v3',savedMixes))$('studio-status').textContent='Mezcla guardada.';
+          renderMixes();
+        });
+        $('load-mix').addEventListener('click',()=>{
+          if($('saved-mixes').value==='')return;
+          const mix=savedMixes[Number($('saved-mixes').value)];if(!mix)return;
+          if(playing){$('studio-status').textContent='Pausá la sesión antes de cargar una mezcla.';return;}
+          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody};
+          Object.keys(DEFAULTS).forEach(k=>{$('vol-'+k).value=mix.levels[k];updateRange(k,false);});
+          const chip=document.querySelector('[data-minutes="'+mix.duration+'"]');if(chip)chip.click();
+          applyScene();persistSettings();writeLocal(STUDIO_KEY,studio);
+          $('studio-status').textContent='Mezcla cargada.';
+        });
+        $('delete-mix').addEventListener('click',()=>{
+          if($('saved-mixes').value==='')return;
+          savedMixes.splice(Number($('saved-mixes').value),1);
+          if(writeLocal('focus-mixes-v3',savedMixes))$('studio-status').textContent='Mezcla eliminada.';
+          renderMixes();
+        });
+        $('save-feedback').addEventListener('click',()=>{
+          if(!feedbackSession)return;
+          const old=readLocal('focus-feedback-v3',[]);
+          const ratings=Array.isArray(old)?old:[];
+          ratings.push({...feedbackSession,rating:Number($('session-rating').value),distractions:$('session-distraction').value});
+          if(writeLocal('focus-feedback-v3',ratings.slice(-200))) {
+            $('session-feedback').hidden=true;feedbackSession=null;
+            $('studio-status').textContent='Valoración guardada en este dispositivo.';
+          }
+        });
+      }
 
       const level = (id) => {
         const value = Number($('vol-' + id).value) / 100;
@@ -821,7 +964,9 @@
         nodes.fade.gain.value = 0;
         nodes.master = ctx.createGain();
         nodes.master.gain.value = level('master');
-        nodes.master.connect(nodes.fade);
+        nodes.sessionGain = ctx.createGain();
+        nodes.master.connect(nodes.sessionGain);
+        nodes.sessionGain.connect(nodes.fade);
         nodes.fade.connect(nodes.comp);
         nodes.comp.connect(ctx.destination);
 
@@ -856,7 +1001,17 @@
 
         nodes.noiseGain = ctx.createGain();
         nodes.noiseGain.gain.value = level('noise');
-        nodes.noiseSrc.connect(nodes.lp);
+        nodes.brownGain=ctx.createGain();
+        nodes.textureGain=ctx.createGain();
+        nodes.textureFilter=ctx.createBiquadFilter();
+        nodes.textureFilter.type='lowpass';
+        nodes.textureFilter.Q.value=0.5;
+        const texture=ctx.createBuffer(2,ctx.sampleRate*19,ctx.sampleRate);
+        for(let ch=0;ch<2;ch++){const data=texture.getChannelData(ch);for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*0.38;}
+        nodes.textureSrc=ctx.createBufferSource();nodes.textureSrc.buffer=texture;nodes.textureSrc.loop=true;
+        nodes.textureSrc.connect(nodes.textureFilter);nodes.textureFilter.connect(nodes.textureGain);
+        nodes.textureGain.connect(nodes.noiseGain);
+        nodes.noiseSrc.connect(nodes.brownGain);nodes.brownGain.connect(nodes.lp);
         nodes.lp.connect(nodes.noiseGain);
         nodes.noiseGain.connect(nodes.master);
 
@@ -918,6 +1073,8 @@
         nodes.reverb.connect(nodes.reverbWet);
         nodes.reverbWet.connect(nodes.notesGain);
 
+        nodes.textureSrc.start();
+        applyScene(0.05);
         nodes.noiseSrc.start();
         nodes.lfo.start();
         nodes.droneLfo.start();
@@ -925,7 +1082,7 @@
       }
 
       function playNote() {
-        if (!ctx || ctx.state !== 'running' || !nodes.notesGain) return;
+        if (!ctx || ctx.state !== 'running' || !nodes.notesGain || !studio.melody) return;
         let index;
         do { index = Math.floor(Math.random() * SCALE.length); }
         while (index === lastNote && SCALE.length > 1);
@@ -941,7 +1098,7 @@
         const harmGain = ctx.createGain();
         const envelope = ctx.createGain();
 
-        const baseFreq = SCALE[index];
+        const baseFreq = SCENES[studio.scene].root * [2, 2.378414, 2.66968, 3, 3.563595, 4, 4.756828][index];
         oscFund.type = 'sine';
         oscFund.frequency.value = baseFreq;
         oscFund.detune.value = (Math.random() - 0.5) * 6;
@@ -988,7 +1145,7 @@
       function scheduleNextNote() {
         clearTimeout(noteTimer);
         if (!playing) return;
-        const delay = 4800 + Math.random() * 5500;
+        const delay = SCENES[studio.scene].interval * 1000 * (1 + Math.random() * studio.evolution / 100);
         noteTimer = window.setTimeout(() => {
           if (!playing) return;
           playNote();
@@ -1026,6 +1183,7 @@
           const now = Date.now();
           accumulatedMs += Math.max(0, now - lastTickTimestamp);
           lastTickTimestamp = now;
+          applyScene();
           renderTimer();
           syncFocusHistoryProgress();
         }, 500);
@@ -1074,6 +1232,7 @@
         hideError();
         if (targetDurationMinutes > 0 && accumulatedMs >= targetDurationMinutes * 60000) {
           accumulatedMs = 0;
+          sessionRecordedMs = 0;
         }
         syncUI();
         try {
@@ -1081,6 +1240,8 @@
           clearTimeout(suspendTimer);
           if (ctx.state !== 'running') await ctx.resume();
           playing = true;
+          $('session-feedback').hidden=true;
+          applyScene(0.05);
           ramp(nodes.fade.gain, 1, 0.65);
           playNote();
           scheduleNextNote();
@@ -1110,6 +1271,10 @@
       function pause(slowFade = false) {
         if (!playing || transitioning) return;
         stopSessionClock();
+        if(slowFade) {
+          feedbackSession={date:new Date().toISOString(),...studio,minutes:Math.round(accumulatedMs/60000)};
+          $('session-feedback').hidden=false;
+        }
         playing = false;
         clearTimeout(noteTimer);
         noteTimer = null;
@@ -1208,6 +1373,8 @@
           modeLabelEl.textContent = targetDurationMinutes > 0
             ? `Cuenta regresiva (${targetDurationMinutes} min)`
             : 'Tiempo de sesión (Libre)';
+          syncFocusHistoryProgress(true);
+          sessionRecordedMs = 0;
           accumulatedMs = 0;
           if (playing) lastTickTimestamp = Date.now();
           renderTimer();
@@ -1239,17 +1406,7 @@
       }
 
       function getInitialHistory() {
-        const hist = {};
-        const now = new Date();
-        // Valores de demostración para los últimos 6 días previos para que el usuario nuevo vea el gráfico activo
-        const defaultSampleMins = [25, 45, 60, 35, 50, 70, 0];
-        for (let i = 6; i >= 0; i--) {
-          const d = new Date(now);
-          d.setDate(d.getDate() - i);
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-          hist[key] = defaultSampleMins[6 - i];
-        }
-        return hist;
+        return {};
       }
 
       function loadHistory() {
@@ -1496,6 +1653,7 @@
       }
 
       loadSettings();
+      initStudio();
       loadHistory();
 
       // Soporte para accesos directos PWA (shortcuts)
