@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
 const start=html.indexOf('      function createBackupTools(storage)'),end=html.indexOf('      const backupTools=createBackupTools',start);
 assert.ok(start>=0 && end>start);
-const createTools=new Function(html.slice(start,end)+'return createBackupTools;')();
+const cycleStart=html.indexOf('      function createCycleTools()'),cycleEnd=html.indexOf('      const cycleTools=createCycleTools()',cycleStart);
+const createTools=new Function(html.slice(cycleStart,cycleEnd)+html.slice(start,end)+'return createBackupTools;')();
 class MemoryStorage {
  constructor(){this.values=new Map();this.failKey=null;}
  getItem(key){return this.values.get(key)??null;}
@@ -59,3 +60,14 @@ storage.failKey='focus-feedback-v3';
 assert.throws(()=>tools.applyImport({...file,data:{...file.data,history:{'2026-10-23':60}}}));
 assert.equal(JSON.stringify([...storage.values]),snapshot,'Failed write restores data and previous undo');
 console.log('PASS: backup validation, preview, idempotency, merge, optional settings, undo and storage rollback');
+
+const cycleCopy=clone(file);
+cycleCopy.data.mixes[0].duration=50;cycleCopy.data.mixes[0].cyclePlan='50-10';
+cycleCopy.data.session={duration:10,elapsed:120000,cycle:{plan:'50-10',round:1,phase:'rest',completed:false,singleDuration:0}};
+assert.equal(tools.validateBackup(cycleCopy).mixes[0].cyclePlan,'50-10');
+assert.equal(tools.validateBackup(cycleCopy).session.cycle.phase,'rest');
+const invalidCycleCopy=clone(cycleCopy);invalidCycleCopy.data.session.duration=5;
+assert.throws(()=>tools.validateBackup(invalidCycleCopy),'Cycle and phase duration must agree');
+const invalidPlan=clone(cycleCopy);invalidPlan.data.mixes[0].cyclePlan='unknown';
+assert.throws(()=>tools.validateBackup(invalidPlan));
+console.log('PASS: cycle plans and paused cycle sessions survive portable backups');
