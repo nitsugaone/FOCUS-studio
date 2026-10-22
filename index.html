@@ -1221,7 +1221,6 @@ body[data-focus-view="true"] #cycle-status:empty {display:none}
           ratings.push({...feedbackSession,rating:Number($('session-rating').value),distractions:$('session-distraction').value});
           if(writeLocal('focus-feedback-v3',ratings.slice(-200))) {
             $('session-feedback').hidden=true;feedbackSession=null;
-            $('studio-status').textContent='Valoración guardada en este dispositivo.';
             $('feedback-status').textContent='Valoración guardada en este dispositivo.';
             renderInsights();
           }

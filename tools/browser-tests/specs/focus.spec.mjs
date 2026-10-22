@@ -128,6 +128,9 @@ test('guided cycles wait for explicit start and restore a paused break',async({p
  await expect(page.locator('#status-text')).toHaveText('Tramo terminado');
  await expect(page.locator('#play-label')).toHaveText('Descansar');
  await expect(page.locator('#session-feedback')).toBeVisible();
+ await page.locator('#save-feedback').click();
+ await expect(page.locator('#feedback-status')).toHaveText('Valoración guardada en este dispositivo.');
+ await expect(page.locator('#studio-status')).not.toHaveText('Valoración guardada en este dispositivo.');
  await page.clock.fastForward(60000);
  await expect(page.locator('#play-label')).toHaveText('Descansar');
  await page.locator('#toggle').click();
@@ -186,6 +189,7 @@ test('focus view preserves playback, volume and progress and exits with Escape',
  await page.locator('#toggle').click();
  await expect(page.locator('#status-text')).toHaveText('Sonando');
  await page.clock.fastForward(60000);
+ await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
  const timer=await page.locator('#timer').textContent();
  const settings=await page.evaluate(()=>localStorage.getItem('focus-audio-settings-v2'));
  await page.locator('#focus-view-toggle').click();
