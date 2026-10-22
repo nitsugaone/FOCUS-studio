@@ -12,7 +12,9 @@ const ctx={sampleRate:8000,currentTime:0,state:'running',destination:node(),crea
 const document={getElementById:element,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}};
 const timers=[];
 let observeVisibility;
-const window={IntersectionObserver:class {constructor(callback){observeVisibility=callback;} observe(){}},AudioContext:function(){return ctx},setInterval:fn=>{timers.push(fn);return timers.length},setTimeout:()=>1,addEventListener(){},location:{search:''}};
+let layoutChange;
+const compactLayout={matches:true,addEventListener(type,callback){layoutChange=callback}};
+const window={matchMedia:()=>compactLayout,IntersectionObserver:class {constructor(callback){observeVisibility=callback;} observe(){}},AudioContext:function(){return ctx},setInterval:fn=>{timers.push(fn);return timers.length},setTimeout:()=>1,addEventListener(){},location:{search:''}};
 const localStorage={getItem:k=>memory.get(k)??null,setItem:(k,v)=>memory.set(k,v)};
 new Function('window','document','navigator','localStorage','Option','clearTimeout','clearInterval',script)(window,document,{},localStorage,function(){},()=>{},()=>{});
 return (async()=>{
@@ -27,6 +29,13 @@ checks.push({check:'Dock starts shared player',pass:element('play-label').textCo
 checks.push({check:'Dock announces playback state',pass:element('mobile-toggle').attributes['aria-pressed']==='true'});
 checks.push({check:'Dock timer matches main timer',pass:element('mobile-timer').textContent===element('timer').textContent});
 checks.push({check:'Audio startup: two noise sources, two LFOs, three drones and two note oscillators',pass:sources.length===9});
+checks.push({check:'Mobile panels start collapsed',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===false)});
+const activeSources=sources.length;
+compactLayout.matches=false;layoutChange();
+checks.push({check:'Desktop panels open when the window becomes wide',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===true)});
+checks.push({check:'Resize preserves playback and audio graph',pass:element('play-label').textContent==='Pausar'&&sources.length===activeSources});
+compactLayout.matches=true;layoutChange();
+checks.push({check:'Return to mobile collapses panels',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===false)});
 const roots=[];
 for(const scene of ['rain','ocean','space','speech']){
  element('soundscape').value=scene; element('soundscape').events.input();
