@@ -485,6 +485,76 @@
 .studio-controls p,.studio-controls small{margin:0;color:var(--muted);font-size:12px;line-height:1.6}
 .studio-controls [hidden]{display:none}
 #session-feedback{display:grid;gap:10px}
+
+/* Compact playback surface and native disclosure panels. */
+.layout {align-items:start}
+.player-card {min-height:0;gap:18px;justify-content:flex-start}
+.player-heading,.quick-scene,.player-card .master-block,.player-card .session {width:100%}
+.quick-scene.studio-controls {margin:0;text-align:left}
+.player-card .master-block {margin:0}
+.player-card .intro {margin-top:8px}
+.player-card .sound-orbit {width:180px;margin:4px 0}
+.studio-controls {margin-bottom:0}
+.settings-group {border:1px solid var(--line-strong);border-radius:14px;overflow:hidden}
+.settings-group summary,.history-card>summary {cursor:pointer;min-height:48px;padding:14px 16px;font-size:15px;font-weight:650}
+summary:focus-visible {outline:2px solid var(--accent);outline-offset:-4px}
+.settings-content {display:grid;gap:14px;padding:0 16px 18px}
+.settings-content .layer-list {margin:0}
+.settings-content .mixer-divider {width:100%;margin:4px 0}
+.settings-content .presets-head {margin:0}
+.settings-content .presets {flex-wrap:wrap}
+.history-card {padding:0}
+.history-content {padding:10px 24px 24px}
+#session-feedback {padding:16px;border:1px solid var(--line-strong);border-radius:14px}
+#session-feedback[hidden],#mobile-player[hidden] {display:none}
+#session-phase {margin:0 0 8px;color:var(--muted);font-size:12px}
+.mobile-player {display:none}
+@media (pointer:coarse), (max-width:760px) {
+  button,select,.studio-controls input:not([type=checkbox]) {min-height:48px}
+  .range {min-height:48px;background-size:100% 5px;background-repeat:no-repeat;background-position:center}
+  .range::-webkit-slider-thumb {width:22px;height:22px}
+  .range::-moz-range-thumb {width:16px;height:16px}
+  input[type=checkbox] {width:24px;height:24px;vertical-align:middle;margin-right:8px;flex-shrink:0}
+  label[for=melody] {display:flex;align-items:center;min-height:48px}
+  .preset,.mode-chip,.subtle-button {font-size:14px;padding:10px 12px}
+  .studio-controls select,.studio-controls input:not([type=range]) {font-size:16px}
+}
+@media (max-width:760px) {
+  body {display:block;padding:12px;padding-top:max(12px,env(safe-area-inset-top,0px));padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
+  .topbar {margin-bottom:12px;align-items:center;gap:8px}
+  .brand-subtitle {font-size:11px}
+  .brand-mark {width:32px;height:32px}
+  .brand-name {font-size:13px}
+  .player-card {min-height:0;padding:18px;gap:12px}
+  .player-card .eyebrow {display:none}
+  .player-card h1 {font-size:26px}
+  .player-card .intro {font-size:13px;margin-top:5px}
+  .player-card .sound-orbit {width:130px;margin:0}
+  .play-button {width:88px;height:88px;flex-shrink:0}
+  .play-label {font-size:12px}
+  .quick-scene.studio-controls {gap:6px}
+  .quick-scene label {font-size:14px}
+  .quick-scene #scene-description {display:none}
+  .player-card .master-block {padding:10px 12px}
+  .timer {font-size:26px}
+  .session-label {margin-bottom:4px}
+  .session-actions {margin-top:6px}
+  .timer-modes {gap:8px;flex-wrap:wrap;justify-content:center}
+  .timer-modes .mode-chip {flex:1;min-width:54px;padding-inline:8px}
+  .mixer-card {padding:18px}
+  .section-head {margin-bottom:16px}
+  .history-content {padding:8px 16px 18px}
+  .history-card {margin-top:16px}
+  .history-head {gap:14px}
+  .history-metrics {flex-wrap:wrap}
+  .history-actions {gap:12px;flex-wrap:wrap}
+  .mobile-player {position:fixed;display:flex;align-items:center;justify-content:space-between;gap:12px;bottom:0;left:0;right:0;z-index:20;padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));background:#141a27;border-top:1px solid var(--line-strong);box-shadow:0 -6px 24px #0005}
+  .mobile-player-info {min-width:0;display:grid;gap:4px}
+  #mobile-scene {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+  #mobile-timer {font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  #mobile-toggle {min-width:108px;min-height:48px;padding:10px 18px;border:1px solid var(--accent);border-radius:12px;background:#293757;color:var(--text);font-weight:650}
+  #mobile-toggle:disabled {opacity:.6}
+}
 </style>
 </head>
 <body>
@@ -495,7 +565,7 @@
         <span class="brand-mark" aria-hidden="true"></span>
         <div>
           <p class="brand-name">FOCUS</p>
-          <p class="brand-subtitle">Motor binaural estéreo &amp; síntesis adaptativa</p>
+          <p class="brand-subtitle">Tu espacio para concentrarte</p>
         </div>
       </div>
       <div class="top-indicators">
@@ -512,9 +582,16 @@
         <div class="player-heading">
           <p class="eyebrow">Inmersión Cognitiva</p>
           <h1 id="main-title">Entrá en foco.</h1>
-          <p class="intro">Síntesis acústica con imagen estéreo desacoplada y reverberación algorítmica para evitar fatiga auditiva.</p>
+          <p class="intro">Elegí tu ambiente y empezá tu sesión.</p>
         </div>
 
+        <div class="quick-scene studio-controls">          <label for="soundscape">Ambiente</label>
+          <select id="soundscape">
+            <option value="rain">Lluvia cálida</option><option value="ocean">Océano profundo</option>
+            <option value="space">Espacio</option><option value="speech">Cubrir conversaciones</option>
+          </select>
+          <p id="scene-description"></p>
+</div>
         <div class="sound-orbit">
           <div class="orbit" aria-hidden="true"></div>
           <button id="toggle" class="play-button" type="button" aria-pressed="false" aria-label="Iniciar paisaje sonoro">
@@ -523,7 +600,16 @@
           </button>
         </div>
 
+        <div class="master-block">
+          <div class="control-heading">
+            <label class="control-label" for="vol-master">Volumen maestro</label>
+            <output class="volume-value" id="out-master" for="vol-master">75%</output>
+          </div>
+          <input class="range" id="vol-master" type="range" min="0" max="100" value="75" aria-label="Volumen maestro">
+        </div>
+
         <div class="session">
+          <p id="session-phase" role="status">Lista para comenzar</p>
           <p class="session-label" id="session-mode-label">Tiempo de sesión (Libre)</p>
           <div class="timer" id="timer" role="timer" aria-label="Tiempo de sesión">00:00:00</div>
           <div class="timer-modes" role="group" aria-label="Objetivo de duración">
@@ -541,51 +627,22 @@
       <section class="card mixer-card" aria-labelledby="mixer-title">
         <div class="section-head">
           <div>
-            <h2 id="mixer-title">Mezclador de ambiente</h2>
-            <p class="section-description">Ajustá cada capa acústica en tiempo real sin cortes ni saturación.</p>
+            <h2 id="mixer-title">Tu espacio</h2>
+            <p class="section-description">Personalizá el sonido y guardá tus mezclas.</p>
           </div>
           <span class="mix-symbol" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M4 7h8M16 7h4M4 17h4M12 17h8M12 4v6M8 14v6"/></svg>
           </span>
         </div>
 
-        
         <div class="studio-controls">
-          <label for="soundscape">Ambiente</label>
-          <select id="soundscape">
-            <option value="rain">Lluvia cálida</option><option value="ocean">Océano profundo</option>
-            <option value="space">Espacio</option><option value="speech">Cubrir conversaciones</option>
-          </select>
-          <p id="scene-description"></p>
-          <label for="evolution">Evolución: <output id="evolution-value">35%</output></label>
+          <details class="settings-group" id="sound-settings">
+            <summary>Personalizar sonido</summary>
+            <div class="settings-content">          <label for="evolution">Evolución: <output id="evolution-value">35%</output></label>
           <input id="evolution" type="range" min="0" max="100" value="35">
           <small>Estable ← → Evolutivo · cambios lentos, sin aumentos de volumen</small>
           <label for="brightness">Brillo</label><input id="brightness" type="range" min="0" max="100" value="50">
           <label for="melody"><input id="melody" type="checkbox" checked> Incluir melodía</label>
-          <label for="preset-name">Nombre de tu mezcla</label>
-          <input id="preset-name" maxlength="60" placeholder="Mi ambiente de lectura">
-          <button id="save-mix" type="button" class="subtle-button">Guardar mezcla</button>
-          <label for="saved-mixes">Mis mezclas</label><select id="saved-mixes"><option value="">Elegí una mezcla</option></select>
-          <button id="load-mix" type="button" class="subtle-button">Cargar</button>
-          <button id="delete-mix" type="button" class="subtle-button">Eliminar</button>
-          <p id="studio-status" role="status" aria-live="polite"></p>
-          <p id="session-phase" role="status">Lista para comenzar</p>
-          <div id="session-feedback" hidden>
-            <label for="session-rating">¿Cuánto te ayudó esta sesión?</label>
-            <select id="session-rating"><option value="1">1 · Poco</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5 · Mucho</option></select>
-            <label for="session-distraction">Distracciones percibidas</label>
-            <select id="session-distraction"><option value="low">Pocas</option><option value="medium">Algunas</option><option value="high">Muchas</option></select>
-            <button id="save-feedback" type="button" class="subtle-button">Guardar valoración</button>
-          </div>
-        </div>
-        <div class="master-block">
-          <div class="control-heading">
-            <label class="control-label" for="vol-master">Volumen maestro</label>
-            <output class="volume-value" id="out-master" for="vol-master">75%</output>
-          </div>
-          <input class="range" id="vol-master" type="range" min="0" max="100" value="75" aria-label="Volumen maestro">
-        </div>
-
         <div class="layer-list">
           <div class="layer">
             <div class="layer-top">
@@ -628,12 +685,35 @@
           <button class="preset" type="button" data-preset="noise" aria-pressed="false">Aislamiento profundo</button>
           <button class="preset" type="button" data-preset="minimal" aria-pressed="false">Inmersión sutil</button>
         </div>
+</div>
+          </details>
+          <details class="settings-group" id="mix-settings">
+            <summary>Mis mezclas</summary>
+            <div class="settings-content">          <label for="preset-name">Nombre de tu mezcla</label>
+          <input id="preset-name" maxlength="60" placeholder="Mi ambiente de lectura">
+          <button id="save-mix" type="button" class="subtle-button">Guardar mezcla</button>
+          <label for="saved-mixes">Mis mezclas</label><select id="saved-mixes"><option value="">Elegí una mezcla</option></select>
+          <button id="load-mix" type="button" class="subtle-button">Cargar</button>
+          <button id="delete-mix" type="button" class="subtle-button">Eliminar</button>
+</div>
+          </details>
+          <p id="studio-status" role="status" aria-live="polite"></p>
+          <div id="session-feedback" hidden>
+            <label for="session-rating">¿Cuánto te ayudó esta sesión?</label>
+            <select id="session-rating"><option value="1">1 · Poco</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5 · Mucho</option></select>
+            <label for="session-distraction">Distracciones percibidas</label>
+            <select id="session-distraction"><option value="low">Pocas</option><option value="medium">Algunas</option><option value="high">Muchas</option></select>
+            <button id="save-feedback" type="button" class="subtle-button">Guardar valoración</button>
+          </div>
+        </div>
         <p class="error-message" id="error-message" role="alert" data-visible="false"></p>
       </section>
     </div>
 
     <!-- SECCIÓN DE DATOS: HISTORIAL DE HÁBITOS DE FOCO -->
-    <section class="card history-card" id="history-card" aria-labelledby="history-title">
+    <details class="card history-card" id="history-card">
+      <summary>Tu historial</summary>
+      <div class="history-content">
       <div class="history-head">
         <div>
           <div class="history-title-row">
@@ -674,7 +754,8 @@
           <button type="button" class="subtle-button" id="btn-reset-history">Reiniciar historial</button>
         </div>
       </div>
-    </section>
+      </div>
+    </details>
 
     <footer class="footer">
       <p>Síntesis 100% local en Web Audio API. Guardá tus mezclas y retomá tu ambiente.</p>
@@ -682,6 +763,14 @@
     </footer>
   </main>
 
+
+  <nav class="mobile-player" id="mobile-player" aria-label="Reproducción rápida" hidden>
+    <div class="mobile-player-info">
+      <span id="mobile-scene">Lluvia cálida</span>
+      <span id="mobile-timer" aria-label="Tiempo de sesión">00:00:00</span>
+    </div>
+    <button id="mobile-toggle" type="button" aria-label="Iniciar paisaje sonoro" aria-pressed="false">Iniciar</button>
+  </nav>
   <script>
     (() => {
       'use strict';
@@ -752,6 +841,7 @@
         $('brightness').value=studio.brightness; $('melody').checked=studio.melody;
         $('evolution-value').textContent=studio.evolution+'%';
         $('scene-description').textContent=SCENES[studio.scene].description;
+        $('mobile-scene').textContent=SCENES[studio.scene].label;
       }
       function applyScene(smooth=1.5) {
         syncStudio();
@@ -1173,6 +1263,7 @@
         } else {
           timerEl.textContent = formatSeconds(elapsedSecs);
         }
+        $('mobile-timer').textContent=timerEl.textContent;
       }
 
       function startSessionClock() {
@@ -1210,6 +1301,11 @@
         statusPill.dataset.playing = String(playing);
         playerCard.classList.toggle('is-playing', playing);
         btn.disabled = transitioning;
+        const mobileToggle=$('mobile-toggle');
+        mobileToggle.disabled=transitioning;
+        mobileToggle.textContent=playing ? 'Pausar' : 'Iniciar';
+        mobileToggle.setAttribute('aria-label',playing ? 'Pausar paisaje sonoro' : 'Iniciar paisaje sonoro');
+        mobileToggle.setAttribute('aria-pressed',String(playing));
 
         if ('mediaSession' in navigator) {
           navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
@@ -1382,6 +1478,16 @@
       });
 
       btn.addEventListener('click', () => (playing ? pause() : play()));
+      $('mobile-toggle').addEventListener('click', () => (playing ? pause() : play()));
+      // CSS limits the dock to mobile; the observer follows the original play button.
+      if ('IntersectionObserver' in window) {
+        const observer = new window.IntersectionObserver(([entry]) => {
+          $('mobile-player').hidden=entry.isIntersecting;
+        }, {threshold:0});
+        observer.observe(btn);
+      } else {
+        $('mobile-player').hidden=false;
+      }
       $('reset-timer').addEventListener('click', () => {
         syncFocusHistoryProgress(true);
         sessionRecordedMs = 0;
