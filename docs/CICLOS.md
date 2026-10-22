@@ -21,3 +21,5 @@ node --test tests/*.test.mjs
 La suite específica comprueba avance manual, límites de ronda, repetición y estados inválidos. Los tests de copia verifican planes, fase y duración consistente.
 Playwright comprueba en seis combinaciones de motor/tamaño la finalización de foco, espera sin inicio automático, descanso, siguiente ronda, recuperación de un descanso y exportación del plan. Se adelanta el reloj de la página para probar la secuencia sin esperar el tiempo real.
 Las pruebas no sustituyen sesiones de duración real ni pantalla bloqueada de un teléfono físico.
+
+Se impide que pagehide sobrescriba el progreso importado o deshecho al recargar después de una restauración. La prueba de navegador recupera el descanso mediante el selector de copia de seguridad y la confirmación de importación.

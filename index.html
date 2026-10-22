@@ -1377,6 +1377,7 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
 
       const backupTools=createBackupTools(localStorage);
       let pendingBackup=null,backupReadSequence=0;
+      let reloadingAfterRestore=false;
       function syncBackupButtons() {
         $('import-backup').disabled=!pendingBackup||playing||transitioning;
         try{$('undo-backup').hidden=!backupTools.canUndo();}catch(_){$('undo-backup').hidden=true;}
@@ -1414,12 +1415,12 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
         });
         $('import-backup').addEventListener('click',()=>{
           if(!pendingBackup||playing||transitioning)return;
-          try{backupTools.applyImport(pendingBackup,$('backup-settings').checked);window.location.reload();}
+          try{backupTools.applyImport(pendingBackup,$('backup-settings').checked);reloadingAfterRestore=true;window.location.reload();}
           catch(error){$('backup-status').textContent=error.message;syncBackupButtons();}
         });
         $('undo-backup').addEventListener('click',()=>{
           if(playing||transitioning)return;
-          try{backupTools.undoImport();window.location.reload();}
+          try{backupTools.undoImport();reloadingAfterRestore=true;window.location.reload();}
           catch(error){$('backup-status').textContent=error.message;syncBackupButtons();}
         });
         $('export-backup').addEventListener('click',()=>{
@@ -2440,7 +2441,7 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
       window.addEventListener('pagehide', () => {
         clearTimeout(noteTimer);
         clearTimeout(suspendTimer);
-        stopSessionClock();
+        if(!reloadingAfterRestore)stopSessionClock();
         releaseWakeLock();
         if (ctx && ctx.state !== 'closed') ctx.close().catch(() => {});
       });

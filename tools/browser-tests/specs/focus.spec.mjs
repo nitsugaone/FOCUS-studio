@@ -141,10 +141,16 @@ test('guided cycles wait for explicit start and restore a paused break',async({p
  await page.locator('#toggle').click();
  await page.locator('#session-plan').selectOption('50-10');
  await expect(page.locator('#timer')).toHaveText('00:50:00');
- await page.evaluate(()=>localStorage.setItem('focus-session-v1',JSON.stringify({
- duration:10,elapsed:120000,cycle:{plan:'50-10',round:1,phase:'rest',completed:false,singleDuration:0}
- })));
- await page.reload();
+ await expand(page,'backup-panel');
+ const recoveryDownload=page.waitForEvent('download');
+ await page.locator('#export-backup').click();
+ const recoveryFile=await recoveryDownload;
+ const recovery=JSON.parse(await readFile(await recoveryFile.path(),'utf8'));
+ recovery.data.session={duration:10,elapsed:120000,cycle:{plan:'50-10',round:1,phase:'rest',completed:false,singleDuration:0}};
+ await page.locator('#backup-file').setInputFiles({name:'recovery.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(recovery))});
+ await expect(page.locator('#backup-preview')).toBeVisible();
+ await page.locator('#backup-settings').check();
+ await Promise.all([page.waitForEvent('load'),page.locator('#import-backup').click()]);
  await expect(page.locator('#session-plan')).toHaveValue('50-10');
  await expect(page.locator('#cycle-status')).toContainText('Descanso');
  await expect(page.locator('#timer')).toHaveText('00:08:00');

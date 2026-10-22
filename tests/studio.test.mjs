@@ -21,7 +21,7 @@ const windowEvents={};
 let updateMessages=0,reloads=0;
 const worker={postMessage(message){if(message.type==='SKIP_WAITING')updateMessages++}};
 const serviceWorker={ready:Promise.resolve(),addEventListener(){},register:async()=>({waiting:worker,addEventListener(){}})};
-const window={matchMedia:()=>compactLayout,IntersectionObserver:class {constructor(callback){observeVisibility=callback;} observe(){}},AudioContext:function(){return ctx},setInterval:fn=>{timers.push(fn);return timers.length},setTimeout:()=>1,addEventListener(type,fn){windowEvents[type]=fn},location:{search:'',reload(){reloads++}}};
+const window={matchMedia:()=>compactLayout,IntersectionObserver:class {constructor(callback){observeVisibility=callback;} observe(){}},AudioContext:function(){return ctx},setInterval:fn=>{timers.push(fn);return timers.length},setTimeout:()=>1,addEventListener(type,fn){windowEvents[type]=fn},location:{search:'',reload(){reloads++;windowEvents.pagehide?.()}}};
 if(workletMode!=='none')window.AudioWorkletNode=function(){workletNode=node();return workletNode;};
 let downloadContent='';
 const downloadURL={createObjectURL:()=> 'blob:focus-test',revokeObjectURL(){}};
@@ -113,10 +113,11 @@ if(continuous) {
 
 const portable={format:'focus-studio-backup',version:1,data:{
  mixes:[{scene:'rain',evolution:35,brightness:50,melody:true,name:'Portable',favorite:false,duration:25,levels:{master:40,noise:60,drone:20,notes:10}}],
- history:{'2026-10-22':15},ratings:[],settings:{master:40,noise:60,drone:20,notes:10},studio:{scene:'rain',evolution:35,brightness:50,melody:true},session:null
+ history:{'2026-10-22':15},ratings:[],settings:{master:40,noise:60,drone:20,notes:10},studio:{scene:'rain',evolution:35,brightness:50,melody:true},session:{duration:5,elapsed:60000,cycle:{plan:'25-5',round:1,phase:'rest',completed:false,singleDuration:0}}
 }};
 element('backup-settings').checked=false;
 const mixesBeforeImport=memory.get('focus-mixes-v3');
+let sessionBeforeImport=memory.get('focus-session-v1');
 element('backup-file').files=[{size:10,text:async()=>'{bad'}];
 await element('backup-file').events.change();
 checks.push({check:'Invalid backup file never writes data',pass:memory.get('focus-mixes-v3')===mixesBeforeImport&&element('backup-preview').hidden===true});
@@ -131,10 +132,13 @@ const reloadsBeforeImport=reloads;
 element('import-backup').events.click();
 checks.push({check:'Restoration is blocked while audio plays',pass:element('import-backup').disabled===true&&reloads===reloadsBeforeImport&&memory.get('focus-mixes-v3')===mixesBeforeImport});
 element('mobile-toggle').events.click();
+sessionBeforeImport=memory.get('focus-session-v1');
+element('backup-settings').checked=true;
 element('import-backup').events.click();
+checks.push({check:'Restored progress survives the pagehide event',pass:JSON.parse(memory.get('focus-session-v1')).duration===5&&JSON.parse(memory.get('focus-session-v1')).cycle.phase==='rest'});
 checks.push({check:'Paused restore imports and requests reload',pass:reloads===reloadsBeforeImport+1&&JSON.parse(memory.get('focus-mixes-v3'))[0].name==='Portable'});
 element('undo-backup').events.click();
-checks.push({check:'Undo restores previous stored mixes',pass:memory.get('focus-mixes-v3')===mixesBeforeImport&&reloads===reloadsBeforeImport+2});
+checks.push({check:'Undo restores previous stored mixes and session',pass:memory.get('focus-mixes-v3')===mixesBeforeImport&&memory.get('focus-session-v1')===sessionBeforeImport&&reloads===reloadsBeforeImport+2});
 
 
 const beforeDownload=JSON.stringify([...memory]);
