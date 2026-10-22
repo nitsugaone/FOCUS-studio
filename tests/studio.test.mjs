@@ -1,15 +1,17 @@
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
-function verify(html) {
+function verify(html, workletMode='none') {
 const script=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
 const elems=new Map(), memory=new Map(), checks=[];
 function element(id){if(!elems.has(id))elems.set(id,{hidden:html.includes('id="'+id+'" hidden'),value:({'vol-master':75,'vol-noise':70,'vol-drone':60,'vol-notes':55,evolution:35,brightness:50,'session-rating':3}[id]??''),checked:true,dataset:{},style:{setProperty(){}},classList:{toggle(){}},events:{},attributes:{},setAttribute(k,v){this.attributes[k]=v},addEventListener(k,fn){this.events[k]=fn},replaceChildren(){this.children=[]},append(child){(this.children??=[]).push(child)},add(){},click(){if(!this.disabled)return this.events.click?.()},play(){return Promise.resolve()},pause(){}});return elems.get(id);}
-const sources=[];
+const sources=[];let workletNode=null,moduleLoads=0;
+const continuous=workletMode==='success',offset=continuous?2:0;
 function param(){return {value:0,cancelScheduledValues(){},setTargetAtTime(v){if(!Number.isFinite(v))throw Error('Nonfinite audio parameter');this.value=v},setValueAtTime(v){this.value=v},linearRampToValueAtTime(v){this.value=v},exponentialRampToValueAtTime(v){this.value=v}};}
-function node(){return {gain:param(),frequency:param(),Q:param(),detune:param(),pan:param(),threshold:param(),knee:param(),ratio:param(),attack:param(),release:param(),connections:[],connect(target){this.connections.push(target)},disconnect(){},start(){sources.push(this)},stop(){},addEventListener(){}};}
+function node(){return {gain:param(),frequency:param(),Q:param(),detune:param(),pan:param(),threshold:param(),knee:param(),ratio:param(),attack:param(),release:param(),connections:[],connect(target){this.connections.push(target)},disconnect(){},start(){sources.push(this)},stop(){},events:{},addEventListener(type,fn){this.events[type]=fn}};}
 const ctx={sampleRate:8000,currentTime:0,state:'running',destination:node(),createBuffer(ch,len){const d=Array.from({length:ch},()=>new Float32Array(len));return{getChannelData:i=>d[i]}},createGain:node,createOscillator:node,createBufferSource:node,createBiquadFilter:node,createStereoPanner:node,createConvolver:node,createDynamicsCompressor:node,createMediaStreamDestination(){return{...node(),stream:{}}},resume:async()=>{},suspend:async()=>{},close:async()=>{}};
 let generated=0;
+if(workletMode!=='none')ctx.audioWorklet={addModule:async()=>{moduleLoads++;if(workletMode==='failure')throw Error('Module blocked')}};
 const document={createElement:()=>element('generated-'+generated++),getElementById:element,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}};
 const timers=[];
 let observeVisibility;
@@ -20,6 +22,7 @@ let updateMessages=0,reloads=0;
 const worker={postMessage(message){if(message.type==='SKIP_WAITING')updateMessages++}};
 const serviceWorker={ready:Promise.resolve(),addEventListener(){},register:async()=>({waiting:worker,addEventListener(){}})};
 const window={matchMedia:()=>compactLayout,IntersectionObserver:class {constructor(callback){observeVisibility=callback;} observe(){}},AudioContext:function(){return ctx},setInterval:fn=>{timers.push(fn);return timers.length},setTimeout:()=>1,addEventListener(type,fn){windowEvents[type]=fn},location:{search:'',reload(){reloads++}}};
+if(workletMode!=='none')window.AudioWorkletNode=function(){workletNode=node();return workletNode;};
 const localStorage={getItem:k=>memory.get(k)??null,setItem:(k,v)=>memory.set(k,v)};
 memory.set('focus-session-v1',JSON.stringify({duration:25,elapsed:60000}));
 new Function('window','document','navigator','localStorage','Option','clearTimeout','clearInterval',script)(window,document,{serviceWorker,onLine:true},localStorage,function(){},()=>{},()=>{});
@@ -40,7 +43,7 @@ element('apply-update').events.click();
 checks.push({check:'Updating is blocked during playback',pass:element('apply-update').disabled===true&&updateMessages===0});
 checks.push({check:'Dock announces playback state',pass:element('mobile-toggle').attributes['aria-pressed']==='true'});
 checks.push({check:'Dock timer matches main timer',pass:element('mobile-timer').textContent===element('timer').textContent});
-checks.push({check:'Audio startup: two noise sources, two LFOs, three drones and two note oscillators',pass:sources.length===9});
+checks.push({check:'Audio startup: two noise sources, two LFOs, three drones and two note oscillators',pass:sources.length===(continuous?7:9)});
 checks.push({check:'Mobile panels start collapsed',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===false)});
 const activeSources=sources.length;
 compactLayout.matches=false;layoutChange();
@@ -52,12 +55,12 @@ const roots=[];
 for(const scene of ['rain','ocean','space','speech']){
  element('soundscape').value=scene; element('soundscape').events.input();
  const cfg=JSON.parse(memory.get('focus-studio-v3'));
- roots.push(sources[4].frequency.value);
+ roots.push(sources[4-offset].frequency.value);
  checks.push({check:'Scene '+scene,pass:cfg.scene===scene && (scene!=='speech'||cfg.melody===false)});
 }
 checks.push({check:'Different drone tunings',pass:new Set(roots).size===3});
 element('evolution').value='0';element('evolution').events.input();
-checks.push({check:'Stable mode disables noise modulation',pass:sources[2].connections[0].gain.value===0 && sources[3].connections[0].gain.value===0});
+checks.push({check:'Stable mode disables noise modulation',pass:sources[2-offset].connections[0].gain.value===0 && sources[3-offset].connections[0].gain.value===0});
 element('preset-name').value='Lectura';element('save-mix').events.click();
 checks.push({check:'Complete preset persistence',pass:JSON.parse(memory.get('focus-mixes-v3'))[0].levels.noise===82});
 element('saved-mixes').value='0';element('load-mix').events.click();
@@ -83,11 +86,21 @@ checks.push({check:'Update replaces settings and preserves favorite/name',pass:J
 checks.push({check:'Pause saves session snapshot',pass:Number.isFinite(JSON.parse(memory.get('focus-session-v1')).elapsed)});
 element('delete-mix').events.click();
 checks.push({check:'Delete preset',pass:JSON.parse(memory.get('focus-mixes-v3')).length===0});
+checks.push({check:'Optional module load path',pass:moduleLoads===(workletMode==='none'?0:1)});
+if(continuous) {
+ checks.push({check:'Continuous noise connects both outputs',pass:workletNode.connections.length===2});
+ const previous=sources.length;
+ workletNode.events.processorerror();
+ checks.push({check:'Processor failure restores buffered noise',pass:sources.length===previous+2});
+}
 return checks;
 })();
 }
-const checks = await verify(await readFile(new URL('../index.html', import.meta.url), 'utf8'));
-for (const check of checks) { console.log(check.pass ? 'PASS' : 'FAIL', check.check); assert.ok(check.pass, check.check); }
+const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
+for(const mode of ['none','failure','success']) {
+ const checks=await verify(html,mode);
+ for(const check of checks){console.log(check.pass?'PASS':'FAIL',mode,check.check);assert.ok(check.pass,mode+': '+check.check);}
+}
 
 const workerEvents={};let forced=0,installation;
 const workerSource=await readFile(new URL('../sw.js',import.meta.url),'utf8');
