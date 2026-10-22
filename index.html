@@ -606,6 +606,29 @@ select,input {max-width:100%}
 .install-card summary {padding:16px;cursor:pointer;min-height:48px}
 .install-card p {font-size:13px;color:var(--muted);line-height:1.6;margin:0}
 #install-app[hidden],#apply-update[hidden] {display:none}
+
+.insights {display:grid;gap:16px;margin-top:28px;padding-top:24px;border-top:1px solid var(--line-strong);min-width:0}
+.insights h3,.insights h4,.insights>p {margin:0}
+.insights h3 {font-size:19px}
+.insights h4 {font-size:15px}
+.insights-filters {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.insights-filters>div {display:grid;gap:8px;min-width:0}
+.insights-filters label {font-size:13px;color:var(--muted)}
+.insights select {width:100%;min-height:48px;padding:10px;font-size:16px;border:1px solid var(--line-strong);border-radius:10px;background:var(--panel-strong);color:var(--text)}
+.insights-table-wrap {overflow-x:auto;max-width:100%}
+.insights-table {width:100%;border-collapse:collapse;text-align:left;font-size:13px}
+.insights-table caption {text-align:left;padding-bottom:12px;color:var(--muted)}
+.insights-table th,.insights-table td {padding:12px 10px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.insights-table th {color:var(--muted);font-weight:600}
+.insights-recent {list-style:none;padding:0;margin:0;display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.insights-recent li {padding:14px;border:1px solid var(--line);border-radius:12px;min-width:0;overflow-wrap:anywhere}
+.insights-recent p {margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
+#insights-empty[hidden],#insights-table-wrap[hidden] {display:none}
+@media(max-width:600px) {
+ .insights-filters,.insights-recent {grid-template-columns:minmax(0,1fr)}
+ .insights-table {min-width:430px}
+ .insights-table th,.insights-table td {padding:10px 8px}
+}
 </style>
 </head>
 <body>
@@ -776,8 +799,8 @@ select,input {max-width:100%}
             <span class="history-badge">Hábitos de Foco</span>
             <span class="history-chip" id="hist-streak-chip">🔥 Racha activa</span>
           </div>
-          <h2 id="history-title">Registro de concentración</h2>
-          <p class="history-subtitle">Minutos acumulados en los últimos 7 días. Se sincroniza automáticamente con tus sesiones de foco.</p>
+          <h2 id="history-title">Tiempo de escucha</h2>
+          <p class="history-subtitle">Minutos de reproducción en los últimos 7 días. El tiempo de escucha no indica por sí solo cuánto te concentraste.</p>
         </div>
         <div class="history-metrics">
           <div class="metric-badge">
@@ -810,6 +833,30 @@ select,input {max-width:100%}
           <button type="button" class="subtle-button" id="btn-reset-history">Reiniciar historial</button>
         </div>
       </div>
+
+      <section class="insights" aria-labelledby="insights-title">
+        <h3 id="insights-title">Tu experiencia con los ambientes</h3>
+        <p class="daily-note">Estas son tus valoraciones personales, no una medición automática de concentración. El ambiente es el seleccionado al finalizar la sesión.</p>
+        <div class="insights-filters">
+          <div><label for="insights-period">Período</label>
+            <select id="insights-period"><option value="7">Últimos 7 días</option><option value="30" selected>Últimos 30 días</option><option value="0">Todo lo guardado</option></select></div>
+          <div><label for="insights-scene">Ambiente</label>
+            <select id="insights-scene"><option value="all">Todos</option><option value="rain">Lluvia cálida</option><option value="ocean">Océano profundo</option><option value="space">Espacio</option><option value="speech">Cubrir conversaciones</option></select></div>
+        </div>
+        <p id="insights-summary" role="status" aria-live="polite"></p>
+        <p id="insights-comparison" class="daily-note"></p>
+        <p id="insights-empty" class="daily-note">Al completar una sesión con duración, podés valorar cuánto te ayudó. Tus resultados aparecerán acá.</p>
+        <div id="insights-table-wrap" class="insights-table-wrap" role="region" aria-label="Comparación de valoraciones por ambiente" tabindex="0" hidden>
+          <table class="insights-table">
+            <caption>Valoraciones por ambiente en el período elegido</caption>
+            <thead><tr><th scope="col">Ambiente</th><th scope="col">Valoraciones</th><th scope="col">Ayuda (1–5)</th><th scope="col">Pocas distracciones</th></tr></thead>
+            <tbody id="insights-rows"></tbody>
+          </table>
+        </div>
+        <h4>Últimas valoraciones</h4>
+        <ul id="insights-recent" class="insights-recent"></ul>
+        <p class="daily-note">Se conservan hasta 200 valoraciones en este navegador. Los filtros solo cambian esta comparación; no modifican el gráfico de tiempo de escucha.</p>
+      </section>
       </div>
     </details>
 
@@ -1054,10 +1101,71 @@ select,input {max-width:100%}
           if(writeLocal('focus-feedback-v3',ratings.slice(-200))) {
             $('session-feedback').hidden=true;feedbackSession=null;
             $('studio-status').textContent='Valoración guardada en este dispositivo.';
+            renderInsights();
           }
         });
       }
 
+
+
+      function summarizeRatings(records, days=30, scene='all', now=Date.now()) {
+        const allowedScenes=Object.keys(SCENES);
+        const valid=(Array.isArray(records)?records:[]).slice(-200).filter(record=>{
+          if(!record || typeof record!=='object')return false;
+          const date=typeof record.date==='string'?Date.parse(record.date):NaN;
+          return Number.isFinite(date) && date<=now
+            && allowedScenes.includes(record.scene)
+            && Number.isInteger(record.rating) && record.rating>=1 && record.rating<=5
+            && Number.isFinite(record.minutes) && record.minutes>0 && record.minutes<=10080
+            && ['low','medium','high'].includes(record.distractions);
+        });
+        const period=[0,7,30].includes(days)?days:30;
+        const rows=valid.filter(record=>(!period || Date.parse(record.date)>=now-period*86400000) && (scene==='all'||record.scene===scene))
+          .sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
+        const groups=allowedScenes.map(id=>{
+          const entries=rows.filter(record=>record.scene===id);
+          return {scene:id,count:entries.length,average:entries.length ? entries.reduce((sum,row)=>sum+row.rating,0)/entries.length : 0,
+            lowDistractions:entries.filter(row=>row.distractions==='low').length};
+        }).filter(group=>group.count>0).sort((a,b)=>b.average-a.average||b.count-a.count);
+        const eligible=groups.filter(group=>group.count>=3);
+        const best=eligible.length>=2 && Math.round(eligible[0].average*10)>Math.round(eligible[1].average*10) ? eligible[0] : null;
+        return {rows,groups,best,count:rows.length,average:rows.length?rows.reduce((sum,row)=>sum+row.rating,0)/rows.length:0};
+      }
+
+      function renderInsights() {
+        const days=Number($('insights-period').value || 30),scene=$('insights-scene').value || 'all';
+        const result=summarizeRatings(readLocal('focus-feedback-v3',[]),days,scene);
+        $('insights-summary').textContent=result.count
+          ? result.count+' '+(result.count===1?'valoración':'valoraciones')+' · Ayuda promedio: '+result.average.toFixed(1)+' de 5.'
+          : 'Todavía no hay valoraciones para estos filtros.';
+        $('insights-empty').hidden=result.count>0;
+        $('insights-table-wrap').hidden=result.count===0;
+        $('insights-comparison').textContent=!result.count ? '' : scene!=='all' ? 'Elegí Todos para comparar los ambientes entre sí.' : result.best
+          ? SCENES[result.best.scene].label+' tiene el mayor promedio entre ambientes con al menos 3 valoraciones cada uno. Es una comparación orientativa.'
+          : 'Para destacar un ambiente se necesitan al menos 3 valoraciones en cada uno de dos ambientes y promedios diferentes.';
+        const body=$('insights-rows');body.replaceChildren();
+        result.groups.forEach(group=>{
+          const row=document.createElement('tr');
+          [SCENES[group.scene].label,String(group.count),group.average.toFixed(1),group.lowDistractions+' de '+group.count].forEach(value=>{
+            const cell=document.createElement('td');cell.textContent=value;row.append(cell);
+          });
+          body.append(row);
+        });
+        const recent=$('insights-recent');recent.replaceChildren();
+        const distractions={low:'Pocas',medium:'Algunas',high:'Muchas'};
+        result.rows.slice(0,10).forEach(record=>{
+          const item=document.createElement('li'),title=document.createElement('strong'),details=document.createElement('p');
+          title.textContent=SCENES[record.scene].label+' · '+record.rating+' de 5';
+          const date=new Date(record.date);
+          details.textContent=date.toLocaleDateString('es-AR')+' '+date.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+
+            ' · '+record.minutes+' min · '+distractions[record.distractions]+' distracciones';
+          item.append(title);item.append(details);recent.append(item);
+        });
+      }
+      function initInsights() {
+        ['insights-period','insights-scene'].forEach(id=>$(id).addEventListener('change',renderInsights));
+        renderInsights();
+      }
 
       const SESSION_KEY='focus-session-v1';
       let lastSessionSave=0;
@@ -2018,6 +2126,7 @@ select,input {max-width:100%}
       setupResponsivePanels();
       loadHistory();
       restoreSession();
+      initInsights();
 
       // Soporte para accesos directos PWA (shortcuts)
       try {
