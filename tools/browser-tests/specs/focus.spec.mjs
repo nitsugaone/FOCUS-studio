@@ -168,5 +168,12 @@ test('guided cycles wait for explicit start and restore a paused break',async({p
  await page.locator('#session-plan').selectOption('single');
  await expect(page.locator('#cycle-hint')).toBeHidden();
  await expect(page.locator('[data-minutes="25"]')).toBeEnabled();
+ await page.locator('[data-minutes="45"]').click();
+ await expand(page,'mix-settings');
+ await page.locator('#saved-mixes').selectOption('0');
+ await page.locator('#load-mix').click();
+ await expect(page.locator('#session-plan')).toHaveValue('50-10');
+ await page.locator('#session-plan').selectOption('single');
+ await expect(page.locator('#timer')).toHaveText('00:45:00');
  await noOverflow(page);
 });

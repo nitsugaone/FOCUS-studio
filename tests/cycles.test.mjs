@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
 const start=html.indexOf('      function createCycleTools()'),end=html.indexOf('      const cycleTools=createCycleTools()',start);
 assert.ok(start>=0&&end>start);
+assert.ok(!html.includes('Object.hasOwn('),'Startup must support browsers without Object.hasOwn');
 const tools=new Function(html.slice(start,end)+'return createCycleTools();')();
 let state=tools.initial('25-5',45);
 assert.equal(tools.duration(state),25);

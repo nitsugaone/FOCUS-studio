@@ -983,11 +983,11 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
         const plans={single:null,'25-5':{focus:25,rest:5,rounds:4},'50-10':{focus:50,rest:10,rounds:2}};
         const singles=[0,25,45,60];
         function initial(plan='single',singleDuration=0) {
-          if(!Object.hasOwn(plans,plan)||!singles.includes(singleDuration))throw Error('Plan de sesión inválido.');
+          if(!Object.prototype.hasOwnProperty.call(plans,plan)||!singles.includes(singleDuration))throw Error('Plan de sesión inválido.');
           return {plan,round:1,phase:'focus',completed:false,singleDuration};
         }
         function normalize(value) {
-          if(!value||typeof value!=='object'||!Object.hasOwn(plans,value.plan)||!singles.includes(value.singleDuration)||!Number.isInteger(value.round)||!['focus','rest'].includes(value.phase)||typeof value.completed!=='boolean')return null;
+          if(!value||typeof value!=='object'||!Object.prototype.hasOwnProperty.call(plans,value.plan)||!singles.includes(value.singleDuration)||!Number.isInteger(value.round)||!['focus','rest'].includes(value.phase)||typeof value.completed!=='boolean')return null;
           if(value.plan==='single')return value.round===1&&value.phase==='focus'&&!value.completed?initial('single',value.singleDuration):null;
           const plan=plans[value.plan];
           if(value.round<1||value.round>plan.rounds||(value.phase==='rest'&&value.round===plan.rounds))return null;
@@ -1143,7 +1143,8 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
           if(playing){$('studio-status').textContent='Pausá la sesión antes de cargar una mezcla.';return;}
           studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody};
           Object.keys(DEFAULTS).forEach(k=>{$('vol-'+k).value=mix.levels[k];updateRange(k,false);});
-          resetCycle(Object.hasOwn(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single',[0,25,45,60].includes(mix.duration)?mix.duration:0);
+          const plan=Object.prototype.hasOwnProperty.call(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single';
+          resetCycle(plan,plan==='single'?([0,25,45,60].includes(mix.duration)?mix.duration:0):cycleState.singleDuration);
           applyScene();persistSettings();writeLocal(STUDIO_KEY,studio);
           $('studio-status').textContent='Mezcla cargada.';
         });
@@ -1269,7 +1270,7 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
             requireValid(object(mix)&&typeof mix.name==='string'&&mix.name.trim().length>0&&mix.name.length<=60&&(durations.includes(mix.duration)||mix.duration===50),'Mezcla inválida.');
             requireValid(mix.favorite===undefined||typeof mix.favorite==='boolean','Favorita inválida.');
             const cyclePlan=mix.cyclePlan===undefined?'single':mix.cyclePlan;
-            requireValid(Object.hasOwn(backupCycles.plans,cyclePlan)&&(cyclePlan==='single'?durations.includes(mix.duration):backupCycles.plans[cyclePlan].focus===mix.duration),'Plan de mezcla inválido.');
+            requireValid(Object.prototype.hasOwnProperty.call(backupCycles.plans,cyclePlan)&&(cyclePlan==='single'?durations.includes(mix.duration):backupCycles.plans[cyclePlan].focus===mix.duration),'Plan de mezcla inválido.');
             return {...normalizeStudio(mix),name:mix.name.trim(),duration:mix.duration,cyclePlan,favorite:mix.favorite===true,levels:normalizeLevels(mix.levels)};
           });
           const dates=Object.keys(data.history);
@@ -1469,7 +1470,7 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
         $('session-plan').addEventListener('change',()=>{
           if(playing||transitioning){$('session-plan').value=cycleState.plan;return;}
           const value=$('session-plan').value;
-          if(!Object.hasOwn(cycleTools.plans,value))return;
+          if(!Object.prototype.hasOwnProperty.call(cycleTools.plans,value))return;
           resetCycle(value,cycleState.plan==='single'&&[0,25,45,60].includes(targetDurationMinutes)?targetDurationMinutes:cycleState.singleDuration);
         });
         syncCycleUI();
