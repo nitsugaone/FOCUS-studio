@@ -7,7 +7,7 @@ Ejecuta los tests existentes de interfaz simulada, señal de audio, estadística
 
 ## Navegadores
 Instala @playwright/test 1.64.1 en tools/browser-tests, separado de las dependencias de la aplicación.
-Los runners usan Ubuntu 24.04 y separan dependencias de Linux y descarga de navegadores, con tiempos máximos por paso.
+El job de navegador usa la imagen oficial mcr.microsoft.com/playwright:v1.64.1-noble con navegadores y dependencias preinstalados, evitando descargas de paquetes Linux en cada ejecución.
 Ejecuta Chromium en tamaños 320/390/768/1440 px y WebKit en 390/1440 px.
 
 Comprueba:
