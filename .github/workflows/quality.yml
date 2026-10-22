@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   unit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
@@ -24,7 +24,7 @@ jobs:
         run: node --test tests/*.test.mjs
   browser:
     needs: unit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:
@@ -38,8 +38,12 @@ jobs:
           node-version: '24'
       - name: Install pinned browser test dependency
         run: npm install --ignore-scripts --package-lock=false --no-audit --no-fund
-      - name: Install Chromium and WebKit
-        run: npx playwright install --with-deps chromium webkit
+      - name: Install Linux browser dependencies
+        timeout-minutes: 5
+        run: npx playwright install-deps chromium webkit
+      - name: Download Chromium and WebKit
+        timeout-minutes: 8
+        run: npx playwright install chromium webkit
       - name: Run browser checks
         run: npm test
       - name: Save browser report and screenshots
