@@ -2,7 +2,8 @@ import {test,expect} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
-test.beforeEach(async({page})=>{
+test.beforeEach(async({page},info)=>{
+ if(info.title.startsWith('guided cycles'))await page.clock.install();
  const pageErrors=[];errors.set(page,pageErrors);
  page.on('pageerror',error=>pageErrors.push(error.message));
  await page.goto('./');
@@ -112,4 +113,54 @@ test('ratings filter correctly without overflowing the mobile page',async({page}
  await expect(page.locator('#insights-rows tr')).toHaveCount(1);
  await noOverflow(page);
  await page.screenshot({path:info.outputPath('ratings.png'),fullPage:true,animations:'disabled'});
+});
+
+test('guided cycles wait for explicit start and restore a paused break',async({page})=>{
+ await page.locator('#session-plan').selectOption('25-5');
+ await expect(page.locator('#cycle-status')).toContainText('Ronda 1 de 4');
+ await expect(page.locator('#timer')).toHaveText('00:25:00');
+ await expect(page.locator('[data-minutes="25"]')).toBeDisabled();
+ await page.locator('#toggle').click();
+ await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await expect(page.locator('#session-plan')).toBeDisabled();
+ await page.clock.fastForward(25*60000+1000);
+ await expect(page.locator('#status-text')).toHaveText('Tramo terminado');
+ await expect(page.locator('#play-label')).toHaveText('Descansar');
+ await expect(page.locator('#session-feedback')).toBeVisible();
+ await page.clock.fastForward(60000);
+ await expect(page.locator('#play-label')).toHaveText('Descansar');
+ await page.locator('#toggle').click();
+ await expect(page.locator('#cycle-status')).toContainText('Descanso');
+ await expect(page.locator('#timer')).toHaveText('00:05:00');
+ await expect(page.locator('#session-feedback')).toBeHidden();
+ await page.clock.fastForward(5*60000+1000);
+ await expect(page.locator('#play-label')).toHaveText('Siguiente');
+ await expect(page.locator('#session-feedback')).toBeHidden();
+ await page.locator('#toggle').click();
+ await expect(page.locator('#cycle-status')).toContainText('Ronda 2 de 4');
+ await page.locator('#toggle').click();
+ await page.locator('#session-plan').selectOption('50-10');
+ await expect(page.locator('#timer')).toHaveText('00:50:00');
+ await page.evaluate(()=>localStorage.setItem('focus-session-v1',JSON.stringify({
+ duration:10,elapsed:120000,cycle:{plan:'50-10',round:1,phase:'rest',completed:false,singleDuration:0}
+ })));
+ await page.reload();
+ await expect(page.locator('#session-plan')).toHaveValue('50-10');
+ await expect(page.locator('#cycle-status')).toContainText('Descanso');
+ await expect(page.locator('#timer')).toHaveText('00:08:00');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await expand(page,'mix-settings');
+ await page.locator('#preset-name').fill('Rutina 50');
+ await page.locator('#save-mix').click();
+ await expand(page,'backup-panel');
+ const downloadPromise=page.waitForEvent('download');
+ await page.locator('#export-backup').click();
+ const download=await downloadPromise;
+ const backup=JSON.parse(await readFile(await download.path(),'utf8'));
+ expect(backup.data.session.cycle.phase).toBe('rest');
+ expect(backup.data.mixes[0].cyclePlan).toBe('50-10');
+ await page.locator('#session-plan').selectOption('single');
+ await expect(page.locator('#cycle-hint')).toBeHidden();
+ await expect(page.locator('[data-minutes="25"]')).toBeEnabled();
+ await noOverflow(page);
 });

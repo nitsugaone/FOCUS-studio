@@ -638,6 +638,15 @@ select,input {max-width:100%}
 label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:48px}
 #backup-settings {width:24px;height:24px;flex-shrink:0}
 #backup-summary,#backup-status {overflow-wrap:anywhere}
+
+.session-plan {display:grid;gap:8px;width:100%;min-width:0;text-align:left}
+.session-plan label {font-size:13px;color:var(--muted)}
+.session-plan select {width:100%;min-width:0;min-height:48px;max-width:100%;font-size:16px;padding:10px;background:var(--panel-strong);border:1px solid var(--line-strong);border-radius:10px;color:var(--text)}
+#cycle-status {margin:0;font-size:13px;color:var(--mint);line-height:1.5}
+#cycle-status:empty {display:none}
+#cycle-hint[hidden] {display:none}
+.mode-chip:disabled {opacity:.45;cursor:default}
+@media(max-width:900px) {.session-plan {gap:6px}.session-plan label {font-size:12px}}
 </style>
 </head>
 <body>
@@ -691,6 +700,18 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
             <output class="volume-value" id="out-master" for="vol-master">75%</output>
           </div>
           <input class="range" id="vol-master" type="range" min="0" max="100" value="75" aria-label="Volumen maestro">
+        </div>
+
+
+        <div class="session-plan">
+          <label for="session-plan">Organizá tu sesión</label>
+          <select id="session-plan">
+            <option value="single">Una sesión</option>
+            <option value="25-5">25 min + 5 de descanso · 4 rondas</option>
+            <option value="50-10">50 min + 10 de descanso · 2 rondas</option>
+          </select>
+          <p id="cycle-status" role="status" aria-live="polite"></p>
+          <p id="cycle-hint" class="daily-note" hidden>Hay un descanso entre rondas. Cada tramo se detiene al terminar y el siguiente empieza al tocar el botón. El tiempo de escucha incluye los descansos.</p>
         </div>
 
         <div class="session">
@@ -957,6 +978,34 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
       let lastTickTimestamp = 0;
       let targetDurationMinutes = 0; // 0 = Modo libre
 
+
+      function createCycleTools() {
+        const plans={single:null,'25-5':{focus:25,rest:5,rounds:4},'50-10':{focus:50,rest:10,rounds:2}};
+        const singles=[0,25,45,60];
+        function initial(plan='single',singleDuration=0) {
+          if(!Object.hasOwn(plans,plan)||!singles.includes(singleDuration))throw Error('Plan de sesión inválido.');
+          return {plan,round:1,phase:'focus',completed:false,singleDuration};
+        }
+        function normalize(value) {
+          if(!value||typeof value!=='object'||!Object.hasOwn(plans,value.plan)||!singles.includes(value.singleDuration)||!Number.isInteger(value.round)||!['focus','rest'].includes(value.phase)||typeof value.completed!=='boolean')return null;
+          if(value.plan==='single')return value.round===1&&value.phase==='focus'&&!value.completed?initial('single',value.singleDuration):null;
+          const plan=plans[value.plan];
+          if(value.round<1||value.round>plan.rounds||(value.phase==='rest'&&value.round===plan.rounds))return null;
+          return {plan:value.plan,round:value.round,phase:value.phase,completed:value.completed,singleDuration:value.singleDuration};
+        }
+        function duration(state) {return state.plan==='single'?state.singleDuration:plans[state.plan][state.phase];}
+        function next(state) {
+          const valid=normalize(state);if(!valid)throw Error('Estado de ciclo inválido.');
+          if(valid.plan==='single'||!valid.completed)return valid;
+          const plan=plans[valid.plan];
+          if(valid.phase==='focus'&&valid.round===plan.rounds)return initial(valid.plan,valid.singleDuration);
+          return {...valid,phase:valid.phase==='focus'?'rest':'focus',round:valid.phase==='rest'?valid.round+1:valid.round,completed:false};
+        }
+        return {plans,initial,normalize,duration,next};
+      }
+
+      const cycleTools=createCycleTools();
+      let cycleState=cycleTools.initial();
       let lastNote = -1;
       let noteStep = 0;
 
@@ -1010,7 +1059,7 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
         const remaining=targetDurationMinutes*60000-accumulatedMs;
         const exit=targetDurationMinutes ? Math.min(1,Math.max(0,remaining/20000)) : 1;
         ramp(nodes.sessionGain.gain,entry*exit,0.4);
-        $('session-phase').textContent=exit<1 ? 'Cierre gradual' : entry<1 ? 'Entrada suave' : progress>0 ? 'Concentración sostenida' : 'Sesión libre';
+        $('session-phase').textContent=exit<1 ? 'Cierre gradual' : entry<1 ? 'Entrada suave' : cycleState.plan!=='single'&&cycleState.phase==='rest' ? 'Descanso sostenido' : progress>0 ? 'Concentración sostenida' : 'Sesión libre';
       }
 
       function selectedMixIndex() {
@@ -1042,7 +1091,7 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
         $('favorite-mix').setAttribute('aria-pressed',String(Boolean(mix?.favorite)));
       }
       function currentMix(name, favorite=false) {
-        return {...studio,name,favorite,duration:targetDurationMinutes,
+        return {...studio,name,favorite,cyclePlan:cycleState.plan,duration:cycleState.plan==='single'?targetDurationMinutes:cycleTools.plans[cycleState.plan].focus,
           levels:Object.fromEntries(Object.keys(DEFAULTS).map(k=>[k,Number($('vol-'+k).value)]))};
       }
       function commitMixes(next, selected='') {
@@ -1094,7 +1143,7 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
           if(playing){$('studio-status').textContent='Pausá la sesión antes de cargar una mezcla.';return;}
           studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody};
           Object.keys(DEFAULTS).forEach(k=>{$('vol-'+k).value=mix.levels[k];updateRange(k,false);});
-          const chip=document.querySelector('[data-minutes="'+mix.duration+'"]');if(chip)chip.click();
+          resetCycle(Object.hasOwn(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single',[0,25,45,60].includes(mix.duration)?mix.duration:0);
           applyScene();persistSettings();writeLocal(STUDIO_KEY,studio);
           $('studio-status').textContent='Mezcla cargada.';
         });
@@ -1201,6 +1250,7 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
       function createBackupTools(storage) {
         const keys={mixes:'focus-mixes-v3',history:'focus-daily-history-v1',ratings:'focus-feedback-v3',settings:'focus-audio-settings-v2',studio:'focus-studio-v3',session:'focus-session-v1'};
         const undoKey='focus-backup-undo-v1';
+        const backupCycles=createCycleTools();
         const scenes=['rain','ocean','space','speech'],durations=[0,25,45,60];
         const object=value=>value && typeof value==='object' && !Array.isArray(value);
         const number=(value,min,max)=>Number.isFinite(value)&&value>=min&&value<=max;
@@ -1216,9 +1266,11 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
         function normalizeData(data) {
           requireValid(object(data)&&Array.isArray(data.mixes)&&data.mixes.length<=50&&Array.isArray(data.ratings)&&data.ratings.length<=200&&object(data.history),'Contenido de la copia inválido o fuera de los límites.');
           const mixes=data.mixes.map(mix=>{
-            requireValid(object(mix)&&typeof mix.name==='string'&&mix.name.trim().length>0&&mix.name.length<=60&&durations.includes(mix.duration),'Mezcla inválida.');
+            requireValid(object(mix)&&typeof mix.name==='string'&&mix.name.trim().length>0&&mix.name.length<=60&&(durations.includes(mix.duration)||mix.duration===50),'Mezcla inválida.');
             requireValid(mix.favorite===undefined||typeof mix.favorite==='boolean','Favorita inválida.');
-            return {...normalizeStudio(mix),name:mix.name.trim(),duration:mix.duration,favorite:mix.favorite===true,levels:normalizeLevels(mix.levels)};
+            const cyclePlan=mix.cyclePlan===undefined?'single':mix.cyclePlan;
+            requireValid(Object.hasOwn(backupCycles.plans,cyclePlan)&&(cyclePlan==='single'?durations.includes(mix.duration):backupCycles.plans[cyclePlan].focus===mix.duration),'Plan de mezcla inválido.');
+            return {...normalizeStudio(mix),name:mix.name.trim(),duration:mix.duration,cyclePlan,favorite:mix.favorite===true,levels:normalizeLevels(mix.levels)};
           });
           const dates=Object.keys(data.history);
           requireValid(dates.length<=3660,'El historial supera el límite de 3660 días.');
@@ -1238,8 +1290,11 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
           });
           let session=null;
           if(data.session!==null&&data.session!==undefined) {
-            requireValid(object(data.session)&&durations.includes(data.session.duration)&&number(data.session.elapsed,0,7*86400000),'Sesión inválida.');
+            requireValid(object(data.session)&&number(data.session.elapsed,0,7*86400000),'Sesión inválida.');
+            const cycle=data.session.cycle===undefined?null:backupCycles.normalize(data.session.cycle);
+            requireValid(data.session.cycle===undefined?durations.includes(data.session.duration):cycle&&backupCycles.duration(cycle)===data.session.duration,'Plan de sesión inválido.');
             session={duration:data.session.duration,elapsed:data.session.elapsed};
+            if(cycle)session.cycle=cycle;
           }
           return {mixes,history,ratings,settings:normalizeLevels(data.settings),studio:normalizeStudio(data.studio),session};
         }
@@ -1263,7 +1318,7 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
           requireValid(object(file)&&file.format==='focus-studio-backup'&&file.version===1,'No es una copia de FOCUS compatible.');
           return normalizeData(file.data);
         }
-        const mixIdentity=mix=>JSON.stringify([mix.name,mix.scene,mix.evolution,mix.brightness,mix.melody,mix.duration,mix.levels.master,mix.levels.noise,mix.levels.drone,mix.levels.notes]);
+        const mixIdentity=mix=>JSON.stringify([mix.name,mix.cyclePlan||'single',mix.scene,mix.evolution,mix.brightness,mix.melody,mix.duration,mix.levels.master,mix.levels.noise,mix.levels.drone,mix.levels.notes]);
         const ratingIdentity=record=>JSON.stringify([record.date,record.scene,record.rating,record.minutes,record.distractions]);
         function planImport(file,includeSettings=false) {
           const incoming=validateBackup(file),current=collect(),mixes=current.mixes.map(mix=>({...mix}));
@@ -1381,6 +1436,44 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
         syncBackupButtons();
       }
 
+
+      function cycleAction() {
+        if(cycleState.plan==='single'||!cycleState.completed)return {text:'Iniciar',label:'Iniciar paisaje sonoro'};
+        const next=cycleTools.next(cycleState),last=next.round===1&&next.phase==='focus';
+        return {text:last?'Repetir':next.phase==='rest'?'Descansar':'Siguiente',
+          label:(last?'Repetir ciclo: ': 'Iniciar ')+(next.phase==='rest'?'descanso':'ronda '+next.round)+' de '+cycleTools.duration(next)+' minutos'};
+      }
+      function syncCycleUI() {
+        const active=cycleState.plan!=='single';
+        $('session-plan').value=cycleState.plan;
+        $('session-plan').disabled=playing||transitioning;
+        $('cycle-hint').hidden=!active;
+        document.querySelectorAll('.mode-chip').forEach(chip=>{chip.disabled=active;chip.setAttribute('aria-pressed',String(!active&&Number(chip.dataset.minutes)===targetDurationMinutes));});
+        $('reset-timer').textContent=active?'Reiniciar tramo':'Reiniciar reloj';
+        if(!active){$('cycle-status').textContent='';return;}
+        const plan=cycleTools.plans[cycleState.plan],kind=cycleState.phase==='rest'?'Descanso':'Concentración';
+        $('cycle-status').textContent=kind+' · Ronda '+cycleState.round+' de '+plan.rounds+
+          (cycleState.completed?' · Tramo terminado':'');
+        modeLabelEl.textContent=kind+' ('+targetDurationMinutes+' min)';
+      }
+      function resetCycle(plan,singleDuration=cycleState.singleDuration) {
+        cycleState=cycleTools.initial(plan,singleDuration);
+        targetDurationMinutes=cycleTools.duration(cycleState);
+        syncFocusHistoryProgress(true);sessionRecordedMs=0;accumulatedMs=0;
+        $('resume-status').textContent='';
+        modeLabelEl.textContent=targetDurationMinutes?'Cuenta regresiva ('+targetDurationMinutes+' min)':'Tiempo de sesión (Libre)';
+        syncCycleUI();renderTimer();saveSession(true);syncUI();
+      }
+      function initCycles() {
+        $('session-plan').addEventListener('change',()=>{
+          if(playing||transitioning){$('session-plan').value=cycleState.plan;return;}
+          const value=$('session-plan').value;
+          if(!Object.hasOwn(cycleTools.plans,value))return;
+          resetCycle(value,cycleState.plan==='single'&&[0,25,45,60].includes(targetDurationMinutes)?targetDurationMinutes:cycleState.singleDuration);
+        });
+        syncCycleUI();
+      }
+
       const SESSION_KEY='focus-session-v1';
       let lastSessionSave=0;
       let waitingWorker=null;
@@ -1389,13 +1482,17 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
       function saveSession(force=false) {
         if(!force && Date.now()-lastSessionSave<5000)return;
         lastSessionSave=Date.now();
-        writeLocal(SESSION_KEY,{duration:targetDurationMinutes,elapsed:accumulatedMs});
+        writeLocal(SESSION_KEY,{duration:targetDurationMinutes,elapsed:accumulatedMs,cycle:cycleState});
       }
       function restoreSession() {
         const saved=readLocal(SESSION_KEY,null);
-        if(!saved || ![0,25,45,60].includes(saved.duration) || !Number.isFinite(saved.elapsed) || saved.elapsed<0 || saved.elapsed>7*86400000)return;
+        if(!saved || !Number.isFinite(saved.elapsed) || saved.elapsed<0 || saved.elapsed>7*86400000)return;
+        const restored=saved.cycle?cycleTools.normalize(saved.cycle):cycleTools.initial('single',[0,25,45,60].includes(saved.duration)?saved.duration:0);
+        if(!restored || cycleTools.duration(restored)!==saved.duration)return;
+        cycleState=restored;
         targetDurationMinutes=saved.duration;
         accumulatedMs=targetDurationMinutes ? Math.min(saved.elapsed,targetDurationMinutes*60000) : saved.elapsed;
+        if(cycleState.plan!=='single'&&accumulatedMs>=targetDurationMinutes*60000)cycleState.completed=true;
         sessionRecordedMs=accumulatedMs; // Time from the previous visit is already in history.
         document.querySelectorAll('.mode-chip').forEach(c=>c.setAttribute('aria-pressed',String(Number(c.dataset.minutes)===targetDurationMinutes)));
         modeLabelEl.textContent=targetDurationMinutes ? 'Cuenta regresiva ('+targetDurationMinutes+' min)' : 'Tiempo de sesión (Libre)';
@@ -1832,6 +1929,7 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
           const remaining = Math.max(0, targetSecs - elapsedSecs);
           timerEl.textContent = formatSeconds(remaining);
           if (remaining === 0 && playing) {
+            if(cycleState.plan!=='single')cycleState.completed=true;
             pause(true); // Cierre suave automático al cumplir el objetivo
           }
         } else {
@@ -1869,11 +1967,14 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
       function syncUI() {
         btn.setAttribute('aria-pressed', String(playing));
         btn.setAttribute('aria-label', playing ? 'Pausar paisaje sonoro' : 'Iniciar paisaje sonoro');
-        playLabel.textContent = playing ? 'Pausar' : 'Iniciar';
+        syncCycleUI();
+        const action=cycleAction();
+        playLabel.textContent = playing ? 'Pausar' : action.text;
+        btn.setAttribute('aria-label',playing?'Pausar paisaje sonoro':action.label);
         playIcon.innerHTML = playing
           ? '<path d="M7 5.5h3.6v13H7zM13.4 5.5H17v13h-3.6z"/>'
           : '<path d="M8 5.8c0-.8.9-1.3 1.6-.9l9 6.2a1.1 1.1 0 0 1 0 1.8l-9 6.2c-.7.5-1.6 0-1.6-.9V5.8Z"/>';
-        statusText.textContent = playing ? 'Sonando' : 'En pausa';
+        statusText.textContent = playing ? 'Sonando' : cycleState.plan!=='single'&&cycleState.completed?'Tramo terminado':'En pausa';
         statusPill.dataset.playing = String(playing);
         playerCard.classList.toggle('is-playing', playing);
         syncUpdateButton();
@@ -1881,8 +1982,8 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
         btn.disabled = transitioning;
         const mobileToggle=$('mobile-toggle');
         mobileToggle.disabled=transitioning;
-        mobileToggle.textContent=playing ? 'Pausar' : 'Iniciar';
-        mobileToggle.setAttribute('aria-label',playing ? 'Pausar paisaje sonoro' : 'Iniciar paisaje sonoro');
+        mobileToggle.textContent=playing ? 'Pausar' : action.text;
+        mobileToggle.setAttribute('aria-label',playing ? 'Pausar paisaje sonoro' : action.label);
         mobileToggle.setAttribute('aria-pressed',String(playing));
 
         if ('mediaSession' in navigator) {
@@ -1902,6 +2003,11 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
 
       async function play() {
         if (playing || transitioning) return;
+        if(cycleState.plan!=='single'&&cycleState.completed) {
+          cycleState=cycleTools.next(cycleState);
+          targetDurationMinutes=cycleTools.duration(cycleState);
+          accumulatedMs=0;sessionRecordedMs=0;renderTimer();saveSession(true);
+        }
         transitioning = true;
         hideError();
         if (targetDurationMinutes > 0 && accumulatedMs >= targetDurationMinutes * 60000) {
@@ -1946,7 +2052,7 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
       function pause(slowFade = false) {
         if (!playing || transitioning) return;
         stopSessionClock();
-        if(slowFade) {
+        if(slowFade && cycleState.phase==='focus') {
           feedbackSession={date:new Date().toISOString(),...studio,minutes:Math.round(accumulatedMs/60000)};
           $('session-feedback').hidden=false;
         }
@@ -2041,7 +2147,9 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
 
       document.querySelectorAll('.mode-chip').forEach((chip) => {
         chip.addEventListener('click', () => {
+          if(cycleState.plan!=='single')return;
           targetDurationMinutes = Number(chip.dataset.minutes) || 0;
+          cycleState=cycleTools.initial('single',targetDurationMinutes);
           document.querySelectorAll('.mode-chip').forEach((c) => {
             c.setAttribute('aria-pressed', String(c === chip));
           });
@@ -2070,6 +2178,8 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
         $('mobile-player').hidden=false;
       }
       $('reset-timer').addEventListener('click', () => {
+        cycleState={...cycleState,completed:false};
+        syncCycleUI();
         syncFocusHistoryProgress(true);
         sessionRecordedMs = 0;
         accumulatedMs = 0;
@@ -2077,6 +2187,7 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
         $('resume-status').textContent='';
         if (playing) lastTickTimestamp = Date.now();
         renderTimer();
+        syncUI();
       });
 
       // ==========================================
@@ -2343,13 +2454,16 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
       restoreSession();
       initInsights();
       initBackups();
+      initCycles();
 
       // Soporte para accesos directos PWA (shortcuts)
       try {
         const urlParams = new URLSearchParams(window.location.search);
         const modeParam = Number(urlParams.get('duration') || urlParams.get('mode'));
         if (modeParam > 0) {
+          cycleState=cycleTools.initial();
           targetDurationMinutes = modeParam;
+          if([0,25,45,60].includes(modeParam))cycleState=cycleTools.initial('single',modeParam);
           accumulatedMs=0;sessionRecordedMs=0;
           $('resume-status').textContent='';
           document.querySelectorAll('.mode-chip').forEach((c) => {
