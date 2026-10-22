@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 function verify(html, workletMode='none') {
 const script=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
 const elems=new Map(), memory=new Map(), checks=[];
-function element(id){if(!elems.has(id))elems.set(id,{hidden:html.includes('id="'+id+'" hidden'),value:({'vol-master':75,'vol-noise':70,'vol-drone':60,'vol-notes':55,evolution:35,brightness:50,'session-rating':3}[id]??''),checked:true,dataset:{},style:{setProperty(){}},classList:{toggle(){}},events:{},attributes:{},setAttribute(k,v){this.attributes[k]=v},addEventListener(k,fn){this.events[k]=fn},replaceChildren(){this.children=[]},append(child){(this.children??=[]).push(child)},add(){},click(){if(!this.disabled)return this.events.click?.()},play(){return Promise.resolve()},pause(){}});return elems.get(id);}
+function element(id){if(!elems.has(id))elems.set(id,{hidden:html.includes('id="'+id+'" hidden'),value:({'vol-master':75,'vol-noise':70,'vol-drone':60,'vol-notes':55,evolution:35,brightness:50,'session-rating':3}[id]??''),checked:true,dataset:{},style:{setProperty(){}},classList:{toggle(){}},events:{},attributes:{},setAttribute(k,v){this.attributes[k]=v},addEventListener(k,fn){this.events[k]=fn},replaceChildren(){this.children=[]},append(child){(this.children??=[]).push(child)},add(){},click(){if(!this.disabled)return this.events.click?.()},remove(){},play(){return Promise.resolve()},pause(){}});return elems.get(id);}
 const sources=[];let workletNode=null,moduleLoads=0;
 const continuous=workletMode==='success',offset=continuous?2:0;
 function param(){return {value:0,cancelScheduledValues(){},setTargetAtTime(v){if(!Number.isFinite(v))throw Error('Nonfinite audio parameter');this.value=v},setValueAtTime(v){this.value=v},linearRampToValueAtTime(v){this.value=v},exponentialRampToValueAtTime(v){this.value=v}};}
@@ -12,7 +12,7 @@ function node(){return {gain:param(),frequency:param(),Q:param(),detune:param(),
 const ctx={sampleRate:8000,currentTime:0,state:'running',destination:node(),createBuffer(ch,len){const d=Array.from({length:ch},()=>new Float32Array(len));return{getChannelData:i=>d[i]}},createGain:node,createOscillator:node,createBufferSource:node,createBiquadFilter:node,createStereoPanner:node,createConvolver:node,createDynamicsCompressor:node,createMediaStreamDestination(){return{...node(),stream:{}}},resume:async()=>{},suspend:async()=>{},close:async()=>{}};
 let generated=0;
 if(workletMode!=='none')ctx.audioWorklet={addModule:async()=>{moduleLoads++;if(workletMode==='failure')throw Error('Module blocked')}};
-const document={createElement:()=>element('generated-'+generated++),getElementById:element,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}};
+const document={body:element('body'),createElement:()=>element('generated-'+generated++),getElementById:element,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}};
 const timers=[];
 let observeVisibility;
 let layoutChange;
@@ -23,7 +23,10 @@ const worker={postMessage(message){if(message.type==='SKIP_WAITING')updateMessag
 const serviceWorker={ready:Promise.resolve(),addEventListener(){},register:async()=>({waiting:worker,addEventListener(){}})};
 const window={matchMedia:()=>compactLayout,IntersectionObserver:class {constructor(callback){observeVisibility=callback;} observe(){}},AudioContext:function(){return ctx},setInterval:fn=>{timers.push(fn);return timers.length},setTimeout:()=>1,addEventListener(type,fn){windowEvents[type]=fn},location:{search:'',reload(){reloads++}}};
 if(workletMode!=='none')window.AudioWorkletNode=function(){workletNode=node();return workletNode;};
-const localStorage={getItem:k=>memory.get(k)??null,setItem:(k,v)=>memory.set(k,v)};
+let downloadContent='';
+const downloadURL={createObjectURL:()=> 'blob:focus-test',revokeObjectURL(){}};
+class DownloadBlob {constructor(parts){downloadContent=parts.join('');}}
+const localStorage={getItem:k=>memory.get(k)??null,setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)};
 const sampleDate=new Date(Date.now()-1000).toISOString();
 memory.set('focus-feedback-v3',JSON.stringify([
  ...Array.from({length:3},()=>({scene:'rain',rating:5,date:sampleDate,minutes:25,distractions:'low'})),
@@ -31,7 +34,7 @@ memory.set('focus-feedback-v3',JSON.stringify([
  {scene:'space',rating:2,date:new Date(Date.now()-40*86400000).toISOString(),minutes:25,distractions:'high'}
 ]));
 memory.set('focus-session-v1',JSON.stringify({duration:25,elapsed:60000}));
-new Function('window','document','navigator','localStorage','Option','clearTimeout','clearInterval',script)(window,document,{serviceWorker,onLine:true},localStorage,function(){},()=>{},()=>{});
+new Function('window','document','navigator','localStorage','Option','clearTimeout','clearInterval','URL','Blob',script)(window,document,{serviceWorker,onLine:true},localStorage,function(){},()=>{},()=>{},downloadURL,DownloadBlob);
 return (async()=>{
 checks.push({check:'Insights render saved ratings for the default period',pass:element('insights-summary').textContent.startsWith('6 valoraciones')});
 checks.push({check:'Insights show group and recent rows',pass:element('insights-rows').children.length===2&&element('insights-recent').children.length===6});
@@ -107,6 +110,37 @@ if(continuous) {
  workletNode.events.processorerror();
  checks.push({check:'Processor failure restores buffered noise',pass:sources.length===previous+2});
 }
+
+const portable={format:'focus-studio-backup',version:1,data:{
+ mixes:[{scene:'rain',evolution:35,brightness:50,melody:true,name:'Portable',favorite:false,duration:25,levels:{master:40,noise:60,drone:20,notes:10}}],
+ history:{'2026-10-22':15},ratings:[],settings:{master:40,noise:60,drone:20,notes:10},studio:{scene:'rain',evolution:35,brightness:50,melody:true},session:null
+}};
+element('backup-settings').checked=false;
+const mixesBeforeImport=memory.get('focus-mixes-v3');
+element('backup-file').files=[{size:10,text:async()=>'{bad'}];
+await element('backup-file').events.change();
+checks.push({check:'Invalid backup file never writes data',pass:memory.get('focus-mixes-v3')===mixesBeforeImport&&element('backup-preview').hidden===true});
+element('backup-file').files=[{size:2000,text:async()=>JSON.stringify(portable)}];
+await element('backup-file').events.change();
+checks.push({check:'Valid backup shows preview without importing',pass:element('backup-preview').hidden===false&&memory.get('focus-mixes-v3')===mixesBeforeImport});
+element('cancel-backup').events.click();
+checks.push({check:'Backup cancel discards preview',pass:element('backup-preview').hidden===true&&element('import-backup').disabled===true});
+await element('backup-file').events.change();
+await element('mobile-toggle').events.click();
+const reloadsBeforeImport=reloads;
+element('import-backup').events.click();
+checks.push({check:'Restoration is blocked while audio plays',pass:element('import-backup').disabled===true&&reloads===reloadsBeforeImport&&memory.get('focus-mixes-v3')===mixesBeforeImport});
+element('mobile-toggle').events.click();
+element('import-backup').events.click();
+checks.push({check:'Paused restore imports and requests reload',pass:reloads===reloadsBeforeImport+1&&JSON.parse(memory.get('focus-mixes-v3'))[0].name==='Portable'});
+element('undo-backup').events.click();
+checks.push({check:'Undo restores previous stored mixes',pass:memory.get('focus-mixes-v3')===mixesBeforeImport&&reloads===reloadsBeforeImport+2});
+
+
+const beforeDownload=JSON.stringify([...memory]);
+element('export-backup').events.click();
+checks.push({check:'Download builds a portable JSON backup',pass:JSON.parse(downloadContent).format==='focus-studio-backup'&&document.body.children.at(-1).download.endsWith('.json')});
+checks.push({check:'Export leaves stored data unchanged',pass:JSON.stringify([...memory])===beforeDownload});
 return checks;
 })();
 }
