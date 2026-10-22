@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png">
   <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
-  <title>Focus — Paisaje sonoro v2</title>
+  <title>FOCUS Studio — Ambientes para concentrarte</title>
   <style>
     :root {
       color-scheme: dark;
@@ -457,7 +457,7 @@
     .error-message { display: none; margin: 14px 0 0; padding: 10px 12px; border: 1px solid rgba(255,180,174,.22); border-radius: 10px; background: rgba(255,100,100,.06); color: var(--danger); font-size: 12px; line-height: 1.5; }
     .error-message[data-visible="true"] { display: block; }
 
-    @media (max-width: 760px) {
+    @media (max-width: 900px) {
       body { padding: 18px; }
       .layout { grid-template-columns: 1fr; }
       .player-card { min-height: 510px; }
@@ -509,7 +509,7 @@ summary:focus-visible {outline:2px solid var(--accent);outline-offset:-4px}
 #session-feedback[hidden],#mobile-player[hidden] {display:none}
 #session-phase {margin:0 0 8px;color:var(--muted);font-size:12px}
 .mobile-player {display:none}
-@media (pointer:coarse), (max-width:760px) {
+@media (pointer:coarse), (max-width:900px) {
   button,select,.studio-controls input:not([type=checkbox]) {min-height:48px}
   .range {min-height:48px;background-size:100% 5px;background-repeat:no-repeat;background-position:center}
   .range::-webkit-slider-thumb {width:22px;height:22px}
@@ -519,7 +519,7 @@ summary:focus-visible {outline:2px solid var(--accent);outline-offset:-4px}
   .preset,.mode-chip,.subtle-button {font-size:14px;padding:10px 12px}
   .studio-controls select,.studio-controls input:not([type=range]) {font-size:16px}
 }
-@media (max-width:760px) {
+@media (max-width:900px) {
   body {display:block;padding:12px;padding-top:max(12px,env(safe-area-inset-top,0px));padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
   .topbar {margin-bottom:12px;align-items:center;gap:8px}
   .brand-subtitle {font-size:11px}
@@ -554,6 +554,48 @@ summary:focus-visible {outline:2px solid var(--accent);outline-offset:-4px}
   #mobile-timer {font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
   #mobile-toggle {min-width:108px;min-height:48px;padding:10px 18px;border:1px solid var(--accent);border-radius:12px;background:#293757;color:var(--text);font-weight:650}
   #mobile-toggle:disabled {opacity:.6}
+}
+
+/* Layout follows available space, independently of touch capability. */
+body {display:block}
+.app {width:min(100%,1280px);margin-inline:auto}
+.layout {grid-template-columns:minmax(300px,.85fr) minmax(0,1.45fr);gap:clamp(18px,2.5vw,32px)}
+.settings-group,.settings-content,.history-content,.quick-scene {min-width:0}
+select,input {max-width:100%}
+.settings-content {overflow-wrap:anywhere}
+.player-card .control-heading {flex-wrap:wrap}
+@media (min-width:901px) {
+  body {padding:clamp(24px,3vw,48px)}
+  .player-card {padding:28px 24px;gap:22px}
+  .player-card .sound-orbit {width:clamp(160px,15vw,210px)}
+  .player-card .master-block {padding:16px}
+  .player-heading h1 {font-size:clamp(28px,2.5vw,36px)}
+  .mixer-card {padding:24px}
+  .settings-group summary,.history-card>summary {padding:16px}
+  .settings-content {gap:16px}
+  .studio-controls select,.studio-controls input:not([type=range]):not([type=checkbox]) {min-height:42px;font-size:15px}
+  .studio-controls button {min-height:40px;font-size:13px}
+  .layer-description {line-height:1.55}
+}
+@media (min-width:1200px) {
+  .mixer-card>.studio-controls {grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);align-items:start;gap:18px}
+  .mixer-card #studio-status,.mixer-card #session-feedback {grid-column:1/-1}
+  .settings-content .presets {display:grid;grid-template-columns:1fr;gap:8px}
+}
+@media (max-width:900px) {
+  .layout {grid-template-columns:minmax(0,1fr);gap:16px}
+  .app {max-width:680px}
+  .history-head,.history-actions {flex-wrap:wrap}
+  .history-metrics {max-width:100%}
+}
+@media (min-width:600px) and (max-width:900px) {
+  body {padding-inline:24px}
+  .player-card {padding:24px;gap:16px}
+  .player-card .sound-orbit {width:160px}
+  .mixer-card {padding:24px}
+}
+@media (pointer:coarse) {
+  .studio-controls button,.studio-controls select,.studio-controls input:not([type=checkbox]) {min-height:48px}
 }
 </style>
 </head>
@@ -870,6 +912,22 @@ summary:focus-visible {outline:2px solid var(--accent);outline-offset:-4px}
         const select=$('saved-mixes'); select.replaceChildren(new Option('Elegí una mezcla',''));
         savedMixes.forEach((mix,i)=>select.add(new Option(mix.name,String(i))));
       }
+
+      // Only crossing the breakpoint resets panels. Manual toggles within a
+      // layout remain untouched, and playback nodes are never recreated.
+      function setupResponsivePanels() {
+        if (!('matchMedia' in window)) return;
+        const compact = window.matchMedia('(max-width: 900px)');
+        const updatePanels = () => {
+          ['sound-settings','mix-settings','history-card'].forEach(id => {
+            $(id).open = !compact.matches;
+          });
+        };
+        updatePanels();
+        if (compact.addEventListener) compact.addEventListener('change',updatePanels);
+        else if (compact.addListener) compact.addListener(updatePanels);
+      }
+
       function initStudio() {
         const loaded=readLocal(STUDIO_KEY,null);
         if(validStudio(loaded)) studio={scene:loaded.scene,evolution:loaded.evolution,brightness:loaded.brightness,melody:loaded.melody};
@@ -1760,6 +1818,7 @@ summary:focus-visible {outline:2px solid var(--accent);outline-offset:-4px}
 
       loadSettings();
       initStudio();
+      setupResponsivePanels();
       loadHistory();
 
       // Soporte para accesos directos PWA (shortcuts)
