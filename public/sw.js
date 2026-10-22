@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focus-audio-v2.1';
+const CACHE_NAME = 'focus-audio-v3.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -26,7 +26,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
+          if (key.startsWith('focus-audio-') && key !== CACHE_NAME) {
             return caches.delete(key);
           }
         })
@@ -54,7 +54,7 @@ self.addEventListener('fetch', (event) => {
         return networkResponse;
       }).catch(() => {
         if (event.request.mode === 'navigate') {
-          return caches.match('./index.html') || caches.match('./');
+          return caches.match('./index.html').then((page) => page || caches.match('./'));
         }
       });
     })
