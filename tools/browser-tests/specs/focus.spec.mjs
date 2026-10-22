@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
 test.beforeEach(async({page},info)=>{
- if(info.title.startsWith('guided cycles'))await page.clock.install();
+ if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view'))await page.clock.install();
  const pageErrors=[];errors.set(page,pageErrors);
  page.on('pageerror',error=>pageErrors.push(error.message));
  await page.goto('./');
@@ -120,6 +120,7 @@ test('guided cycles wait for explicit start and restore a paused break',async({p
  await expect(page.locator('#cycle-status')).toContainText('Ronda 1 de 4');
  await expect(page.locator('#timer')).toHaveText('00:25:00');
  await expect(page.locator('[data-minutes="25"]')).toBeDisabled();
+ await page.locator('#focus-view-toggle').click();
  await page.locator('#toggle').click();
  await expect(page.locator('#status-text')).toHaveText('Sonando');
  await expect(page.locator('#session-plan')).toBeDisabled();
@@ -139,6 +140,7 @@ test('guided cycles wait for explicit start and restore a paused break',async({p
  await page.locator('#toggle').click();
  await expect(page.locator('#cycle-status')).toContainText('Ronda 2 de 4');
  await page.locator('#toggle').click();
+ await page.locator('#focus-view-toggle').click();
  await page.locator('#session-plan').selectOption('50-10');
  await expect(page.locator('#timer')).toHaveText('00:50:00');
  await expand(page,'backup-panel');
@@ -176,4 +178,51 @@ test('guided cycles wait for explicit start and restore a paused break',async({p
  await page.locator('#session-plan').selectOption('single');
  await expect(page.locator('#timer')).toHaveText('00:45:00');
  await noOverflow(page);
+});
+
+
+test('focus view preserves playback, volume and progress and exits with Escape',async({page},info)=>{
+ await page.locator('[data-minutes="25"]').click();
+ await page.locator('#toggle').click();
+ await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await page.clock.fastForward(60000);
+ const timer=await page.locator('#timer').textContent();
+ const settings=await page.evaluate(()=>localStorage.getItem('focus-audio-settings-v2'));
+ await page.locator('#focus-view-toggle').click();
+ await expect(page.locator('#focus-view-toggle')).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('#focus-view-toggle')).toHaveText('Ver todos los controles');
+ await expect(page.locator('.mixer-card')).toBeHidden();
+ await expect(page.locator('#soundscape')).toBeHidden();
+ await expect(page.locator('#session-plan')).toBeHidden();
+ await expect(page.locator('#history-card')).toBeHidden();
+ await expect(page.locator('#backup-panel')).toBeHidden();
+ await expect(page.locator('#focus-view-scene')).toHaveText('Lluvia cálida');
+ await expect(page.locator('#play-label')).toHaveText('Pausar');
+ await expect(page.locator('#timer')).toHaveText(timer);
+ expect(await page.evaluate(()=>localStorage.getItem('focus-audio-settings-v2'))).toBe(settings);
+ await expect(page.locator('.orbit')).toHaveCSS('animation-name','none');
+ await noOverflow(page);
+ await page.screenshot({path:info.outputPath('focus-view.png'),fullPage:true,animations:'disabled'});
+ await page.locator('#vol-master').focus();
+ await page.keyboard.press('ArrowLeft');
+ const volume=await page.locator('#vol-master').inputValue();
+ await page.keyboard.press('Escape');
+ await expect(page.locator('#focus-view-toggle')).toBeFocused();
+ await expect(page.locator('#focus-view-toggle')).toHaveAttribute('aria-pressed','false');
+ await expect(page.locator('.mixer-card')).toBeVisible();
+ await expect(page.locator('#soundscape')).toBeVisible();
+ await expect(page.locator('#play-label')).toHaveText('Pausar');
+ await expect(page.locator('#timer')).toHaveText(timer);
+ await expect(page.locator('#vol-master')).toHaveValue(volume);
+ await page.locator('#toggle').click();
+ await page.locator('#focus-view-toggle').click();
+ await expect(page.locator('#play-label')).toHaveText('Iniciar');
+ await page.locator('#focus-view-toggle').click();
+ await expect(page.locator('.mixer-card')).toBeVisible();
+ await page.locator('#focus-view-toggle').click();
+ await page.reload();
+ await expect(page.locator('#focus-view-toggle')).toHaveAttribute('aria-pressed','false');
+ await expect(page.locator('.mixer-card')).toBeVisible();
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await expect(page.locator('#vol-master')).toHaveValue(volume);
 });

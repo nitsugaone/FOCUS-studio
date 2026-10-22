@@ -647,6 +647,42 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
 #cycle-hint[hidden] {display:none}
 .mode-chip:disabled {opacity:.45;cursor:default}
 @media(max-width:900px) {.session-plan {gap:6px}.session-plan label {font-size:12px}}
+
+/* Vista de concentración: una sola tarjeta, sin modificar la reproducción. */
+.focus-view-toolbar {width:100%;display:flex;justify-content:flex-end}
+#focus-view-toggle {min-height:44px;padding:10px 14px}
+#focus-view-scene {margin:0;color:var(--accent);text-align:center;font-size:14px}
+#focus-view-scene[hidden] {display:none}
+#session-feedback {width:100%;text-align:left}
+#feedback-status:empty {display:none}
+body[data-focus-view="true"] .app {max-width:680px}
+body[data-focus-view="true"] .layout {grid-template-columns:minmax(0,1fr)}
+body[data-focus-view="true"] .mixer-card,
+body[data-focus-view="true"] .history-card,
+body[data-focus-view="true"] .install-card,
+body[data-focus-view="true"] .footer,
+body[data-focus-view="true"] .badge-pill,
+body[data-focus-view="true"] .brand-subtitle,
+body[data-focus-view="true"] .player-heading .eyebrow,
+body[data-focus-view="true"] .player-heading .intro,
+body[data-focus-view="true"] .quick-scene,
+body[data-focus-view="true"] #favorite-mixes,
+body[data-focus-view="true"] #resume-status,
+body[data-focus-view="true"] .session-plan label,
+body[data-focus-view="true"] #session-plan,
+body[data-focus-view="true"] #cycle-hint,
+body[data-focus-view="true"] .timer-modes,
+body[data-focus-view="true"] .session-actions {display:none}
+body[data-focus-view="true"] .orbit,
+body[data-focus-view="true"] .sound-orbit::before,
+body[data-focus-view="true"] .sound-orbit::after {animation:none}
+body[data-focus-view="true"] .player-card {gap:16px}
+body[data-focus-view="true"] #cycle-status:empty {display:none}
+@media(max-width:600px) {
+ body[data-focus-view="true"] .topbar {gap:8px}
+ body[data-focus-view="true"] .brand {gap:8px}
+ body[data-focus-view="true"] .player-card {padding:18px;gap:12px}
+}
 </style>
 </head>
 <body>
@@ -671,6 +707,8 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
 
     <div class="layout">
       <section class="card player-card" id="player-card" aria-labelledby="main-title">
+        <div class="focus-view-toolbar"><button id="focus-view-toggle" type="button" class="subtle-button" aria-pressed="false">Vista de concentración</button></div>
+        <p id="focus-view-scene" hidden></p>
         <div class="player-heading">
           <p class="eyebrow">Inmersión Cognitiva</p>
           <h1 id="main-title">Entrá en foco.</h1>
@@ -728,6 +766,15 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
             <button type="button" class="subtle-button" id="reset-timer">Reiniciar reloj</button>
           </div>
         </div>
+          <div class="studio-controls" id="session-feedback" hidden>
+            <label for="session-rating">¿Cuánto te ayudó esta sesión?</label>
+            <select id="session-rating"><option value="1">1 · Poco</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5 · Mucho</option></select>
+            <label for="session-distraction">Distracciones percibidas</label>
+            <select id="session-distraction"><option value="low">Pocas</option><option value="medium">Algunas</option><option value="high">Muchas</option></select>
+            <button id="save-feedback" type="button" class="subtle-button">Guardar valoración</button>
+          </div>
+        <p id="feedback-status" class="daily-note" role="status"></p>
+        <p class="error-message" id="error-message" role="alert" data-visible="false"></p>
       </section>
 
       <section class="card mixer-card" aria-labelledby="mixer-title">
@@ -807,15 +854,9 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
 </div>
           </details>
           <p id="studio-status" role="status" aria-live="polite"></p>
-          <div id="session-feedback" hidden>
-            <label for="session-rating">¿Cuánto te ayudó esta sesión?</label>
-            <select id="session-rating"><option value="1">1 · Poco</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5 · Mucho</option></select>
-            <label for="session-distraction">Distracciones percibidas</label>
-            <select id="session-distraction"><option value="low">Pocas</option><option value="medium">Algunas</option><option value="high">Muchas</option></select>
-            <button id="save-feedback" type="button" class="subtle-button">Guardar valoración</button>
-          </div>
+
         </div>
-        <p class="error-message" id="error-message" role="alert" data-visible="false"></p>
+
       </section>
     </div>
 
@@ -1181,6 +1222,7 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
           if(writeLocal('focus-feedback-v3',ratings.slice(-200))) {
             $('session-feedback').hidden=true;feedbackSession=null;
             $('studio-status').textContent='Valoración guardada en este dispositivo.';
+            $('feedback-status').textContent='Valoración guardada en este dispositivo.';
             renderInsights();
           }
         });
@@ -2024,6 +2066,7 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
           playing = true;
           $('resume-status').textContent='';
           $('session-feedback').hidden=true;
+          $('feedback-status').textContent='';
           applyScene(0.05);
           ramp(nodes.fade.gain, 1, 0.65);
           playNote();
@@ -2409,7 +2452,23 @@ label[for=backup-settings] {display:flex;gap:10px;align-items:center;min-height:
         });
       }
 
+
+      let focusView=false;
+      function setFocusView(enabled) {
+        focusView=Boolean(enabled);
+        document.body.dataset.focusView=String(focusView);
+        const control=$('focus-view-toggle');
+        control.setAttribute('aria-pressed',String(focusView));
+        control.textContent=focusView?'Ver todos los controles':'Vista de concentración';
+        $('focus-view-scene').hidden=!focusView;
+        $('focus-view-scene').textContent=SCENES[studio.scene].label;
+      }
+      $('focus-view-toggle').addEventListener('click',()=>setFocusView(!focusView));
+
       document.addEventListener('keydown', (event) => {
+        if(event.key==='Escape'&&focusView) {
+          event.preventDefault();setFocusView(false);$('focus-view-toggle').focus();return;
+        }
         if (event.repeat) return;
         const target = event.target;
         if (target instanceof HTMLElement && target.matches('input, button, textarea, select, a, [contenteditable="true"]')) return;
