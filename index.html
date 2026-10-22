@@ -881,6 +881,7 @@ select,input {max-width:100%}
       let targetDurationMinutes = 0; // 0 = Modo libre
 
       let lastNote = -1;
+      let noteStep = 0;
 
 
       const SCENES = {
@@ -994,6 +995,7 @@ select,input {max-width:100%}
         syncStudio();renderMixes();
         ['soundscape','evolution','brightness','melody'].forEach(id=>$(id).addEventListener('input',()=>{
           if(id==='soundscape') {
+            lastNote=-1;noteStep=0;
             studio.scene=$('soundscape').value;
             studio.melody=studio.scene!=='speech';
             Object.entries(SCENES[studio.scene].mix).forEach(([k,v])=>{$('vol-'+k).value=v;updateRange(k,false);});
@@ -1244,11 +1246,52 @@ select,input {max-width:100%}
         } catch (_) {}
       }
 
-      function initAudio() {
+
+      function startBufferedNoise() {
+        nodes.noiseSrc=ctx.createBufferSource();
+        nodes.noiseSrc.buffer=createStereoBrownBuffer(ctx);
+        nodes.noiseSrc.loop=true;
+        const texture=ctx.createBuffer(2,ctx.sampleRate*19,ctx.sampleRate);
+        for(let ch=0;ch<2;ch++) {
+          const data=texture.getChannelData(ch);
+          for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*0.38;
+        }
+        nodes.textureSrc=ctx.createBufferSource();
+        nodes.textureSrc.buffer=texture;nodes.textureSrc.loop=true;
+        nodes.noiseSrc.connect(nodes.brownGain);
+        nodes.textureSrc.connect(nodes.textureFilter);
+        nodes.textureSrc.start();nodes.noiseSrc.start();
+      }
+
+      async function startNoiseSources() {
+        if(ctx.audioWorklet && window.AudioWorkletNode) {
+          try {
+            await ctx.audioWorklet.addModule('./audio/noise-processor.js');
+            const source=new window.AudioWorkletNode(ctx,'focus-continuous-noise',{
+              numberOfInputs:0,numberOfOutputs:2,outputChannelCount:[2,2]
+            });
+            source.connect(nodes.brownGain,0);
+            source.connect(nodes.textureFilter,1);
+            nodes.noiseWorklet=source;
+            source.addEventListener('processorerror',()=>{
+              source.disconnect();
+              nodes.noiseWorklet=null;
+              if(ctx.state!=='closed')startBufferedNoise();
+            },{once:true});
+            return;
+          } catch (_) {
+            // Browsers without worklet support or with a blocked module keep audio.
+          }
+        }
+        startBufferedNoise();
+      }
+
+      async function initAudio() {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (!AudioContextClass) throw new Error('Este navegador no admite Web Audio API.');
 
         ctx = new AudioContextClass({ latencyHint: 'playback' });
+        if(ctx.state==='suspended')await ctx.resume();
 
         // Compresor / Limitador maestro
         nodes.comp = ctx.createDynamicsCompressor();
@@ -1280,9 +1323,6 @@ select,input {max-width:100%}
         setupMediaSession();
 
         // CAPA 1: Ruido marrón estéreo con doble modulación orgánica
-        nodes.noiseSrc = ctx.createBufferSource();
-        nodes.noiseSrc.buffer = createStereoBrownBuffer(ctx);
-        nodes.noiseSrc.loop = true;
 
         nodes.lp = ctx.createBiquadFilter();
         nodes.lp.type = 'lowpass';
@@ -1304,12 +1344,9 @@ select,input {max-width:100%}
         nodes.textureFilter=ctx.createBiquadFilter();
         nodes.textureFilter.type='lowpass';
         nodes.textureFilter.Q.value=0.5;
-        const texture=ctx.createBuffer(2,ctx.sampleRate*19,ctx.sampleRate);
-        for(let ch=0;ch<2;ch++){const data=texture.getChannelData(ch);for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*0.38;}
-        nodes.textureSrc=ctx.createBufferSource();nodes.textureSrc.buffer=texture;nodes.textureSrc.loop=true;
-        nodes.textureSrc.connect(nodes.textureFilter);nodes.textureFilter.connect(nodes.textureGain);
+        nodes.textureFilter.connect(nodes.textureGain);
         nodes.textureGain.connect(nodes.noiseGain);
-        nodes.noiseSrc.connect(nodes.brownGain);nodes.brownGain.connect(nodes.lp);
+        nodes.brownGain.connect(nodes.lp);
         nodes.lp.connect(nodes.noiseGain);
         nodes.noiseGain.connect(nodes.master);
 
@@ -1371,9 +1408,8 @@ select,input {max-width:100%}
         nodes.reverb.connect(nodes.reverbWet);
         nodes.reverbWet.connect(nodes.notesGain);
 
-        nodes.textureSrc.start();
+        await startNoiseSources();
         applyScene(0.05);
-        nodes.noiseSrc.start();
         nodes.lfo.start();
         nodes.droneLfo.start();
         nodes.droneOscs.forEach((osc) => osc.start());
@@ -1382,9 +1418,17 @@ select,input {max-width:100%}
       function playNote() {
         if (!ctx || ctx.state !== 'running' || !nodes.notesGain || !studio.melody) return;
         let index;
-        do { index = Math.floor(Math.random() * SCALE.length); }
-        while (index === lastNote && SCALE.length > 1);
-        lastNote = index;
+        if(studio.evolution===0) {
+          index=[0,2,4,2][noteStep++ % 4];
+        } else if(lastNote<0) {
+          index=0;
+        } else {
+          const leap=Math.random()<studio.evolution/250 ? 2 : 1;
+          const direction=Math.random()<0.5 ? -1 : 1;
+          index=lastNote+direction*leap;
+          if(index<0 || index>=SCALE.length)index=lastNote-direction*leap;
+        }
+        lastNote=index;
 
         const start = ctx.currentTime;
         const attack = 0.85;
@@ -1543,7 +1587,7 @@ select,input {max-width:100%}
         }
         syncUI();
         try {
-          if (!ctx) initAudio();
+          if (!ctx) await initAudio();
           clearTimeout(suspendTimer);
           if (ctx.state !== 'running') await ctx.resume();
           playing = true;
