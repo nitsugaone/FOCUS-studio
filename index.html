@@ -597,6 +597,15 @@ select,input {max-width:100%}
 @media (pointer:coarse) {
   .studio-controls button,.studio-controls select,.studio-controls input:not([type=checkbox]) {min-height:48px}
 }
+
+.favorite-mixes {display:flex;flex-wrap:wrap;gap:8px;width:100%}
+.favorite-mixes:empty {display:none}
+.daily-note {font-size:12px;color:var(--muted);margin:0;line-height:1.5}
+.daily-note:empty {display:none}
+.install-card {margin-top:18px}
+.install-card summary {padding:16px;cursor:pointer;min-height:48px}
+.install-card p {font-size:13px;color:var(--muted);line-height:1.6;margin:0}
+#install-app[hidden],#apply-update[hidden] {display:none}
 </style>
 </head>
 <body>
@@ -634,6 +643,8 @@ select,input {max-width:100%}
           </select>
           <p id="scene-description"></p>
 </div>
+        <div id="favorite-mixes" class="favorite-mixes" aria-label="Mezclas favoritas"></div>
+        <p id="resume-status" role="status" class="daily-note"></p>
         <div class="sound-orbit">
           <div class="orbit" aria-hidden="true"></div>
           <button id="toggle" class="play-button" type="button" aria-pressed="false" aria-label="Iniciar paisaje sonoro">
@@ -736,6 +747,9 @@ select,input {max-width:100%}
           <button id="save-mix" type="button" class="subtle-button">Guardar mezcla</button>
           <label for="saved-mixes">Mis mezclas</label><select id="saved-mixes"><option value="">Elegí una mezcla</option></select>
           <button id="load-mix" type="button" class="subtle-button">Cargar</button>
+          <button id="update-mix" type="button" class="subtle-button">Actualizar con estos ajustes</button>
+          <button id="rename-mix" type="button" class="subtle-button">Renombrar</button>
+          <button id="favorite-mix" type="button" class="subtle-button" aria-pressed="false">Marcar favorita</button>
           <button id="delete-mix" type="button" class="subtle-button">Eliminar</button>
 </div>
           </details>
@@ -799,6 +813,18 @@ select,input {max-width:100%}
       </div>
     </details>
 
+    <details class="card install-card">
+      <summary>Instalar y usar sin conexión</summary>
+      <div class="settings-content">
+        <p id="offline-status" role="status">Comprobando disponibilidad sin conexión…</p>
+        <button id="install-app" type="button" class="subtle-button" hidden>Instalar FOCUS</button>
+        <p>Android: abrí el menú del navegador y elegí «Instalar aplicación» o «Agregar a pantalla de inicio».</p>
+        <p>iPhone/iPad: en Safari, tocá Compartir y «Agregar a pantalla de inicio».</p>
+        <p>Para escuchar sin conexión, abrí FOCUS con internet una vez y esperá la confirmación de disponibilidad.</p>
+        <button id="apply-update" type="button" class="subtle-button" hidden>Actualizar FOCUS</button>
+        <p id="update-status" role="status"></p>
+      </div>
+    </details>
     <footer class="footer">
       <p>Síntesis 100% local en Web Audio API. Guardá tus mezclas y retomá tu ambiente.</p>
       <p class="keyboard-note"><span class="key">Tab</span> navegar · <span class="key">Espacio</span> iniciar/pausar · <span class="key">M</span> silenciar</p>
@@ -908,11 +934,43 @@ select,input {max-width:100%}
         ramp(nodes.sessionGain.gain,entry*exit,0.4);
         $('session-phase').textContent=exit<1 ? 'Cierre gradual' : entry<1 ? 'Entrada suave' : progress>0 ? 'Concentración sostenida' : 'Sesión libre';
       }
-      function renderMixes() {
-        const select=$('saved-mixes'); select.replaceChildren(new Option('Elegí una mezcla',''));
-        savedMixes.forEach((mix,i)=>select.add(new Option(mix.name,String(i))));
-      }
 
+      function selectedMixIndex() {
+        const value=$('saved-mixes').value;
+        return value!=='' && savedMixes[Number(value)] ? Number(value) : -1;
+      }
+      function renderMixes(selected='') {
+        const select=$('saved-mixes'); select.replaceChildren(new Option('Elegí una mezcla',''));
+        const favorites=$('favorite-mixes'); favorites.replaceChildren();
+        savedMixes.forEach((mix,i)=>{
+          select.add(new Option((mix.favorite ? '★ ' : '')+mix.name,String(i)));
+          if(mix.favorite) {
+            const button=document.createElement('button');
+            button.type='button';button.className='subtle-button';
+            button.textContent='★ '+mix.name;
+            button.addEventListener('click',()=>{
+              select.value=String(i);syncMixActions();$('preset-name').value=mix.name;$('load-mix').click();
+            });
+            favorites.append(button);
+          }
+        });
+        select.value=selected;
+        syncMixActions();
+      }
+      function syncMixActions() {
+        const index=selectedMixIndex(), mix=savedMixes[index];
+        ['update-mix','rename-mix','favorite-mix','delete-mix','load-mix'].forEach(id=>$(id).disabled=index<0);
+        $('favorite-mix').textContent=mix?.favorite ? 'Quitar de favoritas' : 'Marcar favorita';
+        $('favorite-mix').setAttribute('aria-pressed',String(Boolean(mix?.favorite)));
+      }
+      function currentMix(name, favorite=false) {
+        return {...studio,name,favorite,duration:targetDurationMinutes,
+          levels:Object.fromEntries(Object.keys(DEFAULTS).map(k=>[k,Number($('vol-'+k).value)]))};
+      }
+      function commitMixes(next, selected='') {
+        if(!writeLocal('focus-mixes-v3',next))return false;
+        savedMixes=next;renderMixes(selected);return true;
+      }
       // Only crossing the breakpoint resets panels. Manual toggles within a
       // layout remain untouched, and playback nodes are never recreated.
       function setupResponsivePanels() {
@@ -949,10 +1007,7 @@ select,input {max-width:100%}
         $('save-mix').addEventListener('click',()=>{
           const name=$('preset-name').value.trim(); if(!name){$('studio-status').textContent='Escribí un nombre para tu mezcla.';return;}
           if(savedMixes.length>=50){$('studio-status').textContent='Podés guardar hasta 50 mezclas.';return;}
-          const levels=Object.fromEntries(Object.keys(DEFAULTS).map(k=>[k,Number($('vol-'+k).value)]));
-          savedMixes.push({...studio,name,levels,duration:targetDurationMinutes});
-          if(writeLocal('focus-mixes-v3',savedMixes))$('studio-status').textContent='Mezcla guardada.';
-          renderMixes();
+          if(commitMixes([...savedMixes,currentMix(name)],String(savedMixes.length)))$('studio-status').textContent='Mezcla guardada.';
         });
         $('load-mix').addEventListener('click',()=>{
           if($('saved-mixes').value==='')return;
@@ -966,9 +1021,28 @@ select,input {max-width:100%}
         });
         $('delete-mix').addEventListener('click',()=>{
           if($('saved-mixes').value==='')return;
-          savedMixes.splice(Number($('saved-mixes').value),1);
-          if(writeLocal('focus-mixes-v3',savedMixes))$('studio-status').textContent='Mezcla eliminada.';
-          renderMixes();
+          const index=selectedMixIndex();if(index<0)return;
+          if(commitMixes(savedMixes.filter((_,i)=>i!==index)))$('studio-status').textContent='Mezcla eliminada.';
+        });
+
+        $('saved-mixes').addEventListener('change',()=>{
+          syncMixActions();
+          const mix=savedMixes[selectedMixIndex()];
+          if(mix)$('preset-name').value=mix.name;
+        });
+        $('update-mix').addEventListener('click',()=>{
+          const i=selectedMixIndex();if(i<0)return;
+          const next=savedMixes.map((mix,j)=>j===i?currentMix(mix.name,mix.favorite===true):mix);
+          if(commitMixes(next,String(i)))$('studio-status').textContent='Ajustes de la mezcla actualizados.';
+        });
+        $('rename-mix').addEventListener('click',()=>{
+          const i=selectedMixIndex(),name=$('preset-name').value.trim();if(i<0)return;
+          if(!name){$('studio-status').textContent='Escribí el nuevo nombre.';return;}
+          if(commitMixes(savedMixes.map((mix,j)=>j===i?{...mix,name}:mix),String(i)))$('studio-status').textContent='Mezcla renombrada.';
+        });
+        $('favorite-mix').addEventListener('click',()=>{
+          const i=selectedMixIndex();if(i<0)return;
+          commitMixes(savedMixes.map((mix,j)=>j===i?{...mix,favorite:mix.favorite!==true}:mix),String(i));
         });
         $('save-feedback').addEventListener('click',()=>{
           if(!feedbackSession)return;
@@ -980,6 +1054,82 @@ select,input {max-width:100%}
             $('studio-status').textContent='Valoración guardada en este dispositivo.';
           }
         });
+      }
+
+
+      const SESSION_KEY='focus-session-v1';
+      let lastSessionSave=0;
+      let waitingWorker=null;
+      let updateReloadRequested=false;
+      let installPrompt=null;
+      function saveSession(force=false) {
+        if(!force && Date.now()-lastSessionSave<5000)return;
+        lastSessionSave=Date.now();
+        writeLocal(SESSION_KEY,{duration:targetDurationMinutes,elapsed:accumulatedMs});
+      }
+      function restoreSession() {
+        const saved=readLocal(SESSION_KEY,null);
+        if(!saved || ![0,25,45,60].includes(saved.duration) || !Number.isFinite(saved.elapsed) || saved.elapsed<0 || saved.elapsed>7*86400000)return;
+        targetDurationMinutes=saved.duration;
+        accumulatedMs=targetDurationMinutes ? Math.min(saved.elapsed,targetDurationMinutes*60000) : saved.elapsed;
+        sessionRecordedMs=accumulatedMs; // Time from the previous visit is already in history.
+        document.querySelectorAll('.mode-chip').forEach(c=>c.setAttribute('aria-pressed',String(Number(c.dataset.minutes)===targetDurationMinutes)));
+        modeLabelEl.textContent=targetDurationMinutes ? 'Cuenta regresiva ('+targetDurationMinutes+' min)' : 'Tiempo de sesión (Libre)';
+        if(accumulatedMs>0 && (!targetDurationMinutes || accumulatedMs<targetDurationMinutes*60000)) {
+          $('resume-status').textContent='Sesión recuperada. Tocá Iniciar para continuar.';
+        }
+      }
+      function syncUpdateButton() {
+        $('apply-update').hidden=!waitingWorker;
+        $('apply-update').disabled=playing || transitioning;
+        if(waitingWorker)$('update-status').textContent=playing ? 'Hay una versión nueva. Pausá para actualizar.' : 'Nueva versión disponible. Tus mezclas se conservan.';
+      }
+      function setupInstallAndUpdates() {
+        window.addEventListener('beforeinstallprompt',event=>{
+          event.preventDefault();installPrompt=event;$('install-app').hidden=false;
+        });
+        window.addEventListener('appinstalled',()=>{installPrompt=null;$('install-app').hidden=true;});
+        $('install-app').addEventListener('click',async()=>{
+          if(!installPrompt)return;
+          const prompt=installPrompt;installPrompt=null;$('install-app').hidden=true;
+          try { await prompt.prompt(); await prompt.userChoice; }
+          catch (_) { $('update-status').textContent='Usá el menú del navegador para instalar FOCUS.'; }
+        });
+        $('apply-update').addEventListener('click',()=>{
+          if(!waitingWorker || playing || transitioning)return;
+          saveSession(true);updateReloadRequested=true;
+          $('apply-update').disabled=true;
+          waitingWorker.postMessage({type:'SKIP_WAITING'});
+        });
+        const connectionStatus=()=>{
+          $('offline-status').textContent=navigator.onLine===false ? 'Sin conexión. La instalación guardada puede seguir funcionando.' : 'Con conexión. Preparando disponibilidad sin conexión…';
+        };
+        connectionStatus();
+        if(!('serviceWorker' in navigator)) {
+          $('offline-status').textContent='Este navegador no ofrece instalación sin conexión.';
+          return;
+        }
+        navigator.serviceWorker.addEventListener('controllerchange',()=>{
+          if(updateReloadRequested)window.location.reload();
+        });
+        const register=async()=>{
+          try {
+            const registration=await navigator.serviceWorker.register('./sw.js');
+            const markWaiting=()=>{if(registration.waiting){waitingWorker=registration.waiting;syncUpdateButton();}};
+            markWaiting();
+            registration.addEventListener('updatefound',()=>{
+              const worker=registration.installing;if(!worker)return;
+              worker.addEventListener('statechange',()=>{if(worker.state==='installed')markWaiting();});
+            });
+            await navigator.serviceWorker.ready;
+            $('offline-status').textContent=navigator.onLine===false ? 'Sin conexión · FOCUS disponible en este dispositivo.' : 'FOCUS está disponible sin conexión en este dispositivo.';
+          } catch (_) {
+            $('offline-status').textContent='No se pudo preparar el modo sin conexión. Volvé a abrir con internet.';
+          }
+        };
+        window.addEventListener('load',register);
+        window.addEventListener('online',register);
+        window.addEventListener('offline',()=>{$('offline-status').textContent='Sin conexión · si ya instalaste FOCUS, podés seguir escuchando.';});
       }
 
       const level = (id) => {
@@ -1335,6 +1485,7 @@ select,input {max-width:100%}
           applyScene();
           renderTimer();
           syncFocusHistoryProgress();
+          saveSession();
         }, 500);
       }
 
@@ -1346,6 +1497,7 @@ select,input {max-width:100%}
         clearInterval(elapsedTimer);
         elapsedTimer = null;
         syncFocusHistoryProgress(true);
+        saveSession(true);
       }
 
       function syncUI() {
@@ -1358,6 +1510,7 @@ select,input {max-width:100%}
         statusText.textContent = playing ? 'Sonando' : 'En pausa';
         statusPill.dataset.playing = String(playing);
         playerCard.classList.toggle('is-playing', playing);
+        syncUpdateButton();
         btn.disabled = transitioning;
         const mobileToggle=$('mobile-toggle');
         mobileToggle.disabled=transitioning;
@@ -1394,6 +1547,7 @@ select,input {max-width:100%}
           clearTimeout(suspendTimer);
           if (ctx.state !== 'running') await ctx.resume();
           playing = true;
+          $('resume-status').textContent='';
           $('session-feedback').hidden=true;
           applyScene(0.05);
           ramp(nodes.fade.gain, 1, 0.65);
@@ -1530,6 +1684,8 @@ select,input {max-width:100%}
           syncFocusHistoryProgress(true);
           sessionRecordedMs = 0;
           accumulatedMs = 0;
+          saveSession(true);
+          $('resume-status').textContent='';
           if (playing) lastTickTimestamp = Date.now();
           renderTimer();
         });
@@ -1550,6 +1706,8 @@ select,input {max-width:100%}
         syncFocusHistoryProgress(true);
         sessionRecordedMs = 0;
         accumulatedMs = 0;
+        saveSession(true);
+        $('resume-status').textContent='';
         if (playing) lastTickTimestamp = Date.now();
         renderTimer();
       });
@@ -1809,17 +1967,13 @@ select,input {max-width:100%}
         if (ctx && ctx.state !== 'closed') ctx.close().catch(() => {});
       });
 
-      // Registro de Service Worker para capacidades PWA y ejecución 100% offline
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch(() => {});
-        });
-      }
+      setupInstallAndUpdates();
 
       loadSettings();
       initStudio();
       setupResponsivePanels();
       loadHistory();
+      restoreSession();
 
       // Soporte para accesos directos PWA (shortcuts)
       try {
@@ -1827,6 +1981,8 @@ select,input {max-width:100%}
         const modeParam = Number(urlParams.get('duration') || urlParams.get('mode'));
         if (modeParam > 0) {
           targetDurationMinutes = modeParam;
+          accumulatedMs=0;sessionRecordedMs=0;
+          $('resume-status').textContent='';
           document.querySelectorAll('.mode-chip').forEach((c) => {
             c.setAttribute('aria-pressed', String(Number(c.dataset.minutes) === modeParam));
           });

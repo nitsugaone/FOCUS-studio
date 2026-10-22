@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focus-audio-v3.2';
+const CACHE_NAME = 'focus-audio-v3.3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -16,8 +16,15 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
+    })
   );
+});
+
+// Activation requires a request from a paused client; installation alone never forces it.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    event.waitUntil(self.skipWaiting());
+  }
 });
 
 // Activación y limpieza de versiones obsoletas

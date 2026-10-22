@@ -4,20 +4,30 @@ import assert from 'node:assert/strict';
 function verify(html) {
 const script=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
 const elems=new Map(), memory=new Map(), checks=[];
-function element(id){if(!elems.has(id))elems.set(id,{hidden:html.includes('id="'+id+'" hidden'),value:({'vol-master':75,'vol-noise':70,'vol-drone':60,'vol-notes':55,evolution:35,brightness:50,'session-rating':3}[id]??''),checked:true,dataset:{},style:{setProperty(){}},classList:{toggle(){}},events:{},attributes:{},setAttribute(k,v){this.attributes[k]=v},addEventListener(k,fn){this.events[k]=fn},replaceChildren(){},add(){},play(){return Promise.resolve()},pause(){}});return elems.get(id);}
+function element(id){if(!elems.has(id))elems.set(id,{hidden:html.includes('id="'+id+'" hidden'),value:({'vol-master':75,'vol-noise':70,'vol-drone':60,'vol-notes':55,evolution:35,brightness:50,'session-rating':3}[id]??''),checked:true,dataset:{},style:{setProperty(){}},classList:{toggle(){}},events:{},attributes:{},setAttribute(k,v){this.attributes[k]=v},addEventListener(k,fn){this.events[k]=fn},replaceChildren(){this.children=[]},append(child){(this.children??=[]).push(child)},add(){},click(){if(!this.disabled)return this.events.click?.()},play(){return Promise.resolve()},pause(){}});return elems.get(id);}
 const sources=[];
 function param(){return {value:0,cancelScheduledValues(){},setTargetAtTime(v){if(!Number.isFinite(v))throw Error('Nonfinite audio parameter');this.value=v},setValueAtTime(v){this.value=v},linearRampToValueAtTime(v){this.value=v},exponentialRampToValueAtTime(v){this.value=v}};}
 function node(){return {gain:param(),frequency:param(),Q:param(),detune:param(),pan:param(),threshold:param(),knee:param(),ratio:param(),attack:param(),release:param(),connections:[],connect(target){this.connections.push(target)},disconnect(){},start(){sources.push(this)},stop(){},addEventListener(){}};}
 const ctx={sampleRate:8000,currentTime:0,state:'running',destination:node(),createBuffer(ch,len){const d=Array.from({length:ch},()=>new Float32Array(len));return{getChannelData:i=>d[i]}},createGain:node,createOscillator:node,createBufferSource:node,createBiquadFilter:node,createStereoPanner:node,createConvolver:node,createDynamicsCompressor:node,createMediaStreamDestination(){return{...node(),stream:{}}},resume:async()=>{},suspend:async()=>{},close:async()=>{}};
-const document={getElementById:element,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}};
+let generated=0;
+const document={createElement:()=>element('generated-'+generated++),getElementById:element,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}};
 const timers=[];
 let observeVisibility;
 let layoutChange;
 const compactLayout={matches:true,addEventListener(type,callback){layoutChange=callback}};
-const window={matchMedia:()=>compactLayout,IntersectionObserver:class {constructor(callback){observeVisibility=callback;} observe(){}},AudioContext:function(){return ctx},setInterval:fn=>{timers.push(fn);return timers.length},setTimeout:()=>1,addEventListener(){},location:{search:''}};
+const windowEvents={};
+let updateMessages=0,reloads=0;
+const worker={postMessage(message){if(message.type==='SKIP_WAITING')updateMessages++}};
+const serviceWorker={ready:Promise.resolve(),addEventListener(){},register:async()=>({waiting:worker,addEventListener(){}})};
+const window={matchMedia:()=>compactLayout,IntersectionObserver:class {constructor(callback){observeVisibility=callback;} observe(){}},AudioContext:function(){return ctx},setInterval:fn=>{timers.push(fn);return timers.length},setTimeout:()=>1,addEventListener(type,fn){windowEvents[type]=fn},location:{search:'',reload(){reloads++}}};
 const localStorage={getItem:k=>memory.get(k)??null,setItem:(k,v)=>memory.set(k,v)};
-new Function('window','document','navigator','localStorage','Option','clearTimeout','clearInterval',script)(window,document,{},localStorage,function(){},()=>{},()=>{});
+memory.set('focus-session-v1',JSON.stringify({duration:25,elapsed:60000}));
+new Function('window','document','navigator','localStorage','Option','clearTimeout','clearInterval',script)(window,document,{serviceWorker,onLine:true},localStorage,function(){},()=>{},()=>{});
 return (async()=>{
+checks.push({check:'Restore previous elapsed time without autoplay',pass:element('timer').textContent==='00:24:00'&&sources.length===0});
+checks.push({check:'Recovered session offers explicit start',pass:element('resume-status').textContent.includes('Sesión recuperada')});
+await windowEvents.load();
+checks.push({check:'Waiting update is announced',pass:element('apply-update').hidden===false});
 checks.push({check:'Feedback is initially hidden',pass:element('session-feedback').hidden===true});
 checks.push({check:'Hidden feedback overrides its grid display',pass:/#session-feedback\[hidden\][^{]*\{display:none\}/.test(html)});
 observeVisibility([{isIntersecting:true}]);
@@ -26,6 +36,8 @@ observeVisibility([{isIntersecting:false}]);
 checks.push({check:'Dock appears after main control leaves view',pass:element('mobile-player').hidden===false});
 await element('mobile-toggle').events.click();
 checks.push({check:'Dock starts shared player',pass:element('play-label').textContent==='Iniciar' ? false : element('play-label').textContent==='Pausar'});
+element('apply-update').events.click();
+checks.push({check:'Updating is blocked during playback',pass:element('apply-update').disabled===true&&updateMessages===0});
 checks.push({check:'Dock announces playback state',pass:element('mobile-toggle').attributes['aria-pressed']==='true'});
 checks.push({check:'Dock timer matches main timer',pass:element('mobile-timer').textContent===element('timer').textContent});
 checks.push({check:'Audio startup: two noise sources, two LFOs, three drones and two note oscillators',pass:sources.length===9});
@@ -52,9 +64,23 @@ element('saved-mixes').value='0';element('load-mix').events.click();
 checks.push({check:'Protect active session',pass:element('studio-status').textContent.includes('Pausá')});
 element('toggle').events.click();
 checks.push({check:'Main control pauses dock',pass:element('mobile-toggle').textContent==='Iniciar'&&element('mobile-toggle').attributes['aria-pressed']==='false'});
+element('apply-update').events.click();
+checks.push({check:'Update is requested only after pause',pass:updateMessages===1});
 element('load-mix').events.click();
 checks.push({check:'Restore paused preset',pass:element('studio-status').textContent==='Mezcla cargada.'});
 checks.push({check:'History starts at zero',pass:Object.values(JSON.parse(memory.get('focus-daily-history-v1'))).every(v=>v===0)});
+
+element('saved-mixes').value='0';
+element('preset-name').value='Lectura diaria';element('rename-mix').events.click();
+checks.push({check:'Rename preserves mix settings',pass:JSON.parse(memory.get('focus-mixes-v3'))[0].name==='Lectura diaria'&&JSON.parse(memory.get('focus-mixes-v3'))[0].levels.noise===82});
+element('favorite-mix').events.click();
+checks.push({check:'Favorite persists',pass:JSON.parse(memory.get('focus-mixes-v3'))[0].favorite===true});
+element('saved-mixes').value='';element('saved-mixes').events.change();
+element('favorite-mixes').children[0].click();
+checks.push({check:'Favorite shortcut loads even with no previous selection',pass:element('studio-status').textContent==='Mezcla cargada.'&&element('saved-mixes').value==='0'});
+element('vol-noise').value=61;element('update-mix').events.click();
+checks.push({check:'Update replaces settings and preserves favorite/name',pass:JSON.parse(memory.get('focus-mixes-v3'))[0].levels.noise===61&&JSON.parse(memory.get('focus-mixes-v3'))[0].favorite===true&&JSON.parse(memory.get('focus-mixes-v3'))[0].name==='Lectura diaria'});
+checks.push({check:'Pause saves session snapshot',pass:Number.isFinite(JSON.parse(memory.get('focus-session-v1')).elapsed)});
 element('delete-mix').events.click();
 checks.push({check:'Delete preset',pass:JSON.parse(memory.get('focus-mixes-v3')).length===0});
 return checks;
@@ -62,3 +88,15 @@ return checks;
 }
 const checks = await verify(await readFile(new URL('../index.html', import.meta.url), 'utf8'));
 for (const check of checks) { console.log(check.pass ? 'PASS' : 'FAIL', check.check); assert.ok(check.pass, check.check); }
+
+const workerEvents={};let forced=0,installation;
+const workerSource=await readFile(new URL('../sw.js',import.meta.url),'utf8');
+new Function('self','caches','fetch',workerSource)({
+ addEventListener:(type,fn)=>workerEvents[type]=fn,
+ skipWaiting:()=>{forced++;return Promise.resolve()},clients:{claim:async()=>{}}
+},{open:async()=>({addAll:async()=>{}})},()=>{});
+workerEvents.install({waitUntil:p=>installation=p});await installation;
+assert.equal(forced,0,'Worker install must not force activation');
+workerEvents.message({data:{type:'SKIP_WAITING'},waitUntil:p=>installation=p});await installation;
+assert.equal(forced,1,'Worker activates after explicit request');
+console.log('PASS', 'Worker activation lifecycle (2 checks)');
