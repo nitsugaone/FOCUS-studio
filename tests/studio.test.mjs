@@ -24,9 +24,23 @@ const serviceWorker={ready:Promise.resolve(),addEventListener(){},register:async
 const window={matchMedia:()=>compactLayout,IntersectionObserver:class {constructor(callback){observeVisibility=callback;} observe(){}},AudioContext:function(){return ctx},setInterval:fn=>{timers.push(fn);return timers.length},setTimeout:()=>1,addEventListener(type,fn){windowEvents[type]=fn},location:{search:'',reload(){reloads++}}};
 if(workletMode!=='none')window.AudioWorkletNode=function(){workletNode=node();return workletNode;};
 const localStorage={getItem:k=>memory.get(k)??null,setItem:(k,v)=>memory.set(k,v)};
+const sampleDate=new Date(Date.now()-1000).toISOString();
+memory.set('focus-feedback-v3',JSON.stringify([
+ ...Array.from({length:3},()=>({scene:'rain',rating:5,date:sampleDate,minutes:25,distractions:'low'})),
+ ...Array.from({length:3},()=>({scene:'ocean',rating:4,date:sampleDate,minutes:25,distractions:'medium'})),
+ {scene:'space',rating:2,date:new Date(Date.now()-40*86400000).toISOString(),minutes:25,distractions:'high'}
+]));
 memory.set('focus-session-v1',JSON.stringify({duration:25,elapsed:60000}));
 new Function('window','document','navigator','localStorage','Option','clearTimeout','clearInterval',script)(window,document,{serviceWorker,onLine:true},localStorage,function(){},()=>{},()=>{});
 return (async()=>{
+checks.push({check:'Insights render saved ratings for the default period',pass:element('insights-summary').textContent.startsWith('6 valoraciones')});
+checks.push({check:'Insights show group and recent rows',pass:element('insights-rows').children.length===2&&element('insights-recent').children.length===6});
+const ratingsBefore=memory.get('focus-feedback-v3');
+element('insights-period').value='0';element('insights-period').events.change();
+checks.push({check:'All-time filter includes older feedback',pass:element('insights-summary').textContent.startsWith('7 valoraciones')});
+element('insights-scene').value='ocean';element('insights-scene').events.change();
+checks.push({check:'Scene filter updates only selected ratings',pass:element('insights-summary').textContent.startsWith('3 valoraciones')&&element('insights-rows').children.length===1});
+checks.push({check:'Filtering leaves stored ratings untouched',pass:memory.get('focus-feedback-v3')===ratingsBefore});
 checks.push({check:'Restore previous elapsed time without autoplay',pass:element('timer').textContent==='00:24:00'&&sources.length===0});
 checks.push({check:'Recovered session offers explicit start',pass:element('resume-status').textContent.includes('Sesión recuperada')});
 await windowEvents.load();
