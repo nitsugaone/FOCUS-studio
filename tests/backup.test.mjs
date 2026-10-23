@@ -168,3 +168,18 @@ const windBackup={...file,data:{...file.data,studio:{...scene,scene:'wind',melod
 assert.equal(tools.validateBackup(windBackup).studio.scene,'wind');
 assert.equal(tools.validateBackup(windBackup).mixes[0].scene,'wind');
 assert.equal(tools.validateBackup(windBackup).ratings[0].scene,'wind');
+
+for(const balance of [-100,-35,0,45,100]) {
+ const data=tools.validateBackup({...file,data:{...file.data,studio:{...scene,balance},mixes:[{...mix,balance}]}});
+ assert.equal(data.studio.balance,balance);assert.equal(data.mixes[0].balance,balance);
+}
+assert.equal(tools.validateBackup(file).studio.balance,0);
+assert.equal(tools.validateBackup(file).mixes[0].balance,0);
+for(const balance of [-101,101,NaN,null,'35',.5])assert.throws(()=>tools.validateBackup({...file,data:{...file.data,studio:{...scene,balance}}}));
+const balanceFile={...file,data:{...file.data,mixes:[{...mix,name:'Balance',balance:-25},{...mix,name:'Balance',balance:25}]}};
+const balanceStorage=new MemoryStorage(),balanceTools=createTools(balanceStorage);
+balanceTools.applyImport(balanceFile);
+assert.equal(JSON.parse(balanceStorage.getItem('focus-mixes-v3')).length,2,'Mixes with different balance remain distinct');
+balanceTools.applyImport(balanceFile);
+assert.equal(JSON.parse(balanceStorage.getItem('focus-mixes-v3')).length,2,'Import remains idempotent');
+console.log('PASS: backup balance, old copy defaults, invalid values and distinct mix merging');

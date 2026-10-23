@@ -872,6 +872,11 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           <input id="stereo-width" type="range" min="0" max="100" step="1" value="100" aria-describedby="stereo-width-hint">
           <p id="stereo-width-hint" class="daily-note">0% centra el sonido en ambos canales. 100% conserva la separación original. Ajustalo según tu preferencia.</p>
 
+          <label for="channel-balance">Balance: <output id="channel-balance-value" for="channel-balance">Centro</output></label>
+          <input id="channel-balance" type="range" min="-100" max="100" step="1" value="0" aria-describedby="channel-balance-hint" aria-valuetext="Centro">
+          <p id="channel-balance-hint" class="daily-note">Ajustá qué lado se escucha más. Centro mantiene ambos canales.</p>
+          <button id="center-balance" class="subtle-button" type="button">Centrar balance</button>
+
         <div class="layer-list">
           <div class="layer">
             <div class="layer-top">
@@ -1137,9 +1142,9 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
         const number=value=>Number.isFinite(value)&&value>=0&&value<=100;
         function normalize(value) {
-          if(!object(value)||value.v!==1||!scenes.includes(value.scene)||!number(value.evolution)||!number(value.brightness)||typeof value.melody!=='boolean'||(value.stereoWidth!==undefined&&!number(value.stereoWidth))||!(value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))||!(value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds))||!(value.preserveMix===undefined||typeof value.preserveMix==='boolean')||!(value.restSound===undefined||['sound','silent'].includes(value.restSound))||!Object.prototype.hasOwnProperty.call(cycles.plans,value.cyclePlan)||!object(value.levels)||!['master','noise','drone','notes'].every(key=>number(value.levels[key])))throw Error('Enlace de mezcla inválido.');
+          if(!object(value)||value.v!==1||!scenes.includes(value.scene)||!number(value.evolution)||!number(value.brightness)||typeof value.melody!=='boolean'||(value.stereoWidth!==undefined&&!number(value.stereoWidth))||(value.balance!==undefined&&(!Number.isInteger(value.balance)||value.balance<-100||value.balance>100))||!(value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))||!(value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds))||!(value.preserveMix===undefined||typeof value.preserveMix==='boolean')||!(value.restSound===undefined||['sound','silent'].includes(value.restSound))||!Object.prototype.hasOwnProperty.call(cycles.plans,value.cyclePlan)||!object(value.levels)||!['master','noise','drone','notes'].every(key=>number(value.levels[key])))throw Error('Enlace de mezcla inválido.');
           if(value.cyclePlan==='single'?!cycles.validDuration(value.duration):cycles.plans[value.cyclePlan].focus!==value.duration)throw Error('Duración de mezcla inválida.');
-          return {v:1,scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,notePace:value.notePace??'normal',fadeOutSeconds:value.fadeOutSeconds??20,preserveMix:value.preserveMix??false,restSound:value.restSound??'sound',cyclePlan:value.cyclePlan,duration:value.duration,
+          return {v:1,scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,balance:value.balance??0,notePace:value.notePace??'normal',fadeOutSeconds:value.fadeOutSeconds??20,preserveMix:value.preserveMix??false,restSound:value.restSound??'sound',cyclePlan:value.cyclePlan,duration:value.duration,
             levels:Object.fromEntries(['master','noise','drone','notes'].map(key=>[key,value.levels[key]]))};
         }
         function encode(mix) {return '#mix='+encodeURIComponent(JSON.stringify(normalize({...mix,v:1})));}
@@ -1167,7 +1172,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         speech: { melody:false, label:'Cubrir conversaciones', description:'Textura continua más amplia, sin melodía por defecto. Ajustá a un volumen cómodo.', cutoff:2600, root:55, rate:0.01, depth:0, white:0.85, interval:25, mix:{noise:82,drone:0,notes:0} }
       };
       const STUDIO_KEY = 'focus-studio-v3';
-      let studio = {scene:'rain',evolution:35,brightness:50,melody:true,stereoWidth:100,notePace:'normal',fadeOutSeconds:20,preserveMix:false,restSound:'sound'};
+      let studio = {scene:'rain',evolution:35,brightness:50,melody:true,stereoWidth:100,balance:0,notePace:'normal',fadeOutSeconds:20,preserveMix:false,restSound:'sound'};
       let savedMixes = [];
       let feedbackSession = null;
       function readLocal(key, fallback) {
@@ -1181,6 +1186,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         return value && SCENES[value.scene] && Number.isFinite(value.evolution) && value.evolution >= 0 && value.evolution <= 100
           && Number.isFinite(value.brightness) && value.brightness >= 0 && value.brightness <= 100 && typeof value.melody === 'boolean'
           && (value.stereoWidth===undefined||(Number.isFinite(value.stereoWidth)&&value.stereoWidth>=0&&value.stereoWidth<=100))
+          && (value.balance===undefined||(Number.isInteger(value.balance)&&value.balance>=-100&&value.balance<=100))
           && (value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))
           && (value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds))
           && (value.preserveMix===undefined||typeof value.preserveMix==='boolean')
@@ -1239,6 +1245,9 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         $('note-pace-hint').textContent=studio.melody?'Cambia cuándo aparecen nuevas notas, sin modificar su volumen.':'Activá Incluir melodía para escuchar notas. Se conserva el ritmo elegido.';
         $('evolution-value').textContent=studio.evolution+'%';
         $('stereo-width').value=studio.stereoWidth;$('stereo-width-value').textContent=studio.stereoWidth+'%';
+        $('channel-balance').value=studio.balance;
+        $('channel-balance-value').textContent=balanceLabel(studio.balance);
+        $('channel-balance').setAttribute('aria-valuetext',balanceLabel(studio.balance));
         $('scene-description').textContent=SCENES[studio.scene].description;
         syncSceneLabels();
       }
@@ -1272,6 +1281,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         syncStudio();
         if (!ctx || !nodes.textureGain) return;
         nodes.stereoField?.setWidth(studio.stereoWidth);
+        nodes.channelBalance?.setBalance(studio.balance);
         const scene=SCENES[studio.scene], evolution=studio.evolution/100;
         const progress=targetDurationMinutes ? Math.min(1, accumulatedMs/(targetDurationMinutes*60000)) : 0;
         const drift=1+0.12*evolution*Math.sin(accumulatedMs/110000);
@@ -1351,11 +1361,11 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
 
       function initStudio() {
         const loaded=readLocal(STUDIO_KEY,null);
-        if(validStudio(loaded)) studio={scene:loaded.scene,evolution:loaded.evolution,brightness:loaded.brightness,melody:loaded.melody,stereoWidth:loaded.stereoWidth??100,notePace:loaded.notePace??'normal',fadeOutSeconds:loaded.fadeOutSeconds??20,preserveMix:loaded.preserveMix??false,restSound:loaded.restSound??'sound'};
+        if(validStudio(loaded)) studio={scene:loaded.scene,evolution:loaded.evolution,brightness:loaded.brightness,melody:loaded.melody,stereoWidth:loaded.stereoWidth??100,balance:loaded.balance??0,notePace:loaded.notePace??'normal',fadeOutSeconds:loaded.fadeOutSeconds??20,preserveMix:loaded.preserveMix??false,restSound:loaded.restSound??'sound'};
         const mixes=readLocal('focus-mixes-v3',[]);
         savedMixes=Array.isArray(mixes) ? mixes.filter(m=>validStudio(m)&&typeof m.name==='string'&&m.levels&&Object.keys(DEFAULTS).every(k=>Number.isFinite(m.levels[k])&&m.levels[k]>=0&&m.levels[k]<=100)).slice(0,50) : [];
         syncStudio();renderMixes();
-        ['soundscape','evolution','brightness','melody','stereo-width','note-pace','fade-out','preserve-mix','rest-sound'].forEach(id=>$(id).addEventListener('input',()=>{
+        ['soundscape','evolution','brightness','melody','stereo-width','channel-balance','note-pace','fade-out','preserve-mix','rest-sound'].forEach(id=>$(id).addEventListener('input',()=>{
           if(id==='fade-out') {
             const value=Number($('fade-out').value);
             if(playing||transitioning||!targetDurationMinutes||![5,20,60].includes(value)){syncFadeUI();return;}
@@ -1379,6 +1389,11 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           if(id==='evolution')studio.evolution=Number($('evolution').value);
           if(id==='brightness')studio.brightness=Number($('brightness').value);
           if(id==='stereo-width')studio.stereoWidth=Number($('stereo-width').value);
+          if(id==='channel-balance') {
+            const value=Number($('channel-balance').value);
+            if(!Number.isInteger(value)||value<-100||value>100){syncStudio();return;}
+            studio.balance=value;
+          }
           if(id==='melody')studio.melody=$('melody').checked;
           if(id==='note-pace') {
             if(!['sparse','normal','frequent'].includes($('note-pace').value)){syncStudio();return;}
@@ -1388,6 +1403,9 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           if(id==='rest-sound')syncUI();
           if(playing&&['soundscape','melody','note-pace'].includes(id))scheduleNextNote();
         }));
+        $('center-balance').addEventListener('click',()=>{
+          studio.balance=0;applyScene();writeLocal(STUDIO_KEY,studio);
+        });
         $('save-mix').addEventListener('click',()=>{
           const name=$('preset-name').value.trim(); if(!name){$('studio-status').textContent='Escribí un nombre para tu mezcla.';return;}
           if(savedMixes.length>=50){$('studio-status').textContent='Podés guardar hasta 50 mezclas.';return;}
@@ -1397,7 +1415,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           if($('saved-mixes').value==='')return;
           const mix=savedMixes[Number($('saved-mixes').value)];if(!mix)return;
           if(playing||transitioning){$('studio-status').textContent=transitioning?'Esperá a que termine el inicio del audio para cargar una mezcla.':'Pausá la sesión antes de cargar una mezcla.';return;}
-          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20,preserveMix:mix.preserveMix??false,restSound:mix.restSound??'sound'};
+          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,balance:mix.balance??0,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20,preserveMix:mix.preserveMix??false,restSound:mix.restSound??'sound'};
           Object.keys(DEFAULTS).forEach(k=>{$('vol-'+k).value=mix.levels[k];updateRange(k,false);});
           const plan=Object.prototype.hasOwnProperty.call(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single';
           resetCycle(plan,plan==='single'?(cycleTools.validDuration(mix.duration)?mix.duration:0):cycleState.singleDuration);
@@ -1513,8 +1531,8 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         const number=(value,min,max)=>Number.isFinite(value)&&value>=min&&value<=max;
         const requireValid=(condition,message)=>{if(!condition)throw Error(message);};
         const normalizeStudio=value=>{
-          requireValid(object(value)&&scenes.includes(value.scene)&&number(value.evolution,0,100)&&number(value.brightness,0,100)&&typeof value.melody==='boolean'&&(value.stereoWidth===undefined||number(value.stereoWidth,0,100))&&(value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))&&(value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds))&&(value.preserveMix===undefined||typeof value.preserveMix==='boolean')&&(value.restSound===undefined||['sound','silent'].includes(value.restSound)),'Ajustes de ambiente inválidos.');
-          return {scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,notePace:value.notePace??'normal',fadeOutSeconds:value.fadeOutSeconds??20,preserveMix:value.preserveMix??false,restSound:value.restSound??'sound'};
+          requireValid(object(value)&&scenes.includes(value.scene)&&number(value.evolution,0,100)&&number(value.brightness,0,100)&&typeof value.melody==='boolean'&&(value.stereoWidth===undefined||number(value.stereoWidth,0,100))&&(value.balance===undefined||(Number.isInteger(value.balance)&&number(value.balance,-100,100)))&&(value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))&&(value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds))&&(value.preserveMix===undefined||typeof value.preserveMix==='boolean')&&(value.restSound===undefined||['sound','silent'].includes(value.restSound)),'Ajustes de ambiente inválidos.');
+          return {scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,balance:value.balance??0,notePace:value.notePace??'normal',fadeOutSeconds:value.fadeOutSeconds??20,preserveMix:value.preserveMix??false,restSound:value.restSound??'sound'};
         };
         const normalizeLevels=value=>{
           requireValid(object(value)&&['master','noise','drone','notes'].every(key=>number(value[key],0,100)),'Volúmenes inválidos.');
@@ -1575,7 +1593,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           requireValid(object(file)&&file.format==='focus-studio-backup'&&file.version===1,'No es una copia de FOCUS compatible.');
           return normalizeData(file.data);
         }
-        const mixIdentity=mix=>JSON.stringify([mix.name,mix.cyclePlan||'single',mix.scene,mix.evolution,mix.brightness,mix.melody,mix.stereoWidth??100,mix.notePace??'normal',mix.fadeOutSeconds??20,mix.preserveMix??false,mix.restSound??'sound',mix.duration,mix.levels.master,mix.levels.noise,mix.levels.drone,mix.levels.notes]);
+        const mixIdentity=mix=>JSON.stringify([mix.name,mix.cyclePlan||'single',mix.scene,mix.evolution,mix.brightness,mix.melody,mix.stereoWidth??100,mix.balance??0,mix.notePace??'normal',mix.fadeOutSeconds??20,mix.preserveMix??false,mix.restSound??'sound',mix.duration,mix.levels.master,mix.levels.noise,mix.levels.drone,mix.levels.notes]);
         const ratingIdentity=record=>JSON.stringify([record.date,record.scene,record.rating,record.minutes,record.distractions]);
         function planImport(file,includeSettings=false) {
           const incoming=validateBackup(file),current=collect(),mixes=current.mixes.map(mix=>({...mix}));
@@ -1651,7 +1669,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           try {
             pendingSharedMix=shareTools.decode(hash);
             const mix=pendingSharedMix;
-            $('shared-mix-summary').textContent=SCENES[mix.scene].label+' · '+(mix.cyclePlan==='single'?(mix.duration?mix.duration+' minutos':'Sesión libre'):mix.cyclePlan.replace('-','/'))+' · Volumen maestro: '+mix.levels.master+'% · Amplitud estéreo: '+mix.stereoWidth+'% · Notas: '+(mix.melody?({sparse:'más espaciadas',normal:'ritmo actual',frequent:'más frecuentes'})[mix.notePace]:'desactivadas')+' · Cierre: '+mix.fadeOutSeconds+' s (hasta la mitad del tramo).'+(mix.preserveMix?' Conserva volúmenes y melodía al cambiar de ambiente.':'')+(mix.cyclePlan!=='single'?' Descansos: '+(mix.restSound==='silent'?'en silencio.':'con sonido.'):'');
+            $('shared-mix-summary').textContent=SCENES[mix.scene].label+' · '+(mix.cyclePlan==='single'?(mix.duration?mix.duration+' minutos':'Sesión libre'):mix.cyclePlan.replace('-','/'))+' · Volumen maestro: '+mix.levels.master+'% · Amplitud estéreo: '+mix.stereoWidth+'% · Balance: '+balanceLabel(mix.balance)+' · Notas: '+(mix.melody?({sparse:'más espaciadas',normal:'ritmo actual',frequent:'más frecuentes'})[mix.notePace]:'desactivadas')+' · Cierre: '+mix.fadeOutSeconds+' s (hasta la mitad del tramo).'+(mix.preserveMix?' Conserva volúmenes y melodía al cambiar de ambiente.':'')+(mix.cyclePlan!=='single'?' Descansos: '+(mix.restSound==='silent'?'en silencio.':'con sonido.'):'');
             $('shared-mix-preview').hidden=false;
           }catch(_) {
             $('shared-mix-status').textContent='El enlace de mezcla no es válido o usa una versión incompatible. Tus ajustes se mantienen.';
@@ -1684,7 +1702,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         $('apply-shared-mix').addEventListener('click',()=>{
           if(!pendingSharedMix||playing||transitioning)return;
           const mix=pendingSharedMix;
-          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20,preserveMix:mix.preserveMix??false,restSound:mix.restSound??'sound'};
+          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,balance:mix.balance??0,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20,preserveMix:mix.preserveMix??false,restSound:mix.restSound??'sound'};
           Object.keys(DEFAULTS).forEach(key=>{$('vol-'+key).value=mix.levels[key];updateRange(key,false);});
           const sessionSaved=resetCycle(mix.cyclePlan,mix.cyclePlan==='single'?mix.duration:cycleState.singleDuration);
           applyScene();
@@ -2096,6 +2114,33 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         return {setWidth};
       }
 
+      function balanceCoefficients(value) {
+        if(!Number.isInteger(value)||value<-100||value>100)throw Error('Balance inválido.');
+        return {left:Math.min(1,1-value/100),right:Math.min(1,1+value/100)};
+      }
+      function balanceLabel(value=0) {
+        return value===0?'Centro':Math.abs(value)+'% '+(value<0?'izquierda':'derecha');
+      }
+      function createChannelBalance(context,input,output,value=0) {
+        const stereo=context.createGain();
+        stereo.channelCount=2;stereo.channelCountMode='explicit';stereo.channelInterpretation='speakers';
+        const splitter=context.createChannelSplitter(2),merger=context.createChannelMerger(2);
+        const left=context.createGain(),right=context.createGain();
+        input.connect(stereo);stereo.connect(splitter);
+        splitter.connect(left,0);splitter.connect(right,1);
+        left.connect(merger,0,0);right.connect(merger,0,1);merger.connect(output);
+        let current=null;
+        function setBalance(next,smooth=0.08) {
+          const coefficients=balanceCoefficients(next);
+          if(next===current)return;current=next;
+          [[left,coefficients.left],[right,coefficients.right]].forEach(([node,target])=>{
+            if(smooth>0){node.gain.cancelScheduledValues(context.currentTime);node.gain.setTargetAtTime(target,context.currentTime,smooth);}
+            else node.gain.value=target;
+          });
+        }
+        setBalance(value,0);return {setBalance};
+      }
+
       async function initAudio() {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (!AudioContextClass) throw new Error('Este navegador no admite Web Audio API.');
@@ -2121,7 +2166,9 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         nodes.closingGain.gain.value=1;
         nodes.sessionGain.connect(nodes.closingGain);
         nodes.closingGain.connect(nodes.fade);
-        nodes.stereoField=createStereoField(ctx,nodes.fade,nodes.comp,studio.stereoWidth);
+        nodes.balanceInput=ctx.createGain();
+        nodes.stereoField=createStereoField(ctx,nodes.fade,nodes.balanceInput,studio.stereoWidth);
+        nodes.channelBalance=createChannelBalance(ctx,nodes.balanceInput,nodes.comp,studio.balance);
         nodes.comp.connect(ctx.destination);
 
         // MediaStreamAudioDestinationNode para supervivencia del audio con pantalla apagada en móviles

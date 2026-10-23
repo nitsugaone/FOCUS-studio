@@ -47,3 +47,8 @@ console.log('PASS: silent rest in links and old data defaults');
 assert.equal(tools.decode(tools.encode({...mix,scene:'fire',melody:false})).scene,'fire');
 
 assert.equal(tools.decode(tools.encode({...mix,scene:'wind',melody:false})).scene,'wind');
+
+for(const balance of [-100,-35,0,45,100])assert.equal(tools.decode(tools.encode({...mix,balance})).balance,balance);
+assert.equal(tools.decode(tools.encode(mix)).balance,0);
+for(const balance of [-101,101,NaN,null,'35',.5])assert.throws(()=>tools.encode({...mix,balance}));
+console.log('PASS: balance links, defaults for older links and invalid values');

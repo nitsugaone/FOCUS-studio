@@ -3,8 +3,8 @@ import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
 test.beforeEach(async({page},info)=>{
- if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest'))await page.clock.install();
- if(info.title.startsWith('note timing'))await page.addInitScript(()=>{
+ if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest')||info.title.startsWith('channel balance'))await page.clock.install();
+ if(info.title.startsWith('note timing')||info.title.startsWith('channel balance'))await page.addInitScript(()=>{
   window.createdOscillators=0;
   const Context=window.AudioContext||window.webkitAudioContext;
   if(Context){const original=Context.prototype.createOscillator;Context.prototype.createOscillator=function(){window.createdOscillators++;return original.call(this);};}
@@ -889,4 +889,71 @@ test('audio deadline reset replaces the old cutoff while preserving playback',as
  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-session-v1')).duration)).toBe(0);
  await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeGreaterThan(.00001);
  await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('En pausa');
+});
+
+test('channel balance persists in settings, mixes, shared links and old backups',async({page},info)=>{
+ await page.locator('#soundscape').selectOption('wind');await expand(page,'sound-settings');
+ await expect(page.locator('#channel-balance')).toHaveValue('0');await expect(page.locator('#channel-balance-value')).toHaveText('Centro');
+ await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await page.clock.fastForward(10000);
+ const timer=await page.locator('#timer').textContent(),oscillators=await page.evaluate(()=>window.createdOscillators);
+ const levels=await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value));
+ await page.locator('#channel-balance').evaluate(el=>{el.value='-40';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await expect(page.locator('#channel-balance-value')).toHaveText('40% izquierda');
+ await expect(page.locator('#channel-balance')).toHaveAttribute('aria-valuetext','40% izquierda');
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-studio-v3')).balance)).toBe(-40);
+ expect(await page.evaluate(()=>window.createdOscillators)).toBe(oscillators);
+ await expect(page.locator('#timer')).toHaveText(timer);
+ expect(await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value))).toEqual(levels);
+ await page.locator('#center-balance').click();await expect(page.locator('#channel-balance')).toHaveValue('0');
+ await expect(page.locator('#channel-balance-value')).toHaveText('Centro');
+ await page.locator('#channel-balance').evaluate(el=>{el.value='-40';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.locator('#toggle').click();
+ await expand(page,'mix-settings');await page.locator('#preset-name').fill('Mi balance');await page.locator('#save-mix').click();
+ await page.locator('#create-share-link').click();const link=await page.locator('#share-link').inputValue();
+ expect(JSON.parse(decodeURIComponent(new URL(link).hash.slice(5))).balance).toBe(-40);
+ await page.reload();await expand(page,'sound-settings');await expect(page.locator('#channel-balance')).toHaveValue('-40');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await page.locator('#center-balance').click();
+ await expand(page,'mix-settings');await page.locator('#saved-mixes').selectOption('0');await page.locator('#load-mix').click();
+ await expect(page.locator('#channel-balance')).toHaveValue('-40');
+ await expand(page,'backup-panel');const promise=page.waitForEvent('download');await page.locator('#export-backup').click();
+ const backup=JSON.parse(await readFile(await (await promise).path(),'utf8'));
+ expect(backup.data.studio.balance).toBe(-40);expect(backup.data.mixes[0].balance).toBe(-40);
+ delete backup.data.studio.balance;backup.data.mixes.forEach(mix=>delete mix.balance);
+ await page.locator('#backup-file').setInputFiles({name:'old-balance.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+ await page.locator('#backup-settings').check();await Promise.all([page.waitForEvent('load'),page.locator('#import-backup').click()]);
+ await expand(page,'sound-settings');await expect(page.locator('#channel-balance')).toHaveValue('0');
+ const old=new URL(link),payload=JSON.parse(decodeURIComponent(old.hash.slice(5)));delete payload.balance;old.hash='mix='+encodeURIComponent(JSON.stringify(payload));
+ await page.goto(old.toString());await expect(page.locator('#shared-mix-summary')).toContainText('Balance: Centro');
+ await page.locator('#apply-shared-mix').click();await expand(page,'sound-settings');await expect(page.locator('#channel-balance')).toHaveValue('0');
+ await page.goto(link);await expect(page.locator('#shared-mix-summary')).toContainText('Balance: 40% izquierda');
+ await page.locator('#apply-shared-mix').click();await expand(page,'sound-settings');
+ await expect(page.locator('#channel-balance')).toHaveValue('-40');await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await noOverflow(page);await page.screenshot({path:info.outputPath('balance.png'),fullPage:true,animations:'disabled'});
+});
+test('channel balance renders each channel after stereo width with real Web Audio',async({page})=>{
+ const html=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
+ const start=html.indexOf('      function stereoCoefficients('),end=html.indexOf('      async function initAudio()',start);
+ const results=await page.evaluate(async source=>{
+  const tools=new Function(source+'return {createStereoField,createChannelBalance};')(),Context=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const results=[];
+  for(const channels of [1,2])for(const width of [0,100])for(const balance of [-100,-50,0,50,100]) {
+   const size=2048,ctx=new Context(2,size,44100),buffer=ctx.createBuffer(channels,size,44100);
+   for(let i=0;i<size;i++){buffer.getChannelData(0)[i]=.2*Math.sin(i*.13);if(channels===2)buffer.getChannelData(1)[i]=.13*Math.cos(i*.07);}
+   const input=ctx.createBufferSource();input.buffer=buffer;const between=ctx.createGain();
+   tools.createStereoField(ctx,input,between,width);tools.createChannelBalance(ctx,between,ctx.destination,balance);input.start();
+   const output=await ctx.startRendering(),direct=(1+width/100)/2,cross=(1-width/100)/2,leftGain=Math.min(1,1-balance/100),rightGain=Math.min(1,1+balance/100);
+   let error=0,excess=0;
+   for(let i=0;i<size;i++){
+    const left=buffer.getChannelData(0)[i],right=channels===1?left:buffer.getChannelData(1)[i],a=output.getChannelData(0)[i],b=output.getChannelData(1)[i];
+    error=Math.max(error,Math.abs(a-(left*direct+right*cross)*leftGain),Math.abs(b-(right*direct+left*cross)*rightGain));
+    excess=Math.max(excess,Math.abs(a)-Math.max(Math.abs(left),Math.abs(right)),Math.abs(b)-Math.max(Math.abs(left),Math.abs(right)));
+   }
+   results.push({error,excess});
+  }
+  return results;
+ },html.slice(start,end));
+ for(const value of results){expect(value.error).toBeLessThan(.000001);expect(value.excess).toBeLessThan(.000001);}
 });
