@@ -869,3 +869,19 @@ test('audio closing renders the selected fade and stays silent after the deadlin
  },html.slice(start,end));
  for(const samples of results)for(const sample of samples)expect(Math.abs(sample.actual-sample.expected)).toBeLessThan(.00001);
 });
+
+test('audio deadline reset replaces the old cutoff while preserving playback',async({page})=>{
+ await page.evaluate(()=>{
+  localStorage.setItem('focus-session-v1',JSON.stringify({duration:1,elapsed:58000}));
+  localStorage.setItem('focus-studio-v3',JSON.stringify({scene:'wind',evolution:35,brightness:50,melody:false,fadeOutSeconds:5}));
+  localStorage.setItem('focus-audio-settings-v2',JSON.stringify({master:75,noise:70,drone:0,notes:0}));
+ });
+ await page.reload();await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await attachRestMeter(page);await page.locator('#reset-timer').click();await expect(page.locator('#timer')).toHaveText('00:01:00');
+ await page.waitForTimeout(2300);
+ await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeGreaterThan(.00001);
+ await page.locator('[data-minutes="0"]').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-session-v1')).duration)).toBe(0);
+ await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeGreaterThan(.00001);
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('En pausa');
+});
