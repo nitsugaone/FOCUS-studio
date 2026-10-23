@@ -23,3 +23,8 @@ assert.equal(tools.decode(tools.encode({...mix,stereoWidth:0})).stereoWidth,0);
 assert.equal(tools.decode(tools.encode({...mix,stereoWidth:37})).stereoWidth,37);
 for(const stereoWidth of [-1,101,'50',null,NaN])assert.throws(()=>tools.normalize({...data,stereoWidth}));
 console.log('PASS: stereo width round-trip and backwards compatible shared links');
+
+assert.equal(tools.decode(encoded).notePace,'normal');
+for(const notePace of ['sparse','normal','frequent'])assert.equal(tools.decode(tools.encode({...mix,notePace})).notePace,notePace);
+for(const notePace of ['unknown','__proto__',1,null])assert.throws(()=>tools.normalize({...data,notePace}));
+console.log('PASS: note pace links and backwards compatible defaults');
