@@ -740,3 +740,30 @@ test('silent rest mutes output, excludes listening time and resumes focus explic
  await noOverflow(page);
  await page.screenshot({path:info.outputPath('silent-rest.png'),fullPage:true,animations:'disabled'});
 });
+
+test('fire scene plays, switches, saves and shares on mobile and desktop',async({page},info)=>{
+ await page.locator('#soundscape').selectOption('fire');
+ await expect(page.locator('#scene-description')).toContainText('crepitaciones');
+ await expand(page,'sound-settings');await expect(page.locator('#melody')).not.toBeChecked();
+ await expect(page.locator('#vol-drone')).toHaveValue('0');await expect(page.locator('#vol-notes')).toHaveValue('0');
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await expect(page.locator('#error-message')).toBeHidden();
+ await page.locator('#soundscape').selectOption('rain');await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await page.locator('#soundscape').selectOption('fire');await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await page.locator('#toggle').click();
+ await expand(page,'mix-settings');await page.locator('#preset-name').fill('Mi fogón');await page.locator('#save-mix').click();
+ await page.locator('#favorite-mix').click();await page.locator('#create-share-link').click();
+ const link=await page.locator('#share-link').inputValue();
+ expect(JSON.parse(decodeURIComponent(new URL(link).hash.slice(5))).scene).toBe('fire');
+ await page.reload();await page.locator('#favorite-mixes button').click();
+ await expect(page.locator('#soundscape')).toHaveValue('fire');await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await expand(page,'backup-panel');const promise=page.waitForEvent('download');await page.locator('#export-backup').click();
+ const backup=JSON.parse(await readFile(await (await promise).path(),'utf8'));
+ expect(backup.data.studio.scene).toBe('fire');expect(backup.data.mixes[0].scene).toBe('fire');
+ await page.locator('#backup-file').setInputFiles({name:'fire.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+ await expect(page.locator('#backup-preview')).toBeVisible();await page.locator('#cancel-backup').click();
+ await page.goto(link);await expect(page.locator('#shared-mix-summary')).toContainText('Fogón suave');
+ await page.locator('#apply-shared-mix').click();await expect(page.locator('#soundscape')).toHaveValue('fire');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');await noOverflow(page);
+ await page.screenshot({path:info.outputPath('fire.png'),fullPage:true,animations:'disabled'});
+});

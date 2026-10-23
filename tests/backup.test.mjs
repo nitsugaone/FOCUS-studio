@@ -158,3 +158,8 @@ for(const restSound of ['unknown',true,1,null]){
  const invalid=clone(file);invalid.data.studio.restSound=restSound;assert.throws(()=>tools.validateBackup(invalid));
 }
 console.log('PASS: silent rest in backups and old data keeps audible rests');
+
+const fireBackup={...file,data:{...file.data,studio:{...scene,scene:'fire',melody:false},mixes:[{...mix,scene:'fire',melody:false}],ratings:[{...rating,scene:'fire'}]}};
+assert.equal(tools.validateBackup(fireBackup).studio.scene,'fire');
+assert.equal(tools.validateBackup(fireBackup).mixes[0].scene,'fire');
+assert.equal(tools.validateBackup(fireBackup).ratings[0].scene,'fire');

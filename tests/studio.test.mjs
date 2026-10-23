@@ -6,7 +6,7 @@ const script=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
 const elems=new Map(), memory=new Map(), checks=[];
 function element(id){if(!elems.has(id))elems.set(id,{hidden:html.includes('id="'+id+'" hidden'),value:({'vol-master':75,'vol-noise':70,'vol-drone':60,'vol-notes':55,evolution:35,brightness:50,'session-rating':3}[id]??''),checked:true,dataset:{},style:{setProperty(){}},classList:{toggle(){}},events:{},attributes:{},setAttribute(k,v){this.attributes[k]=v},addEventListener(k,fn){this.events[k]=fn},replaceChildren(){this.children=[]},append(child){(this.children??=[]).push(child)},add(){},click(){if(!this.disabled)return this.events.click?.()},remove(){},play(){return Promise.resolve()},pause(){}});return elems.get(id);}
 const sources=[];let workletNode=null,moduleLoads=0;
-const continuous=workletMode==='success',offset=continuous?2:0;
+const continuous=workletMode==='success',offset=continuous?3:0;
 function param(){return {value:0,cancelScheduledValues(){},setTargetAtTime(v){if(!Number.isFinite(v))throw Error('Nonfinite audio parameter');this.value=v},setValueAtTime(v){this.value=v},linearRampToValueAtTime(v){this.value=v},exponentialRampToValueAtTime(v){this.value=v}};}
 function node(){return {gain:param(),frequency:param(),Q:param(),detune:param(),pan:param(),threshold:param(),knee:param(),ratio:param(),attack:param(),release:param(),connections:[],connect(target){this.connections.push(target)},disconnect(){},start(){sources.push(this)},stop(){},events:{},addEventListener(type,fn){this.events[type]=fn}};}
 const ctx={sampleRate:8000,currentTime:0,state:'running',destination:node(),createBuffer(ch,len){const d=Array.from({length:ch},()=>new Float32Array(len));return{getChannelData:i=>d[i]}},createChannelSplitter:node,createChannelMerger:node,createGain:node,createOscillator:node,createBufferSource:node,createBiquadFilter:node,createStereoPanner:node,createConvolver:node,createDynamicsCompressor:node,createMediaStreamDestination(){return{...node(),stream:{}}},resume:async()=>{},suspend:async()=>{},close:async()=>{}};
@@ -98,7 +98,7 @@ element('apply-update').events.click();
 checks.push({check:'Updating is blocked during playback',pass:element('apply-update').disabled===true&&updateMessages===0});
 checks.push({check:'Dock announces playback state',pass:element('mobile-toggle').attributes['aria-pressed']==='true'});
 checks.push({check:'Dock timer matches main timer',pass:element('mobile-timer').textContent===element('timer').textContent});
-checks.push({check:'Audio startup: two noise sources, two LFOs, three drones and two note oscillators',pass:sources.length===(continuous?7:9)});
+checks.push({check:'Audio startup: two noise sources, two LFOs, three drones, crackles and two note oscillators',pass:sources.length===(continuous?7:10)});
 checks.push({check:'Mobile panels start collapsed',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===false)});
 const activeSources=sources.length;
 element('fade-out').value='5';element('fade-out').events.input();
@@ -125,13 +125,24 @@ checks.push({check:'Desktop panels open when the window becomes wide',pass:['sou
 checks.push({check:'Resize preserves playback and audio graph',pass:element('play-label').textContent==='Pausar'&&sources.length===activeSources});
 compactLayout.matches=true;layoutChange();
 checks.push({check:'Return to mobile collapses panels',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===false)});
+const fireSources=sources.length;
+const crackleFilter=continuous?workletNode.connections[2]:sources[2].connections[0];
+const crackleGain=crackleFilter.connections[0];
+checks.push({check:'Other scenes mute the fire output',pass:crackleGain.gain.value===0});
+element('soundscape').value='fire';element('soundscape').events.input();
+checks.push({check:'Fire scene has no melody, keeps graph, and enables its texture',pass:JSON.parse(memory.get('focus-studio-v3')).scene==='fire'&&element('melody').checked===false&&element('vol-drone').value===0&&element('vol-noise').value===68&&sources.length===fireSources&&crackleGain.gain.value===0.55});
+element('preset-name').value='Fogón';element('save-mix').events.click();
+element('create-share-link').events.click();
+checks.push({check:'Fire exports through mix and shared link',pass:JSON.parse(memory.get('focus-mixes-v3'))[0].scene==='fire'&&JSON.parse(decodeURIComponent(element('share-link').value.split('#mix=')[1])).scene==='fire'});
+element('saved-mixes').value='0';element('delete-mix').events.click();
 const roots=[];
 for(const scene of ['rain','ocean','space','speech']){
  element('soundscape').value=scene; element('soundscape').events.input();
  const cfg=JSON.parse(memory.get('focus-studio-v3'));
- roots.push(sources[4-offset].frequency.value);
+ roots.push(sources[5-offset].frequency.value);
  checks.push({check:'Scene '+scene,pass:cfg.scene===scene && (scene!=='speech'||cfg.melody===false)});
 }
+checks.push({check:'Leaving fire fades its texture out',pass:crackleGain.gain.value===0});
 checks.push({check:'Different drone tunings',pass:new Set(roots).size===3});
 const preservedLevels=JSON.stringify(['master','noise','drone','notes'].map(key=>element('vol-'+key).value));
 const preservedClock=element('timer').textContent,preservedSourceCount=sources.length;
@@ -147,7 +158,7 @@ checks.push({check:'Next scene restores default levels and melody when preservat
 element('soundscape').value='speech';element('soundscape').events.input();
 
 element('evolution').value='0';element('evolution').events.input();
-checks.push({check:'Stable mode disables noise modulation',pass:sources[2-offset].connections[0].gain.value===0 && sources[3-offset].connections[0].gain.value===0});
+checks.push({check:'Stable mode disables noise modulation',pass:sources[4-offset].connections[0].gain.value===0 && sources[3-offset].connections[0].gain.value===0});
 element('preset-name').value='Lectura';element('save-mix').events.click();
 checks.push({check:'Complete preset persistence',pass:JSON.parse(memory.get('focus-mixes-v3'))[0].levels.noise===82});
 element('saved-mixes').value='0';element('load-mix').events.click();
@@ -175,10 +186,10 @@ element('delete-mix').events.click();
 checks.push({check:'Delete preset',pass:JSON.parse(memory.get('focus-mixes-v3')).length===0});
 checks.push({check:'Optional module load path',pass:moduleLoads===(workletMode==='none'?0:1)});
 if(continuous) {
- checks.push({check:'Continuous noise connects both outputs',pass:workletNode.connections.length===2});
+ checks.push({check:'Continuous noise connects both outputs',pass:workletNode.connections.length===3});
  const previous=sources.length;
  workletNode.events.processorerror();
- checks.push({check:'Processor failure restores buffered noise',pass:sources.length===previous+2});
+ checks.push({check:'Processor failure restores buffered noise',pass:sources.length===previous+3});
 }
 
 const portable={format:'focus-studio-backup',version:1,data:{

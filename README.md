@@ -216,3 +216,8 @@ Las contribuciones son bienvenidas. Si deseas colaborar con el proyecto:
 ## Licencia
 
 Este proyecto está distribuido bajo los términos de la Licencia MIT. Consulta el archivo [LICENSE](LICENSE) para obtener más detalles.
+
+
+## Fogón suave
+
+Ambiente de fondo grave con crepitaciones estéreo suaves e irregulares. Al elegirlo aplica textura al 68%, sin drone ni melodía; «Conservar mi mezcla» mantiene los niveles y la melodía actuales. Las crepitaciones se generan continuamente con AudioWorklet y usan un bucle estéreo de respaldo cuando no está disponible. Se puede guardar, compartir y exportar en copias de seguridad como los demás ambientes. La textura comparte el control de volumen ambiental y la amplitud estéreo.
