@@ -65,6 +65,13 @@ window.location.hash='#mix=%';windowEvents.hashchange();
 checks.push({check:'Malformed shared link leaves settings and audio unchanged',pass:JSON.stringify([...memory])===beforeShare&&sources.length===0&&element('shared-mix-preview').hidden===true});
 window.location.hash='';windowEvents.hashchange();
 
+const entryTimerBefore=element('timer').textContent;
+checks.push({check:'Old settings use the original entrance',pass:element('fade-in').value==='12'&&element('fade-in').disabled===false});
+element('fade-in').value='30';element('fade-in').events.input();
+checks.push({check:'Entrance choice persists without starting sound or resetting progress',pass:JSON.parse(memory.get('focus-studio-v3')).fadeInSeconds===30&&element('timer').textContent===entryTimerBefore&&sources.length===0});
+element('fade-in').value='5';element('fade-in').events.input();
+checks.push({check:'Unsupported entrance keeps the valid setting',pass:JSON.parse(memory.get('focus-studio-v3')).fadeInSeconds===30&&element('fade-in').value==='30'});
+element('fade-in').value='12';element('fade-in').events.input();
 const fadeTimerBefore=element('timer').textContent;
 checks.push({check:'Older settings use original 20-second closing',pass:element('fade-out').value==='20'&&element('fade-out').disabled===false});
 element('fade-out').value='60';element('fade-out').events.input();
@@ -101,6 +108,8 @@ checks.push({check:'Dock timer matches main timer',pass:element('mobile-timer').
 checks.push({check:'Audio startup: two noise sources, two LFOs, three drones, crackles, two wind LFOs and two note oscillators',pass:sources.length===(continuous?9:12)});
 checks.push({check:'Mobile panels start collapsed',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===false)});
 const activeSources=sources.length;
+element('fade-in').value='0';element('fade-in').events.input();
+checks.push({check:'Entrance changes are blocked during playback',pass:element('fade-in').disabled===true&&element('fade-in').value==='12'&&JSON.parse(memory.get('focus-studio-v3')).fadeInSeconds===12});
 element('fade-out').value='5';element('fade-out').events.input();
 checks.push({check:'Closing choice is guarded during audio',pass:element('fade-out').disabled===true&&element('fade-out').value==='20'&&JSON.parse(memory.get('focus-studio-v3')).fadeOutSeconds===20});
 

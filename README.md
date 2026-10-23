@@ -14,7 +14,7 @@ Aplicación web progresiva (PWA) de alto rendimiento para síntesis acústica pr
 - Seis ambientes procedurales: lluvia cálida, océano profundo, espacio, textura para cubrir conversaciones, fogón suave y viento entre hojas.
 - Control de evolución (0–100), brillo y melodía independiente; filtros y afinación con transiciones suaves.
 - Mezclas personales con nombre, volúmenes, ambiente, evolución, brillo, melodía y duración. Hasta 50 mezclas locales.
-- Entrada progresiva de 20 segundos y cierre progresivo durante los últimos 20 segundos de una sesión con duración.
+- Entrada gradual seleccionable: directa, rápida (3 s), original (12 s) o lenta (30 s), con cierre gradual seleccionable para sesiones con duración.
 - Valoración opcional al completar una sesión con duración; se conservan hasta 200 valoraciones locales.
 - El historial nuevo empieza en cero; no se borran historiales existentes.
 - Los perfiles acústicos anteriores siguen disponibles como ajustes de volumen del ambiente seleccionado.
@@ -236,3 +236,8 @@ El cierre elegido (5, 20 o 60 segundos, limitado a la mitad de los tramos cortos
 ## Balance entre canales
 
 Control de izquierda a derecha (−100 a 100) con botón para volver al centro. Se aplica después de la amplitud estéreo, también al centrar la mezcla, y reduce el canal contrario sin aumentar los niveles de entrada. Los cambios son suaves y no reinician el motor ni el reloj. El balance se conserva en ajustes, mezclas, favoritos, enlaces y copias de seguridad. Los datos anteriores usan 0 (centro); las mezclas con diferente balance se conservan por separado al importar. Las pruebas incluyen renderizado Web Audio estéreo y mono, combinación con amplitud estéreo, límites de señal y portabilidad.
+
+
+## Entrada de sonido
+
+La entrada adicional puede ser directa, rápida (3 segundos), original (12 segundos) o lenta (30 segundos). Las entradas graduales parten del 40% del volumen elegido y alcanzan el 100%; no modifican los controles de volumen. La opción original conserva la curva anterior. Se programa en el motor de audio para continuar sin temporizadores de pantalla. Al pausar y reanudar conserva el progreso; reiniciar el reloj vuelve a comenzar la entrada con una transición breve y suave. Se elige en pausa y también funciona en modo libre. Los descansos en silencio permanecen silenciados. Las mezclas, los enlaces y las copias guardan la opción; los datos anteriores usan la entrada original.

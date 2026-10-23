@@ -3,8 +3,8 @@ import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
 test.beforeEach(async({page},info)=>{
- if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest')||info.title.startsWith('channel balance'))await page.clock.install();
- if(info.title.startsWith('note timing')||info.title.startsWith('channel balance'))await page.addInitScript(()=>{
+ if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest')||info.title.startsWith('channel balance')||info.title.startsWith('session entry'))await page.clock.install();
+ if(info.title.startsWith('note timing')||info.title.startsWith('channel balance')||info.title.startsWith('session entry'))await page.addInitScript(()=>{
   window.createdOscillators=0;
   const Context=window.AudioContext||window.webkitAudioContext;
   if(Context){const original=Context.prototype.createOscillator;Context.prototype.createOscillator=function(){window.createdOscillators++;return original.call(this);};}
@@ -336,7 +336,7 @@ test('shared mix links preview before applying and preserve personal data',async
  const link=await page.locator('#share-link').inputValue();
  const data=JSON.parse(decodeURIComponent(new URL(link).hash.slice(5)));
  expect(data.duration).toBe(17);
- expect(Object.keys(data).sort()).toEqual(['v','scene','evolution','brightness','melody','stereoWidth','balance','notePace','fadeOutSeconds','preserveMix','restSound','cyclePlan','duration','levels'].sort());
+ expect(Object.keys(data).sort()).toEqual(['v','scene','evolution','brightness','melody','stereoWidth','balance','notePace','fadeOutSeconds','fadeInSeconds','preserveMix','restSound','cyclePlan','duration','levels'].sort());
  expect(link).not.toContain('Nombre');
  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copiedMix=text;}}}));
  await page.locator('#copy-share-link').click();
@@ -958,4 +958,72 @@ test('channel balance renders each channel after stereo width with real Web Audi
   return results;
  },html.slice(start,end));
  for(const value of results){expect(value.error).toBeLessThan(.000001);expect(value.excess).toBeLessThan(.000001);}
+});
+
+test('session entry preserves progress on resume and survives portable settings',async({page},info)=>{
+ await page.locator('#soundscape').selectOption('wind');await expand(page,'sound-settings');
+ await expect(page.locator('#fade-in')).toHaveValue('12');await expect(page.locator('#fade-in')).toBeEnabled();
+ await page.locator('#custom-minutes').fill('3');await page.locator('#apply-duration').click();await page.locator('#fade-in').selectOption('30');
+ await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
+ const master=await page.locator('#vol-master').inputValue();
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ const count=await page.evaluate(()=>window.createdOscillators);
+ await expect(page.locator('#session-phase')).toHaveText('Entrada suave');
+ await expect(page.locator('#fade-in')).toBeDisabled();
+ await page.locator('#fade-in').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await expect(page.locator('#fade-in')).toHaveValue('30');
+ await page.clock.fastForward(15000);await expect(page.locator('#session-phase')).toHaveText('Entrada suave');
+ await page.locator('#toggle').click();await expect(page.locator('#fade-in')).toBeEnabled();
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await page.clock.fastForward(16000);
+ await expect(page.locator('#session-phase')).toHaveText('Concentración sostenida');
+ expect(await page.evaluate(()=>window.createdOscillators)).toBe(count);
+ await expect(page.locator('#vol-master')).toHaveValue(master);
+ await page.locator('#toggle').click();
+ await page.locator('#fade-in').selectOption('0');await expect(page.locator('#fade-in-hint')).toContainText('Sin entrada gradual adicional');
+ await page.locator('#fade-in').selectOption('30');
+ await expand(page,'mix-settings');await page.locator('#preset-name').fill('Inicio tranquilo');await page.locator('#save-mix').click();
+ await page.locator('#create-share-link').click();const link=await page.locator('#share-link').inputValue();
+ expect(JSON.parse(decodeURIComponent(new URL(link).hash.slice(5))).fadeInSeconds).toBe(30);
+ await page.reload();await expand(page,'sound-settings');await expect(page.locator('#fade-in')).toHaveValue('30');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await page.locator('#fade-in').selectOption('3');
+ await expand(page,'mix-settings');await page.locator('#saved-mixes').selectOption('0');await page.locator('#load-mix').click();
+ await expect(page.locator('#fade-in')).toHaveValue('30');
+ await expand(page,'backup-panel');const promise=page.waitForEvent('download');await page.locator('#export-backup').click();
+ const backup=JSON.parse(await readFile(await (await promise).path(),'utf8'));
+ expect(backup.data.studio.fadeInSeconds).toBe(30);expect(backup.data.mixes[0].fadeInSeconds).toBe(30);
+ delete backup.data.studio.fadeInSeconds;backup.data.mixes.forEach(mix=>delete mix.fadeInSeconds);
+ await page.locator('#backup-file').setInputFiles({name:'old-entry.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+ await page.locator('#backup-settings').check();await Promise.all([page.waitForEvent('load'),page.locator('#import-backup').click()]);
+ await expand(page,'sound-settings');await expect(page.locator('#fade-in')).toHaveValue('12');
+ const old=new URL(link),payload=JSON.parse(decodeURIComponent(old.hash.slice(5)));delete payload.fadeInSeconds;old.hash='mix='+encodeURIComponent(JSON.stringify(payload));
+ await page.goto(old.toString());await expect(page.locator('#shared-mix-summary')).toContainText('Entrada: 12 s');
+ await page.locator('#apply-shared-mix').click();await expand(page,'sound-settings');await expect(page.locator('#fade-in')).toHaveValue('12');
+ await page.goto(link);await expect(page.locator('#shared-mix-summary')).toContainText('Entrada: 30 s');
+ await page.locator('#apply-shared-mix').click();await expand(page,'sound-settings');
+ await expect(page.locator('#fade-in')).toHaveValue('30');await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await noOverflow(page);await page.screenshot({path:info.outputPath('entry.png'),fullPage:true,animations:'disabled'});
+});
+test('session entry renders without screen timers and combines with the closing envelope',async({page})=>{
+ const html=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
+ const start=html.indexOf('      function entryEnvelope('),end=html.indexOf('      function syncFadeUI()',start);
+ const results=await page.evaluate(async source=>{
+  const tools=new Function(source+'return {scheduleSessionEntry,scheduleSessionClosing};')(),Context=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const results=[];
+  for(const [seconds,elapsed,duration,silent] of [[0,0,1,false],[3,0,1,false],[12,0,1,false],[30,0,1,false],[12,8000,1,false],[30,0,0,false],[0,0,5,true]]) {
+   const rate=44100,size=62*rate,ctx=new Context(1,size,rate),buffer=ctx.createBuffer(1,size,rate);buffer.getChannelData(0).fill(.25);
+   const input=ctx.createBufferSource();input.buffer=buffer;const entry=ctx.createGain(),closing=ctx.createGain();
+   input.connect(entry);entry.connect(closing);closing.connect(ctx.destination);
+   tools.scheduleSessionEntry(ctx,entry.gain,elapsed,seconds,silent);tools.scheduleSessionClosing(ctx,closing.gain,elapsed,duration,60,silent);input.start();
+   const output=(await ctx.startRendering()).getChannelData(0);
+   results.push([0,1.5,3,6,12,15,30,45,60,61].map(second=>{
+    const total=elapsed+second*1000,startValue=seconds?Math.min(1,.4+total/(seconds/.6*1000)):1;
+    const endValue=duration?Math.min(1,Math.max(0,(duration*60000-total)/(Math.min(60,duration*30)*1000))):1;
+    return {actual:output[Math.round(second*rate)],expected:silent?0:.25*startValue*endValue};
+   }));
+  }
+  return results;
+ },html.slice(start,end));
+ for(const samples of results)for(const sample of samples)expect(Math.abs(sample.actual-sample.expected)).toBeLessThan(.00001);
 });

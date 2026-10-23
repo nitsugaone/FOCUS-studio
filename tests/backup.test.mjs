@@ -183,3 +183,16 @@ assert.equal(JSON.parse(balanceStorage.getItem('focus-mixes-v3')).length,2,'Mixe
 balanceTools.applyImport(balanceFile);
 assert.equal(JSON.parse(balanceStorage.getItem('focus-mixes-v3')).length,2,'Import remains idempotent');
 console.log('PASS: backup balance, old copy defaults, invalid values and distinct mix merging');
+
+for(const fadeInSeconds of [0,3,12,30]){
+ const data=tools.validateBackup({...file,data:{...file.data,studio:{...scene,fadeInSeconds},mixes:[{...mix,fadeInSeconds}]}});
+ assert.equal(data.studio.fadeInSeconds,fadeInSeconds);assert.equal(data.mixes[0].fadeInSeconds,fadeInSeconds);
+}
+assert.equal(tools.validateBackup(file).studio.fadeInSeconds,12);
+assert.equal(tools.validateBackup(file).mixes[0].fadeInSeconds,12);
+for(const fadeInSeconds of [-1,5,60,null,'12'])assert.throws(()=>tools.validateBackup({...file,data:{...file.data,studio:{...scene,fadeInSeconds}}}));
+const entryStorage=new MemoryStorage(),entryTools=createTools(entryStorage);
+const entryFile={...file,data:{...file.data,mixes:[{...mix,name:'Entrada',fadeInSeconds:0},{...mix,name:'Entrada',fadeInSeconds:30}]}};
+entryTools.applyImport(entryFile);entryTools.applyImport(entryFile);
+assert.equal(JSON.parse(entryStorage.getItem('focus-mixes-v3')).length,2,'Distinct entrances remain distinct and repeated import is idempotent');
+console.log('PASS: entry choices in backups, defaults and distinct mix merging');
