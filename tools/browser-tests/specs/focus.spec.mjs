@@ -3,7 +3,12 @@ import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
 test.beforeEach(async({page},info)=>{
- if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width'))await page.clock.install();
+ if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing'))await page.clock.install();
+ if(info.title.startsWith('note timing'))await page.addInitScript(()=>{
+  window.createdOscillators=0;
+  const Context=window.AudioContext||window.webkitAudioContext;
+  if(Context){const original=Context.prototype.createOscillator;Context.prototype.createOscillator=function(){window.createdOscillators++;return original.call(this);};}
+ });
  const pageErrors=[];errors.set(page,pageErrors);
  page.on('pageerror',error=>pageErrors.push(error.message));
  await page.goto('./');
@@ -318,7 +323,7 @@ test('shared mix links preview before applying and preserve personal data',async
  const link=await page.locator('#share-link').inputValue();
  const data=JSON.parse(decodeURIComponent(new URL(link).hash.slice(5)));
  expect(data.duration).toBe(17);
- expect(Object.keys(data).sort()).toEqual(['v','scene','evolution','brightness','melody','stereoWidth','cyclePlan','duration','levels'].sort());
+ expect(Object.keys(data).sort()).toEqual(['v','scene','evolution','brightness','melody','stereoWidth','notePace','cyclePlan','duration','levels'].sort());
  expect(link).not.toContain('Nombre');
  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copiedMix=text;}}}));
  await page.locator('#copy-share-link').click();
@@ -461,4 +466,75 @@ test('stereo field renders identity, mono and intermediate widths with real Web 
   expect(value.excess).toBeLessThan(0.000001);
   if(value.width===0||value.channels===1)expect(value.channelDiff).toBeLessThan(0.000001);
  }
+});
+
+
+test('note timing changes future notes, cancels on mute and persists with mixtures',async({page},info)=>{
+ await page.locator('#soundscape').selectOption('space');
+ await expand(page,'sound-settings');
+ await page.locator('#evolution').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.locator('#custom-minutes').fill('17');await page.locator('#apply-duration').click();
+ await page.locator('#note-pace').selectOption('frequent');
+ await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
+ await page.locator('#toggle').click();
+ await expect(page.locator('#status-text')).toHaveText('Sonando');
+ const initial=await page.evaluate(()=>window.createdOscillators);
+ const volume=await page.locator('#vol-notes').inputValue();
+ await page.clock.fastForward(5999);
+ expect(await page.evaluate(()=>window.createdOscillators)).toBe(initial);
+ await page.clock.fastForward(2);
+ expect(await page.evaluate(()=>window.createdOscillators)).toBe(initial+2);
+ await page.locator('#note-pace').selectOption('sparse');
+ expect(await page.evaluate(()=>window.createdOscillators)).toBe(initial+2);
+ await page.clock.fastForward(15999);
+ expect(await page.evaluate(()=>window.createdOscillators)).toBe(initial+2);
+ await page.clock.fastForward(2);
+ expect(await page.evaluate(()=>window.createdOscillators)).toBe(initial+4);
+ await page.locator('#note-pace').selectOption('normal');
+ await page.clock.fastForward(7999);
+ expect(await page.evaluate(()=>window.createdOscillators)).toBe(initial+4);
+ await page.clock.fastForward(2);
+ expect(await page.evaluate(()=>window.createdOscillators)).toBe(initial+6);
+ await page.locator('#melody').uncheck();
+ await expect(page.locator('#note-pace')).toBeDisabled();
+ await page.clock.fastForward(20000);
+ expect(await page.evaluate(()=>window.createdOscillators)).toBe(initial+6);
+ await page.locator('#melody').check();
+ expect(await page.evaluate(()=>window.createdOscillators)).toBe(initial+6);
+ await page.clock.fastForward(8001);
+ expect(await page.evaluate(()=>window.createdOscillators)).toBe(initial+8);
+ await expect(page.locator('#vol-notes')).toHaveValue(volume);
+ await expect(page.locator('#timer')).toHaveText('00:16:02');
+ await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await page.locator('#toggle').click();
+ await page.locator('#note-pace').selectOption('sparse');
+ await expand(page,'mix-settings');
+ await page.locator('#preset-name').fill('Notas espaciadas');await page.locator('#save-mix').click();
+ await page.locator('#create-share-link').click();
+ const link=await page.locator('#share-link').inputValue();
+ expect(JSON.parse(decodeURIComponent(new URL(link).hash.slice(5))).notePace).toBe('sparse');
+ await expand(page,'backup-panel');
+ const promise=page.waitForEvent('download');await page.locator('#export-backup').click();const download=await promise;
+ const backup=JSON.parse(await readFile(await download.path(),'utf8'));
+ expect(backup.data.studio.notePace).toBe('sparse');expect(backup.data.mixes[0].notePace).toBe('sparse');
+ await page.locator('#note-pace').selectOption('frequent');
+ await page.locator('#saved-mixes').selectOption('0');await page.locator('#load-mix').click();
+ await expect(page.locator('#note-pace')).toHaveValue('sparse');
+ await page.reload();await expand(page,'sound-settings');
+ await expect(page.locator('#note-pace')).toHaveValue('sparse');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ delete backup.data.studio.notePace;backup.data.mixes.forEach(mix=>delete mix.notePace);
+ await expand(page,'backup-panel');
+ await page.locator('#backup-file').setInputFiles({name:'old-pace.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+ await page.locator('#backup-settings').check();
+ await Promise.all([page.waitForEvent('load'),page.locator('#import-backup').click()]);
+ await expand(page,'sound-settings');
+ await expect(page.locator('#note-pace')).toHaveValue('normal');
+ await page.goto(link);
+ await expect(page.locator('#shared-mix-summary')).toContainText('Notas: más espaciadas');
+ await page.locator('#apply-shared-mix').click();
+ await expect(page.locator('#note-pace')).toHaveValue('sparse');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await noOverflow(page);
+ await page.screenshot({path:info.outputPath('note-pace.png'),fullPage:true,animations:'disabled'});
 });

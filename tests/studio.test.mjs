@@ -13,7 +13,7 @@ const ctx={sampleRate:8000,currentTime:0,state:'running',destination:node(),crea
 let generated=0;
 if(workletMode!=='none')ctx.audioWorklet={addModule:async()=>{moduleLoads++;if(workletMode==='failure')throw Error('Module blocked')}};
 const document={body:element('body'),createElement:()=>element('generated-'+generated++),getElementById:element,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}};
-const timers=[];
+const timers=[],scheduledTimeouts=new Map();let timeoutId=0;
 let observeVisibility;
 let layoutChange;
 const compactLayout={matches:true,addEventListener(type,callback){layoutChange=callback}};
@@ -21,7 +21,7 @@ const windowEvents={};
 let updateMessages=0,reloads=0;
 const worker={postMessage(message){if(message.type==='SKIP_WAITING')updateMessages++}};
 const serviceWorker={ready:Promise.resolve(),addEventListener(){},register:async()=>({waiting:worker,addEventListener(){}})};
-const window={matchMedia:()=>compactLayout,IntersectionObserver:class {constructor(callback){observeVisibility=callback;} observe(){}},AudioContext:function(){return ctx},setInterval:fn=>{timers.push(fn);return timers.length},setTimeout:()=>1,addEventListener(type,fn){windowEvents[type]=fn},location:{origin:'https://focus.test',pathname:'/FOCUS-studio/',hash:'',search:'',reload(){reloads++;windowEvents.pagehide?.()}}};
+const window={matchMedia:()=>compactLayout,IntersectionObserver:class {constructor(callback){observeVisibility=callback;} observe(){}},AudioContext:function(){return ctx},setInterval:fn=>{timers.push(fn);return timers.length},setTimeout:(fn,delay)=>{const id=++timeoutId;scheduledTimeouts.set(id,{fn,delay});return id;},addEventListener(type,fn){windowEvents[type]=fn},location:{origin:'https://focus.test',pathname:'/FOCUS-studio/',hash:'',search:'',reload(){reloads++;windowEvents.pagehide?.()}}};
 if(workletMode!=='none')window.AudioWorkletNode=function(){workletNode=node();return workletNode;};
 let downloadContent='';
 const downloadURL={createObjectURL:()=> 'blob:focus-test',revokeObjectURL(){}};
@@ -34,7 +34,7 @@ memory.set('focus-feedback-v3',JSON.stringify([
  {scene:'space',rating:2,date:new Date(Date.now()-40*86400000).toISOString(),minutes:25,distractions:'high'}
 ]));
 memory.set('focus-session-v1',JSON.stringify({duration:25,elapsed:60000}));
-new Function('window','document','navigator','localStorage','Option','clearTimeout','clearInterval','URL','Blob',script)(window,document,{serviceWorker,onLine:true},localStorage,function(){},()=>{},()=>{},downloadURL,DownloadBlob);
+new Function('window','document','navigator','localStorage','Option','clearTimeout','clearInterval','URL','Blob',script)(window,document,{serviceWorker,onLine:true},localStorage,function(){},id=>scheduledTimeouts.delete(id),()=>{},downloadURL,DownloadBlob);
 return (async()=>{
 checks.push({check:'Insights render saved ratings for the default period',pass:element('insights-summary').textContent.startsWith('6 valoraciones')});
 checks.push({check:'Insights show group and recent rows',pass:element('insights-rows').children.length===2&&element('insights-recent').children.length===6});
@@ -84,6 +84,17 @@ checks.push({check:'Dock timer matches main timer',pass:element('mobile-timer').
 checks.push({check:'Audio startup: two noise sources, two LFOs, three drones and two note oscillators',pass:sources.length===(continuous?7:9)});
 checks.push({check:'Mobile panels start collapsed',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===false)});
 const activeSources=sources.length;
+const rhythmTimer=element('timer').textContent;
+element('note-pace').value='sparse';element('note-pace').events.input();
+checks.push({check:'Sparse notes reschedule without sound burst or timer reset',pass:sources.length===activeSources&&element('timer').textContent===rhythmTimer&&scheduledTimeouts.size===1&&[...scheduledTimeouts.values()][0].delay>=24000&&[...scheduledTimeouts.values()][0].delay<=32400});
+element('note-pace').value='frequent';element('note-pace').events.input();
+checks.push({check:'Frequent notes replace the pending timer',pass:scheduledTimeouts.size===1&&[...scheduledTimeouts.values()][0].delay>=9000&&[...scheduledTimeouts.values()][0].delay<=12150});
+element('melody').checked=false;element('melody').events.input();
+checks.push({check:'Melody off cancels pending notes and disables pace selector',pass:scheduledTimeouts.size===0&&element('note-pace').disabled===true});
+element('melody').checked=true;element('melody').events.input();
+checks.push({check:'Melody on schedules once without an immediate new note',pass:scheduledTimeouts.size===1&&sources.length===activeSources&&element('note-pace').disabled===false});
+element('note-pace').value='normal';element('note-pace').events.input();
+
 const beforeWidthTimer=element('timer').textContent;
 element('stereo-width').value='0';element('stereo-width').events.input();
 checks.push({check:'Stereo width updates while playing without new sources or timer reset',pass:sources.length===activeSources&&element('timer').textContent===beforeWidthTimer&&JSON.parse(memory.get('focus-studio-v3')).stereoWidth===0});

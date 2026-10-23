@@ -107,3 +107,16 @@ for(const stereoWidth of [-1,101,'50',null]){
  assert.throws(()=>tools.validateBackup(invalid));
 }
 console.log('PASS: stereo settings survive backups and old copies preserve original width');
+
+assert.equal(tools.validateBackup(file).studio.notePace,'normal');
+assert.equal(tools.validateBackup(file).mixes[0].notePace,'normal');
+const paceCopy=clone(file);paceCopy.data.studio.notePace='sparse';paceCopy.data.mixes[0].notePace='frequent';
+tools.applyImport(paceCopy,true);
+const paceExport=tools.validateBackup(tools.exportBackup());
+assert.equal(paceExport.studio.notePace,'sparse');
+assert.ok(paceExport.mixes.some(mix=>mix.notePace==='frequent'));
+for(const notePace of ['unknown','__proto__',1,null]){
+ const invalid=clone(file);invalid.data.studio.notePace=notePace;
+ assert.throws(()=>tools.validateBackup(invalid));
+}
+console.log('PASS: note pace backups and old copies default to original timing');
