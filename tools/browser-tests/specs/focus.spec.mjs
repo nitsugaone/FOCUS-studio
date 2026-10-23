@@ -3,11 +3,20 @@ import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
 test.beforeEach(async({page},info)=>{
- if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix'))await page.clock.install();
+ if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest'))await page.clock.install();
  if(info.title.startsWith('note timing'))await page.addInitScript(()=>{
   window.createdOscillators=0;
   const Context=window.AudioContext||window.webkitAudioContext;
   if(Context){const original=Context.prototype.createOscillator;Context.prototype.createOscillator=function(){window.createdOscillators++;return original.call(this);};}
+ });
+ if(info.title.startsWith('silent rest'))await page.addInitScript(()=>{
+  const Context=window.AudioContext||window.webkitAudioContext;
+  window.restOscillators=0;
+  if(Context){
+   const original=Context.prototype.createMediaStreamDestination,oscillator=Context.prototype.createOscillator;
+   Context.prototype.createMediaStreamDestination=function(){const node=original.call(this);window.restContext=this;window.restStream=node.stream;return node;};
+   Context.prototype.createOscillator=function(){window.restOscillators++;return oscillator.call(this);};
+  }
  });
  const pageErrors=[];errors.set(page,pageErrors);
  page.on('pageerror',error=>pageErrors.push(error.message));
@@ -324,7 +333,7 @@ test('shared mix links preview before applying and preserve personal data',async
  const link=await page.locator('#share-link').inputValue();
  const data=JSON.parse(decodeURIComponent(new URL(link).hash.slice(5)));
  expect(data.duration).toBe(17);
- expect(Object.keys(data).sort()).toEqual(['v','scene','evolution','brightness','melody','stereoWidth','notePace','fadeOutSeconds','preserveMix','cyclePlan','duration','levels'].sort());
+ expect(Object.keys(data).sort()).toEqual(['v','scene','evolution','brightness','melody','stereoWidth','notePace','fadeOutSeconds','preserveMix','restSound','cyclePlan','duration','levels'].sort());
  expect(link).not.toContain('Nombre');
  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copiedMix=text;}}}));
  await page.locator('#copy-share-link').click();
@@ -658,4 +667,76 @@ test('keep mix preserves levels and melody across scenes and portable settings',
  await expect(page.locator('#status-text')).toHaveText('En pausa');
  await noOverflow(page);
  await page.screenshot({path:info.outputPath('preserve-mix.png'),fullPage:true,animations:'disabled'});
+});
+
+
+async function attachRestMeter(page){
+ await page.evaluate(()=>{
+  const ctx=window.restContext,source=ctx.createMediaStreamSource(window.restStream),analyser=ctx.createAnalyser(),mute=ctx.createGain();
+  analyser.fftSize=256;mute.gain.value=0;source.connect(analyser);analyser.connect(mute);mute.connect(ctx.destination);
+  const data=new Float32Array(256);
+  window.readRestPeak=()=>{analyser.getFloatTimeDomainData(data);return data.reduce((max,value)=>Math.max(max,Math.abs(value)),0);};
+ });
+}
+test('silent rest mutes output, excludes listening time and resumes focus explicitly',async({page},info)=>{
+ await page.locator('#session-plan').selectOption('25-5');await page.locator('#rest-sound').selectOption('silent');
+ await expand(page,'mix-settings');await page.locator('#preset-name').fill('Descanso tranquilo');await page.locator('#save-mix').click();
+ await page.locator('#create-share-link').click();const link=await page.locator('#share-link').inputValue();
+ expect(JSON.parse(decodeURIComponent(new URL(link).hash.slice(5))).restSound).toBe('silent');
+ const levels=await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value));
+ await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await attachRestMeter(page);
+ await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeGreaterThan(.00001);
+ await expect(page.locator('#rest-sound')).toBeDisabled();
+ await page.clock.fastForward(25*60000+1000);
+ await expect(page.locator('#play-label')).toHaveText('Descansar');
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Descanso en silencio');
+ await expect(page.locator('#session-phase')).toHaveText('Descanso en silencio');
+ await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeLessThan(.000001);
+ const history=await page.evaluate(()=>localStorage.getItem('focus-daily-history-v1')),oscillators=await page.evaluate(()=>window.restOscillators);
+ await page.clock.fastForward(61000);
+ expect(await page.evaluate(()=>localStorage.getItem('focus-daily-history-v1'))).toBe(history);
+ expect(await page.evaluate(()=>window.restOscillators)).toBe(oscillators);
+ expect(await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value))).toEqual(levels);
+ await expect(page.locator('#session-feedback')).toBeHidden();
+ await page.locator('#toggle').click();
+ await expand(page,'backup-panel');
+ const promise=page.waitForEvent('download');await page.locator('#export-backup').click();const download=await promise;
+ const backup=JSON.parse(await readFile(await download.path(),'utf8'));
+ expect(backup.data.studio.restSound).toBe('silent');expect(backup.data.mixes[0].restSound).toBe('silent');expect(backup.data.session.cycle.phase).toBe('rest');
+ await page.locator('#rest-sound').selectOption('sound');
+ await expand(page,'mix-settings');await page.locator('#saved-mixes').selectOption('0');await page.locator('#load-mix').click();
+ await expect(page.locator('#rest-sound')).toHaveValue('silent');
+ await page.locator('#backup-file').setInputFiles({name:'silent-rest.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+ await page.locator('#backup-settings').check();
+ await Promise.all([page.waitForEvent('load'),page.locator('#import-backup').click()]);
+ await expect(page.locator('#cycle-status')).toContainText('Descanso en silencio');
+ await expect(page.locator('#rest-sound')).toHaveValue('silent');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await expect(page.locator('#mobile-scene')).toHaveText('Descanso en silencio');
+ await page.locator('#focus-view-toggle').click();await expect(page.locator('#focus-view-scene')).toHaveText('Descanso en silencio');
+ await page.locator('#focus-view-toggle').click();
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Descanso en silencio');
+ await attachRestMeter(page);await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeLessThan(.000001);
+ await page.clock.fastForward(241000);
+ await expect(page.locator('#play-label')).toHaveText('Siguiente');
+ expect(await page.evaluate(()=>localStorage.getItem('focus-daily-history-v1'))).toBe(history);
+ await expect(page.locator('#session-feedback')).toBeHidden();
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await expect(page.locator('#cycle-status')).toContainText('Ronda 2 de 4');
+ await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeGreaterThan(.00001);
+ await page.clock.fastForward(61000);
+ expect(await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('focus-daily-history-v1'))).reduce((a,b)=>a+b,0))).toBeGreaterThan(Object.values(JSON.parse(history)).reduce((a,b)=>a+b,0)+.5);
+ await page.locator('#toggle').click();
+ const old=JSON.parse(JSON.stringify(backup));delete old.data.studio.restSound;old.data.mixes.forEach(mix=>delete mix.restSound);
+ await expand(page,'backup-panel');await page.locator('#backup-file').setInputFiles({name:'old-rest.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(old))});
+ await page.locator('#backup-settings').check();
+ await Promise.all([page.waitForEvent('load'),page.locator('#import-backup').click()]);
+ await expect(page.locator('#rest-sound')).toHaveValue('sound');
+ await page.goto(link);await expect(page.locator('#shared-mix-summary')).toContainText('Descansos: en silencio');
+ await page.locator('#apply-shared-mix').click();await expect(page.locator('#rest-sound')).toHaveValue('silent');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await noOverflow(page);
+ await page.screenshot({path:info.outputPath('silent-rest.png'),fullPage:true,animations:'disabled'});
 });
