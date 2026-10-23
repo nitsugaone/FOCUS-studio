@@ -46,6 +46,15 @@ checks.push({check:'Scene filter updates only selected ratings',pass:element('in
 checks.push({check:'Filtering leaves stored ratings untouched',pass:memory.get('focus-feedback-v3')===ratingsBefore});
 checks.push({check:'Restore previous elapsed time without autoplay',pass:element('timer').textContent==='00:24:00'&&sources.length===0});
 checks.push({check:'Recovered session offers explicit start',pass:element('resume-status').textContent.includes('Sesión recuperada')});
+
+const originalTimer=element('timer').textContent,originalSession=memory.get('focus-session-v1');
+for(const value of ['', '0', '181', '1.5']) {
+ element('custom-minutes').value=value;element('apply-duration').events.click();
+ checks.push({check:'Reject custom duration '+value,pass:element('timer').textContent===originalTimer&&memory.get('focus-session-v1')===originalSession&&element('custom-minutes').attributes['aria-invalid']==='true'});
+}
+element('custom-minutes').value='17';element('apply-duration').events.click();
+checks.push({check:'Apply custom duration without autoplay',pass:element('timer').textContent==='00:17:00'&&sources.length===0&&JSON.parse(memory.get('focus-session-v1')).duration===17});
+element('custom-minutes').value='25';element('apply-duration').events.click();
 await windowEvents.load();
 checks.push({check:'Waiting update is announced',pass:element('apply-update').hidden===false});
 checks.push({check:'Feedback is initially hidden',pass:element('session-feedback').hidden===true});
@@ -56,6 +65,9 @@ observeVisibility([{isIntersecting:false}]);
 checks.push({check:'Dock appears after main control leaves view',pass:element('mobile-player').hidden===false});
 await element('mobile-toggle').events.click();
 checks.push({check:'Dock starts shared player',pass:element('play-label').textContent==='Iniciar' ? false : element('play-label').textContent==='Pausar'});
+const activeSession=memory.get('focus-session-v1');
+element('custom-minutes').value='9';element('apply-duration').events.click();
+checks.push({check:'Custom duration cannot reset active audio',pass:element('apply-duration').disabled===true&&memory.get('focus-session-v1')===activeSession});
 element('apply-update').events.click();
 checks.push({check:'Updating is blocked during playback',pass:element('apply-update').disabled===true&&updateMessages===0});
 checks.push({check:'Dock announces playback state',pass:element('mobile-toggle').attributes['aria-pressed']==='true'});

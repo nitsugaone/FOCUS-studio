@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
 test.beforeEach(async({page},info)=>{
- if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view'))await page.clock.install();
+ if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration'))await page.clock.install();
  const pageErrors=[];errors.set(page,pageErrors);
  page.on('pageerror',error=>pageErrors.push(error.message));
  await page.goto('./');
@@ -229,4 +229,62 @@ test('focus view preserves playback, volume and progress and exits with Escape',
  await expect(page.locator('.mixer-card')).toBeVisible();
  await expect(page.locator('#status-text')).toHaveText('En pausa');
  await expect(page.locator('#vol-master')).toHaveValue(volume);
+});
+
+test('custom duration validates, survives mixes and backup, and completes without autoplay',async({page})=>{
+ const original=await page.locator('#timer').textContent();
+ for(const value of ['', '0', '181', '1.5']) {
+  await page.locator('#custom-minutes').fill(value);
+  await page.locator('#apply-duration').click();
+  await expect(page.locator('#custom-minutes')).toHaveAttribute('aria-invalid','true');
+  await expect(page.locator('#timer')).toHaveText(original);
+ }
+ await page.locator('#custom-minutes').fill('17');
+ await page.locator('#custom-minutes').press('Enter');
+ await expect(page.locator('#timer')).toHaveText('00:17:00');
+ await expect(page.locator('#custom-minutes')).toHaveAttribute('aria-invalid','false');
+ await expect(page.locator('.mode-chip[aria-pressed="true"]')).toHaveCount(0);
+ await page.locator('#session-plan').selectOption('25-5');
+ await expect(page.locator('#custom-minutes')).toBeDisabled();
+ await page.locator('#session-plan').selectOption('single');
+ await expect(page.locator('#timer')).toHaveText('00:17:00');
+ await expand(page,'mix-settings');
+ await page.locator('#preset-name').fill('Sesión de 17 minutos');
+ await page.locator('#save-mix').click();
+ await page.locator('[data-minutes="45"]').click();
+ await page.locator('#saved-mixes').selectOption('0');
+ await page.locator('#load-mix').click();
+ await expect(page.locator('#timer')).toHaveText('00:17:00');
+ await page.reload();
+ await expect(page.locator('#timer')).toHaveText('00:17:00');
+ await expect(page.locator('#custom-minutes')).toHaveValue('17');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await expand(page,'backup-panel');
+ const promise=page.waitForEvent('download');
+ await page.locator('#export-backup').click();
+ const download=await promise;
+ const backup=JSON.parse(await readFile(await download.path(),'utf8'));
+ expect(backup.data.mixes[0].duration).toBe(17);
+ expect(backup.data.session.duration).toBe(17);
+ await page.locator('[data-minutes="45"]').click();
+ await page.locator('#backup-file').setInputFiles({name:'custom.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+ await page.locator('#backup-settings').check();
+ await Promise.all([page.waitForEvent('load'),page.locator('#import-backup').click()]);
+ await expect(page.locator('#timer')).toHaveText('00:17:00');
+ await expect(page.locator('#custom-minutes')).toHaveValue('17');
+ await page.locator('#custom-minutes').fill('1');
+ await page.locator('#apply-duration').click();
+ await page.locator('#toggle').click();
+ await expect(page.locator('#custom-minutes')).toBeDisabled();
+ await expect(page.locator('#apply-duration')).toBeDisabled();
+ await page.clock.fastForward(61000);
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await expect(page.locator('#timer')).toHaveText('00:00:00');
+ await expect(page.locator('#session-feedback')).toBeVisible();
+ await expect(page.locator('#apply-duration')).toBeEnabled();
+ await page.locator('#focus-view-toggle').click();
+ await expect(page.locator('.custom-duration')).toBeHidden();
+ await noOverflow(page);
+ await page.locator('#focus-view-toggle').click();
+ await expect(page.locator('.custom-duration')).toBeVisible();
 });

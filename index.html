@@ -683,6 +683,14 @@ body[data-focus-view="true"] #cycle-status:empty {display:none}
  body[data-focus-view="true"] .brand {gap:8px}
  body[data-focus-view="true"] .player-card {padding:18px;gap:12px}
 }
+
+.custom-duration {width:100%;display:grid;gap:8px;text-align:left}
+.custom-duration label {font-size:13px;color:var(--muted)}
+.custom-duration-row {display:flex;gap:10px;align-items:center}
+#custom-minutes {width:100%;min-width:0;min-height:44px;padding:10px;border:1px solid var(--line-strong);border-radius:10px;background:var(--panel-strong);font-size:16px}
+#apply-duration {min-height:44px;flex-shrink:0}
+#custom-duration-status:empty {display:none}
+body[data-focus-view="true"] .custom-duration {display:none}
 </style>
 </head>
 <body>
@@ -761,6 +769,15 @@ body[data-focus-view="true"] #cycle-status:empty {display:none}
             <button type="button" class="mode-chip" data-minutes="25" aria-pressed="false">25 min</button>
             <button type="button" class="mode-chip" data-minutes="45" aria-pressed="false">45 min</button>
             <button type="button" class="mode-chip" data-minutes="60" aria-pressed="false">60 min</button>
+          </div>
+          <div class="custom-duration">
+            <label for="custom-minutes">Duración personalizada (minutos)</label>
+            <div class="custom-duration-row">
+              <input id="custom-minutes" type="number" min="1" max="180" step="1" inputmode="numeric" value="30" aria-describedby="custom-duration-hint custom-duration-status">
+              <button id="apply-duration" type="button" class="subtle-button">Aplicar</button>
+            </div>
+            <p id="custom-duration-hint" class="daily-note">De 1 a 180 minutos. Aplicar en pausa reinicia el reloj.</p>
+            <p id="custom-duration-status" class="daily-note" role="status"></p>
           </div>
           <div class="session-actions">
             <button type="button" class="subtle-button" id="reset-timer">Reiniciar reloj</button>
@@ -1022,13 +1039,13 @@ body[data-focus-view="true"] #cycle-status:empty {display:none}
 
       function createCycleTools() {
         const plans={single:null,'25-5':{focus:25,rest:5,rounds:4},'50-10':{focus:50,rest:10,rounds:2}};
-        const singles=[0,25,45,60];
+        const validDuration=value=>Number.isInteger(value)&&value>=0&&value<=180;
         function initial(plan='single',singleDuration=0) {
-          if(!Object.prototype.hasOwnProperty.call(plans,plan)||!singles.includes(singleDuration))throw Error('Plan de sesión inválido.');
+          if(!Object.prototype.hasOwnProperty.call(plans,plan)||!validDuration(singleDuration))throw Error('Plan de sesión inválido.');
           return {plan,round:1,phase:'focus',completed:false,singleDuration};
         }
         function normalize(value) {
-          if(!value||typeof value!=='object'||!Object.prototype.hasOwnProperty.call(plans,value.plan)||!singles.includes(value.singleDuration)||!Number.isInteger(value.round)||!['focus','rest'].includes(value.phase)||typeof value.completed!=='boolean')return null;
+          if(!value||typeof value!=='object'||!Object.prototype.hasOwnProperty.call(plans,value.plan)||!validDuration(value.singleDuration)||!Number.isInteger(value.round)||!['focus','rest'].includes(value.phase)||typeof value.completed!=='boolean')return null;
           if(value.plan==='single')return value.round===1&&value.phase==='focus'&&!value.completed?initial('single',value.singleDuration):null;
           const plan=plans[value.plan];
           if(value.round<1||value.round>plan.rounds||(value.phase==='rest'&&value.round===plan.rounds))return null;
@@ -1042,7 +1059,7 @@ body[data-focus-view="true"] #cycle-status:empty {display:none}
           if(valid.phase==='focus'&&valid.round===plan.rounds)return initial(valid.plan,valid.singleDuration);
           return {...valid,phase:valid.phase==='focus'?'rest':'focus',round:valid.phase==='rest'?valid.round+1:valid.round,completed:false};
         }
-        return {plans,initial,normalize,duration,next};
+        return {plans,initial,normalize,duration,next,validDuration};
       }
 
       const cycleTools=createCycleTools();
@@ -1185,7 +1202,7 @@ body[data-focus-view="true"] #cycle-status:empty {display:none}
           studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody};
           Object.keys(DEFAULTS).forEach(k=>{$('vol-'+k).value=mix.levels[k];updateRange(k,false);});
           const plan=Object.prototype.hasOwnProperty.call(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single';
-          resetCycle(plan,plan==='single'?([0,25,45,60].includes(mix.duration)?mix.duration:0):cycleState.singleDuration);
+          resetCycle(plan,plan==='single'?(cycleTools.validDuration(mix.duration)?mix.duration:0):cycleState.singleDuration);
           applyScene();persistSettings();writeLocal(STUDIO_KEY,studio);
           $('studio-status').textContent='Mezcla cargada.';
         });
@@ -1293,7 +1310,7 @@ body[data-focus-view="true"] #cycle-status:empty {display:none}
         const keys={mixes:'focus-mixes-v3',history:'focus-daily-history-v1',ratings:'focus-feedback-v3',settings:'focus-audio-settings-v2',studio:'focus-studio-v3',session:'focus-session-v1'};
         const undoKey='focus-backup-undo-v1';
         const backupCycles=createCycleTools();
-        const scenes=['rain','ocean','space','speech'],durations=[0,25,45,60];
+        const scenes=['rain','ocean','space','speech'];
         const object=value=>value && typeof value==='object' && !Array.isArray(value);
         const number=(value,min,max)=>Number.isFinite(value)&&value>=min&&value<=max;
         const requireValid=(condition,message)=>{if(!condition)throw Error(message);};
@@ -1308,10 +1325,10 @@ body[data-focus-view="true"] #cycle-status:empty {display:none}
         function normalizeData(data) {
           requireValid(object(data)&&Array.isArray(data.mixes)&&data.mixes.length<=50&&Array.isArray(data.ratings)&&data.ratings.length<=200&&object(data.history),'Contenido de la copia inválido o fuera de los límites.');
           const mixes=data.mixes.map(mix=>{
-            requireValid(object(mix)&&typeof mix.name==='string'&&mix.name.trim().length>0&&mix.name.length<=60&&(durations.includes(mix.duration)||mix.duration===50),'Mezcla inválida.');
+            requireValid(object(mix)&&typeof mix.name==='string'&&mix.name.trim().length>0&&mix.name.length<=60&&backupCycles.validDuration(mix.duration),'Mezcla inválida.');
             requireValid(mix.favorite===undefined||typeof mix.favorite==='boolean','Favorita inválida.');
             const cyclePlan=mix.cyclePlan===undefined?'single':mix.cyclePlan;
-            requireValid(Object.prototype.hasOwnProperty.call(backupCycles.plans,cyclePlan)&&(cyclePlan==='single'?durations.includes(mix.duration):backupCycles.plans[cyclePlan].focus===mix.duration),'Plan de mezcla inválido.');
+            requireValid(Object.prototype.hasOwnProperty.call(backupCycles.plans,cyclePlan)&&(cyclePlan==='single'?backupCycles.validDuration(mix.duration):backupCycles.plans[cyclePlan].focus===mix.duration),'Plan de mezcla inválido.');
             return {...normalizeStudio(mix),name:mix.name.trim(),duration:mix.duration,cyclePlan,favorite:mix.favorite===true,levels:normalizeLevels(mix.levels)};
           });
           const dates=Object.keys(data.history);
@@ -1334,7 +1351,7 @@ body[data-focus-view="true"] #cycle-status:empty {display:none}
           if(data.session!==null&&data.session!==undefined) {
             requireValid(object(data.session)&&number(data.session.elapsed,0,7*86400000),'Sesión inválida.');
             const cycle=data.session.cycle===undefined?null:backupCycles.normalize(data.session.cycle);
-            requireValid(data.session.cycle===undefined?durations.includes(data.session.duration):cycle&&backupCycles.duration(cycle)===data.session.duration,'Plan de sesión inválido.');
+            requireValid(data.session.cycle===undefined?backupCycles.validDuration(data.session.duration):cycle&&backupCycles.duration(cycle)===data.session.duration,'Plan de sesión inválido.');
             session={duration:data.session.duration,elapsed:data.session.elapsed};
             if(cycle)session.cycle=cycle;
           }
@@ -1488,6 +1505,10 @@ body[data-focus-view="true"] #cycle-status:empty {display:none}
       }
       function syncCycleUI() {
         const active=cycleState.plan!=='single';
+        const locked=active||playing||transitioning;
+        $('custom-minutes').disabled=locked;
+        $('apply-duration').disabled=locked;
+        $('custom-duration-hint').textContent=active?'La duración personalizada se usa en Una sesión.':playing||transitioning?'Pausá para aplicar otra duración.':'De 1 a 180 minutos. Aplicar en pausa reinicia el reloj.';
         $('session-plan').value=cycleState.plan;
         $('session-plan').disabled=playing||transitioning;
         $('cycle-hint').hidden=!active;
@@ -1505,14 +1526,18 @@ body[data-focus-view="true"] #cycle-status:empty {display:none}
         syncFocusHistoryProgress(true);sessionRecordedMs=0;accumulatedMs=0;
         $('resume-status').textContent='';
         modeLabelEl.textContent=targetDurationMinutes?'Cuenta regresiva ('+targetDurationMinutes+' min)':'Tiempo de sesión (Libre)';
+        $('custom-duration-status').textContent='';
+        $('custom-minutes').setAttribute('aria-invalid','false');
+        if(plan==='single'&&singleDuration>0)$('custom-minutes').value=singleDuration;
         syncCycleUI();renderTimer();saveSession(true);syncUI();
       }
       function initCycles() {
+        if(cycleState.singleDuration>0)$('custom-minutes').value=cycleState.singleDuration;
         $('session-plan').addEventListener('change',()=>{
           if(playing||transitioning){$('session-plan').value=cycleState.plan;return;}
           const value=$('session-plan').value;
           if(!Object.prototype.hasOwnProperty.call(cycleTools.plans,value))return;
-          resetCycle(value,cycleState.plan==='single'&&[0,25,45,60].includes(targetDurationMinutes)?targetDurationMinutes:cycleState.singleDuration);
+          resetCycle(value,cycleState.plan==='single'&&cycleTools.validDuration(targetDurationMinutes)?targetDurationMinutes:cycleState.singleDuration);
         });
         syncCycleUI();
       }
@@ -1530,7 +1555,7 @@ body[data-focus-view="true"] #cycle-status:empty {display:none}
       function restoreSession() {
         const saved=readLocal(SESSION_KEY,null);
         if(!saved || !Number.isFinite(saved.elapsed) || saved.elapsed<0 || saved.elapsed>7*86400000)return;
-        const restored=saved.cycle?cycleTools.normalize(saved.cycle):cycleTools.initial('single',[0,25,45,60].includes(saved.duration)?saved.duration:0);
+        const restored=saved.cycle?cycleTools.normalize(saved.cycle):cycleTools.initial('single',cycleTools.validDuration(saved.duration)?saved.duration:0);
         if(!restored || cycleTools.duration(restored)!==saved.duration)return;
         cycleState=restored;
         targetDurationMinutes=saved.duration;
@@ -2192,22 +2217,25 @@ body[data-focus-view="true"] #cycle-status:empty {display:none}
       document.querySelectorAll('.mode-chip').forEach((chip) => {
         chip.addEventListener('click', () => {
           if(cycleState.plan!=='single')return;
-          targetDurationMinutes = Number(chip.dataset.minutes) || 0;
-          cycleState=cycleTools.initial('single',targetDurationMinutes);
-          document.querySelectorAll('.mode-chip').forEach((c) => {
-            c.setAttribute('aria-pressed', String(c === chip));
-          });
-          modeLabelEl.textContent = targetDurationMinutes > 0
-            ? `Cuenta regresiva (${targetDurationMinutes} min)`
-            : 'Tiempo de sesión (Libre)';
-          syncFocusHistoryProgress(true);
-          sessionRecordedMs = 0;
-          accumulatedMs = 0;
-          saveSession(true);
-          $('resume-status').textContent='';
-          if (playing) lastTickTimestamp = Date.now();
-          renderTimer();
+          resetCycle('single',Number(chip.dataset.minutes)||0);
+          if(playing)lastTickTimestamp=Date.now();
         });
+      });
+      function applyCustomDuration() {
+        if(playing||transitioning||cycleState.plan!=='single')return;
+        const raw=$('custom-minutes').value.trim(),minutes=Number(raw);
+        if(!raw||!cycleTools.validDuration(minutes)||minutes<1) {
+          $('custom-duration-status').textContent='Ingresá un número entero de 1 a 180 minutos.';
+          $('custom-minutes').setAttribute('aria-invalid','true');
+          return;
+        }
+        $('custom-minutes').setAttribute('aria-invalid','false');
+        resetCycle('single',minutes);
+        $('custom-duration-status').textContent='Duración aplicada: '+minutes+' minutos. Tocá Iniciar cuando quieras.';
+      }
+      $('apply-duration').addEventListener('click',applyCustomDuration);
+      $('custom-minutes').addEventListener('keydown',event=>{
+        if(event.key==='Enter'){event.preventDefault();applyCustomDuration();}
       });
 
       btn.addEventListener('click', () => (playing ? pause() : play()));
@@ -2520,10 +2548,10 @@ body[data-focus-view="true"] #cycle-status:empty {display:none}
       try {
         const urlParams = new URLSearchParams(window.location.search);
         const modeParam = Number(urlParams.get('duration') || urlParams.get('mode'));
-        if (modeParam > 0) {
-          cycleState=cycleTools.initial();
+        if (modeParam > 0 && cycleTools.validDuration(modeParam)) {
+          cycleState=cycleTools.initial('single',modeParam);
           targetDurationMinutes = modeParam;
-          if([0,25,45,60].includes(modeParam))cycleState=cycleTools.initial('single',modeParam);
+          $('custom-minutes').value=modeParam;
           accumulatedMs=0;sessionRecordedMs=0;
           $('resume-status').textContent='';
           document.querySelectorAll('.mode-chip').forEach((c) => {
