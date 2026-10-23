@@ -11,7 +11,7 @@ Aplicación web progresiva (PWA) de alto rendimiento para síntesis acústica pr
 
 ## FOCUS Studio v3 — ambientes y sesiones
 
-- Cuatro ambientes procedurales: lluvia cálida, océano profundo, espacio y textura para cubrir conversaciones.
+- Seis ambientes procedurales: lluvia cálida, océano profundo, espacio, textura para cubrir conversaciones, fogón suave y viento entre hojas.
 - Control de evolución (0–100), brillo y melodía independiente; filtros y afinación con transiciones suaves.
 - Mezclas personales con nombre, volúmenes, ambiente, evolución, brillo, melodía y duración. Hasta 50 mezclas locales.
 - Entrada progresiva de 20 segundos y cierre progresivo durante los últimos 20 segundos de una sesión con duración.
@@ -226,3 +226,8 @@ Ambiente de fondo grave con crepitaciones estéreo suaves e irregulares. Al eleg
 ## Viento entre hojas
 
 Brisa aireada formada por ruido estéreo filtrado entre graves y agudos, con un fondo grave tenue. Dos osciladores de control generan las ráfagas dentro del motor de audio, sin depender de los temporizadores de pantalla. Varían lentamente según Evolución; al 0% la brisa mantiene una intensidad estable. Brillo ajusta el contenido agudo. Comparte el volumen de textura ambiental y la amplitud estéreo, sin agregar archivos de audio. Al elegirlo aplica textura al 70%, sin drone ni melodía, y respeta «Conservar mi mezcla». Compatible con mezclas, favoritos, enlaces, valoraciones, copias de seguridad y reproducción sin conexión.
+
+
+## Cierre de sesiones con pantalla inactiva
+
+El cierre elegido (5, 20 o 60 segundos, limitado a la mitad de los tramos cortos) se programa en el motor de audio al iniciar y reanudar. El volumen llega a cero al completar la duración aunque se suspendan los temporizadores de la pantalla; el modo libre mantiene la reproducción continua. Al volver a la app se actualizan el estado y el historial hasta el final del tramo, sin contabilizar tiempo posterior ni avanzar automáticamente al siguiente tramo. La pausa conserva el tiempo restante. Las pruebas automatizadas incluyen salida de audio con temporizadores detenidos y renderizado Web Audio del cierre; la compatibilidad física depende del navegador y del dispositivo.
