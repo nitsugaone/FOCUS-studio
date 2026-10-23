@@ -133,6 +133,19 @@ for(const scene of ['rain','ocean','space','speech']){
  checks.push({check:'Scene '+scene,pass:cfg.scene===scene && (scene!=='speech'||cfg.melody===false)});
 }
 checks.push({check:'Different drone tunings',pass:new Set(roots).size===3});
+const preservedLevels=JSON.stringify(['master','noise','drone','notes'].map(key=>element('vol-'+key).value));
+const preservedClock=element('timer').textContent,preservedSourceCount=sources.length;
+element('preserve-mix').checked=true;element('preserve-mix').events.input();
+for(const scene of ['rain','ocean','space','speech']){
+ element('soundscape').value=scene;element('soundscape').events.input();
+ checks.push({check:'Preserved mix keeps levels and disabled melody in '+scene,pass:JSON.stringify(['master','noise','drone','notes'].map(key=>element('vol-'+key).value))===preservedLevels&&element('melody').checked===false&&element('timer').textContent===preservedClock&&sources.length===preservedSourceCount});
+}
+element('preserve-mix').checked=false;element('preserve-mix').events.input();
+checks.push({check:'Turning preservation off does not immediately change levels',pass:JSON.stringify(['master','noise','drone','notes'].map(key=>element('vol-'+key).value))===preservedLevels});
+element('soundscape').value='rain';element('soundscape').events.input();
+checks.push({check:'Next scene restores default levels and melody when preservation is off',pass:element('vol-noise').value===75&&element('vol-drone').value===22&&element('vol-notes').value===18&&element('melody').checked===true});
+element('soundscape').value='speech';element('soundscape').events.input();
+
 element('evolution').value='0';element('evolution').events.input();
 checks.push({check:'Stable mode disables noise modulation',pass:sources[2-offset].connections[0].gain.value===0 && sources[3-offset].connections[0].gain.value===0});
 element('preset-name').value='Lectura';element('save-mix').events.click();

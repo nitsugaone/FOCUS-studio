@@ -33,3 +33,8 @@ assert.equal(tools.decode(encoded).fadeOutSeconds,20);
 for(const fadeOutSeconds of [5,20,60])assert.equal(tools.decode(tools.encode({...mix,fadeOutSeconds})).fadeOutSeconds,fadeOutSeconds);
 for(const fadeOutSeconds of [0,10,61,'20',null])assert.throws(()=>tools.normalize({...data,fadeOutSeconds}));
 console.log('PASS: closing preferences in links and older data defaults');
+
+assert.equal(tools.decode(encoded).preserveMix,false);
+for(const preserveMix of [true,false])assert.equal(tools.decode(tools.encode({...mix,preserveMix})).preserveMix,preserveMix);
+for(const preserveMix of [0,1,'true',null])assert.throws(()=>tools.normalize({...data,preserveMix}));
+console.log('PASS: preserving scene levels in links and old data defaults');
