@@ -80,7 +80,16 @@ observeVisibility([{isIntersecting:true}]);
 checks.push({check:'Dock hides while main control is visible',pass:element('mobile-player').hidden===true});
 observeVisibility([{isIntersecting:false}]);
 checks.push({check:'Dock appears after main control leaves view',pass:element('mobile-player').hidden===false});
-await element('mobile-toggle').events.click();
+
+element('fade-out').value='5';element('fade-out').events.input();
+element('preset-name').value='Arranque';element('save-mix').events.click();element('saved-mixes').value='0';
+element('fade-out').value='20';element('fade-out').events.input();
+const startupPlayback=element('mobile-toggle').events.click();
+element('load-mix').events.click();
+checks.push({check:'Mix loading cannot change closing settings during startup',pass:element('toggle').disabled===true&&element('studio-status').textContent.includes('inicio del audio')&&JSON.parse(memory.get('focus-studio-v3')).fadeOutSeconds===20});
+await startupPlayback;
+element('saved-mixes').value='0';element('delete-mix').events.click();
+
 checks.push({check:'Dock starts shared player',pass:element('play-label').textContent==='Iniciar' ? false : element('play-label').textContent==='Pausar'});
 const activeSession=memory.get('focus-session-v1');
 element('custom-minutes').value='9';element('apply-duration').events.click();

@@ -1302,7 +1302,7 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
         $('load-mix').addEventListener('click',()=>{
           if($('saved-mixes').value==='')return;
           const mix=savedMixes[Number($('saved-mixes').value)];if(!mix)return;
-          if(playing){$('studio-status').textContent='Pausá la sesión antes de cargar una mezcla.';return;}
+          if(playing||transitioning){$('studio-status').textContent=transitioning?'Esperá a que termine el inicio del audio para cargar una mezcla.':'Pausá la sesión antes de cargar una mezcla.';return;}
           studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20};
           Object.keys(DEFAULTS).forEach(k=>{$('vol-'+k).value=mix.levels[k];updateRange(k,false);});
           const plan=Object.prototype.hasOwnProperty.call(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single';

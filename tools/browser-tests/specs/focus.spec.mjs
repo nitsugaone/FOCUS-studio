@@ -280,6 +280,7 @@ test('custom duration validates, survives mixes and backup, and completes withou
  await page.locator('#custom-minutes').fill('1');
  await page.locator('#apply-duration').click();
  await page.locator('#toggle').click();
+ await expect(page.locator('#status-text')).toHaveText('Sonando');
  await expect(page.locator('#custom-minutes')).toBeDisabled();
  await expect(page.locator('#apply-duration')).toBeDisabled();
  await page.clock.fastForward(61000);
