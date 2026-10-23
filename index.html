@@ -834,6 +834,10 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
           <small>Estable ← → Evolutivo · cambios lentos, sin aumentos de volumen</small>
           <label for="brightness">Brillo</label><input id="brightness" type="range" min="0" max="100" value="50">
           <label for="melody"><input id="melody" type="checkbox" checked> Incluir melodía</label>
+          <label for="stereo-width">Amplitud estéreo: <output id="stereo-width-value" for="stereo-width">100%</output></label>
+          <input id="stereo-width" type="range" min="0" max="100" step="1" value="100" aria-describedby="stereo-width-hint">
+          <p id="stereo-width-hint" class="daily-note">0% centra el sonido en ambos canales. 100% conserva la separación original. Ajustalo según tu preferencia.</p>
+
         <div class="layer-list">
           <div class="layer">
             <div class="layer-top">
@@ -1099,9 +1103,9 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
         const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
         const number=value=>Number.isFinite(value)&&value>=0&&value<=100;
         function normalize(value) {
-          if(!object(value)||value.v!==1||!scenes.includes(value.scene)||!number(value.evolution)||!number(value.brightness)||typeof value.melody!=='boolean'||!Object.prototype.hasOwnProperty.call(cycles.plans,value.cyclePlan)||!object(value.levels)||!['master','noise','drone','notes'].every(key=>number(value.levels[key])))throw Error('Enlace de mezcla inválido.');
+          if(!object(value)||value.v!==1||!scenes.includes(value.scene)||!number(value.evolution)||!number(value.brightness)||typeof value.melody!=='boolean'||(value.stereoWidth!==undefined&&!number(value.stereoWidth))||!Object.prototype.hasOwnProperty.call(cycles.plans,value.cyclePlan)||!object(value.levels)||!['master','noise','drone','notes'].every(key=>number(value.levels[key])))throw Error('Enlace de mezcla inválido.');
           if(value.cyclePlan==='single'?!cycles.validDuration(value.duration):cycles.plans[value.cyclePlan].focus!==value.duration)throw Error('Duración de mezcla inválida.');
-          return {v:1,scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,cyclePlan:value.cyclePlan,duration:value.duration,
+          return {v:1,scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,cyclePlan:value.cyclePlan,duration:value.duration,
             levels:Object.fromEntries(['master','noise','drone','notes'].map(key=>[key,value.levels[key]]))};
         }
         function encode(mix) {return '#mix='+encodeURIComponent(JSON.stringify(normalize({...mix,v:1})));}
@@ -1127,7 +1131,7 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
         speech: { label:'Cubrir conversaciones', description:'Textura continua más amplia, sin melodía por defecto. Ajustá a un volumen cómodo.', cutoff:2600, root:55, rate:0.01, depth:0, white:0.85, interval:25, mix:{noise:82,drone:0,notes:0} }
       };
       const STUDIO_KEY = 'focus-studio-v3';
-      let studio = {scene:'rain',evolution:35,brightness:50,melody:true};
+      let studio = {scene:'rain',evolution:35,brightness:50,melody:true,stereoWidth:100};
       let savedMixes = [];
       let feedbackSession = null;
       function readLocal(key, fallback) {
@@ -1139,18 +1143,21 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
       }
       function validStudio(value) {
         return value && SCENES[value.scene] && Number.isFinite(value.evolution) && value.evolution >= 0 && value.evolution <= 100
-          && Number.isFinite(value.brightness) && value.brightness >= 0 && value.brightness <= 100 && typeof value.melody === 'boolean';
+          && Number.isFinite(value.brightness) && value.brightness >= 0 && value.brightness <= 100 && typeof value.melody === 'boolean'
+          && (value.stereoWidth===undefined||(Number.isFinite(value.stereoWidth)&&value.stereoWidth>=0&&value.stereoWidth<=100));
       }
       function syncStudio() {
         $('soundscape').value=studio.scene; $('evolution').value=studio.evolution;
         $('brightness').value=studio.brightness; $('melody').checked=studio.melody;
         $('evolution-value').textContent=studio.evolution+'%';
+        $('stereo-width').value=studio.stereoWidth;$('stereo-width-value').textContent=studio.stereoWidth+'%';
         $('scene-description').textContent=SCENES[studio.scene].description;
         $('mobile-scene').textContent=SCENES[studio.scene].label;
       }
       function applyScene(smooth=1.5) {
         syncStudio();
         if (!ctx || !nodes.textureGain) return;
+        nodes.stereoField?.setWidth(studio.stereoWidth);
         const scene=SCENES[studio.scene], evolution=studio.evolution/100;
         const progress=targetDurationMinutes ? Math.min(1, accumulatedMs/(targetDurationMinutes*60000)) : 0;
         const drift=1+0.12*evolution*Math.sin(accumulatedMs/110000);
@@ -1225,11 +1232,11 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
 
       function initStudio() {
         const loaded=readLocal(STUDIO_KEY,null);
-        if(validStudio(loaded)) studio={scene:loaded.scene,evolution:loaded.evolution,brightness:loaded.brightness,melody:loaded.melody};
+        if(validStudio(loaded)) studio={scene:loaded.scene,evolution:loaded.evolution,brightness:loaded.brightness,melody:loaded.melody,stereoWidth:loaded.stereoWidth??100};
         const mixes=readLocal('focus-mixes-v3',[]);
         savedMixes=Array.isArray(mixes) ? mixes.filter(m=>validStudio(m)&&typeof m.name==='string'&&m.levels&&Object.keys(DEFAULTS).every(k=>Number.isFinite(m.levels[k])&&m.levels[k]>=0&&m.levels[k]<=100)).slice(0,50) : [];
         syncStudio();renderMixes();
-        ['soundscape','evolution','brightness','melody'].forEach(id=>$(id).addEventListener('input',()=>{
+        ['soundscape','evolution','brightness','melody','stereo-width'].forEach(id=>$(id).addEventListener('input',()=>{
           if(id==='soundscape') {
             lastNote=-1;noteStep=0;
             studio.scene=$('soundscape').value;
@@ -1239,6 +1246,7 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
           }
           if(id==='evolution')studio.evolution=Number($('evolution').value);
           if(id==='brightness')studio.brightness=Number($('brightness').value);
+          if(id==='stereo-width')studio.stereoWidth=Number($('stereo-width').value);
           if(id==='melody')studio.melody=$('melody').checked;
           applyScene();writeLocal(STUDIO_KEY,studio);
         }));
@@ -1251,7 +1259,7 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
           if($('saved-mixes').value==='')return;
           const mix=savedMixes[Number($('saved-mixes').value)];if(!mix)return;
           if(playing){$('studio-status').textContent='Pausá la sesión antes de cargar una mezcla.';return;}
-          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody};
+          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100};
           Object.keys(DEFAULTS).forEach(k=>{$('vol-'+k).value=mix.levels[k];updateRange(k,false);});
           const plan=Object.prototype.hasOwnProperty.call(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single';
           resetCycle(plan,plan==='single'?(cycleTools.validDuration(mix.duration)?mix.duration:0):cycleState.singleDuration);
@@ -1367,8 +1375,8 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
         const number=(value,min,max)=>Number.isFinite(value)&&value>=min&&value<=max;
         const requireValid=(condition,message)=>{if(!condition)throw Error(message);};
         const normalizeStudio=value=>{
-          requireValid(object(value)&&scenes.includes(value.scene)&&number(value.evolution,0,100)&&number(value.brightness,0,100)&&typeof value.melody==='boolean','Ajustes de ambiente inválidos.');
-          return {scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody};
+          requireValid(object(value)&&scenes.includes(value.scene)&&number(value.evolution,0,100)&&number(value.brightness,0,100)&&typeof value.melody==='boolean'&&(value.stereoWidth===undefined||number(value.stereoWidth,0,100)),'Ajustes de ambiente inválidos.');
+          return {scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100};
         };
         const normalizeLevels=value=>{
           requireValid(object(value)&&['master','noise','drone','notes'].every(key=>number(value[key],0,100)),'Volúmenes inválidos.');
@@ -1429,7 +1437,7 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
           requireValid(object(file)&&file.format==='focus-studio-backup'&&file.version===1,'No es una copia de FOCUS compatible.');
           return normalizeData(file.data);
         }
-        const mixIdentity=mix=>JSON.stringify([mix.name,mix.cyclePlan||'single',mix.scene,mix.evolution,mix.brightness,mix.melody,mix.duration,mix.levels.master,mix.levels.noise,mix.levels.drone,mix.levels.notes]);
+        const mixIdentity=mix=>JSON.stringify([mix.name,mix.cyclePlan||'single',mix.scene,mix.evolution,mix.brightness,mix.melody,mix.stereoWidth??100,mix.duration,mix.levels.master,mix.levels.noise,mix.levels.drone,mix.levels.notes]);
         const ratingIdentity=record=>JSON.stringify([record.date,record.scene,record.rating,record.minutes,record.distractions]);
         function planImport(file,includeSettings=false) {
           const incoming=validateBackup(file),current=collect(),mixes=current.mixes.map(mix=>({...mix}));
@@ -1505,7 +1513,7 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
           try {
             pendingSharedMix=shareTools.decode(hash);
             const mix=pendingSharedMix;
-            $('shared-mix-summary').textContent=SCENES[mix.scene].label+' · '+(mix.cyclePlan==='single'?(mix.duration?mix.duration+' minutos':'Sesión libre'):mix.cyclePlan.replace('-','/'))+' · Volumen maestro: '+mix.levels.master+'%.';
+            $('shared-mix-summary').textContent=SCENES[mix.scene].label+' · '+(mix.cyclePlan==='single'?(mix.duration?mix.duration+' minutos':'Sesión libre'):mix.cyclePlan.replace('-','/'))+' · Volumen maestro: '+mix.levels.master+'% · Amplitud estéreo: '+mix.stereoWidth+'%.';
             $('shared-mix-preview').hidden=false;
           }catch(_) {
             $('shared-mix-status').textContent='El enlace de mezcla no es válido o usa una versión incompatible. Tus ajustes se mantienen.';
@@ -1538,7 +1546,7 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
         $('apply-shared-mix').addEventListener('click',()=>{
           if(!pendingSharedMix||playing||transitioning)return;
           const mix=pendingSharedMix;
-          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody};
+          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100};
           Object.keys(DEFAULTS).forEach(key=>{$('vol-'+key).value=mix.levels[key];updateRange(key,false);});
           const sessionSaved=resetCycle(mix.cyclePlan,mix.cyclePlan==='single'?mix.duration:cycleState.singleDuration);
           applyScene();
@@ -1892,6 +1900,37 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
         startBufferedNoise();
       }
 
+
+      function stereoCoefficients(value) {
+        if(!Number.isFinite(value)||value<0||value>100)throw Error('Amplitud estéreo inválida.');
+        const width=value/100;
+        return {direct:(1+width)/2,cross:(1-width)/2};
+      }
+      function createStereoField(context,input,output,width=100) {
+        const stereo=context.createGain();
+        stereo.channelCount=2;stereo.channelCountMode='explicit';stereo.channelInterpretation='speakers';
+        const splitter=context.createChannelSplitter(2),merger=context.createChannelMerger(2);
+        const directL=context.createGain(),directR=context.createGain(),crossL=context.createGain(),crossR=context.createGain();
+        input.connect(stereo);stereo.connect(splitter);
+        splitter.connect(directL,0);splitter.connect(crossL,0);
+        splitter.connect(directR,1);splitter.connect(crossR,1);
+        directL.connect(merger,0,0);crossR.connect(merger,0,0);
+        directR.connect(merger,0,1);crossL.connect(merger,0,1);
+        merger.connect(output);
+        let currentWidth=null;
+        function setWidth(value,smooth=0.08) {
+          const coefficients=stereoCoefficients(value);
+          if(value===currentWidth)return;
+          currentWidth=value;
+          [[directL,coefficients.direct],[directR,coefficients.direct],[crossL,coefficients.cross],[crossR,coefficients.cross]].forEach(([node,target])=>{
+            if(smooth>0){node.gain.cancelScheduledValues(context.currentTime);node.gain.setTargetAtTime(target,context.currentTime,smooth);}
+            else node.gain.value=target;
+          });
+        }
+        setWidth(width,0);
+        return {setWidth};
+      }
+
       async function initAudio() {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (!AudioContextClass) throw new Error('Este navegador no admite Web Audio API.');
@@ -1914,7 +1953,7 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
         nodes.sessionGain = ctx.createGain();
         nodes.master.connect(nodes.sessionGain);
         nodes.sessionGain.connect(nodes.fade);
-        nodes.fade.connect(nodes.comp);
+        nodes.stereoField=createStereoField(ctx,nodes.fade,nodes.comp,studio.stereoWidth);
         nodes.comp.connect(ctx.destination);
 
         // MediaStreamAudioDestinationNode para supervivencia del audio con pantalla apagada en móviles
