@@ -829,7 +829,7 @@ test('wind gusts render continuously in the audio graph without screen timers',a
 });
 
 test('audio deadline closes output with screen timers stopped and reconciles history on return',async({page})=>{
- await page.evaluate(()=>{
+ await page.addInitScript(()=>{
   const date=new Date(),key=date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');
   localStorage.setItem('focus-daily-history-v1',JSON.stringify({[key]:.1}));
   localStorage.setItem('focus-session-v1',JSON.stringify({duration:1,elapsed:58000}));
@@ -876,7 +876,7 @@ test('audio closing renders the selected fade and stays silent after the deadlin
 });
 
 test('audio deadline reset replaces the old cutoff while preserving playback',async({page})=>{
- await page.evaluate(()=>{
+ await page.addInitScript(()=>{
   localStorage.setItem('focus-session-v1',JSON.stringify({duration:1,elapsed:58000}));
   localStorage.setItem('focus-studio-v3',JSON.stringify({scene:'wind',evolution:35,brightness:50,melody:false,fadeOutSeconds:5}));
   localStorage.setItem('focus-audio-settings-v2',JSON.stringify({master:75,noise:70,drone:0,notes:0}));
