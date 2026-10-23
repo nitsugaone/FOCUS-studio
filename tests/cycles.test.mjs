@@ -26,3 +26,14 @@ assert.throws(()=>tools.initial('__proto__'));
 assert.equal(tools.duration(tools.initial('single',45)),45);
 assert.equal(JSON.stringify(tools.initial('25-5',45)),original);
 console.log('PASS: cycle transitions, final round, manual progression and invalid state checks');
+
+for(const minutes of [0,1,17,50,180]) {
+ assert.equal(tools.validDuration(minutes),true);
+ assert.equal(tools.duration(tools.initial('single',minutes)),minutes);
+ assert.equal(tools.normalize(tools.initial('25-5',minutes)).singleDuration,minutes);
+}
+for(const minutes of [-1,181,1.5,NaN,Infinity,'17',null]) {
+ assert.equal(tools.validDuration(minutes),false);
+ assert.throws(()=>tools.initial('single',minutes));
+}
+console.log('PASS: custom duration bounds, integer validation and cycle preservation');

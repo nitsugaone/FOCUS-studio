@@ -71,3 +71,25 @@ assert.throws(()=>tools.validateBackup(invalidCycleCopy),'Cycle and phase durati
 const invalidPlan=clone(cycleCopy);invalidPlan.data.mixes[0].cyclePlan='unknown';
 assert.throws(()=>tools.validateBackup(invalidPlan));
 console.log('PASS: cycle plans and paused cycle sessions survive portable backups');
+
+for(const minutes of [1,17,180]) {
+ const custom=clone(file);
+ custom.data.mixes[0].duration=minutes;
+ custom.data.session={duration:minutes,elapsed:30000,cycle:{plan:'single',round:1,phase:'focus',completed:false,singleDuration:minutes}};
+ const validated=tools.validateBackup(custom);
+ assert.equal(validated.mixes[0].duration,minutes);
+ assert.equal(validated.session.cycle.singleDuration,minutes);
+ tools.applyImport(custom,true);
+ assert.equal(tools.validateBackup(tools.exportBackup()).session.duration,minutes);
+}
+for(const minutes of [-1,181,1.5,'17']) {
+ const invalid=clone(file);invalid.data.mixes[0].duration=minutes;
+ assert.throws(()=>tools.validateBackup(invalid));
+ const badSession=clone(file);badSession.data.session.duration=minutes;
+ assert.throws(()=>tools.validateBackup(badSession));
+}
+const customCycle=clone(cycleCopy);customCycle.data.session.cycle.singleDuration=17;
+assert.equal(tools.validateBackup(customCycle).session.cycle.singleDuration,17);
+const wrongCycleMix=clone(cycleCopy);wrongCycleMix.data.mixes[0].duration=17;
+assert.throws(()=>tools.validateBackup(wrongCycleMix),'Custom timers do not change fixed cycle lengths');
+console.log('PASS: custom durations round-trip through backup and fixed cycles remain validated');
