@@ -9,7 +9,7 @@ test.beforeEach(async({page},info)=>{
   const Context=window.AudioContext||window.webkitAudioContext;
   if(Context){const original=Context.prototype.createOscillator;Context.prototype.createOscillator=function(){window.createdOscillators++;return original.call(this);};}
  });
- if(info.title.startsWith('silent rest')||info.title.startsWith('wind scene'))await page.addInitScript(()=>{
+ if(info.title.startsWith('silent rest')||info.title.startsWith('wind scene')||info.title.startsWith('audio deadline'))await page.addInitScript(()=>{
   const Context=window.AudioContext||window.webkitAudioContext;
   window.restOscillators=0;
   if(Context){
@@ -18,6 +18,7 @@ test.beforeEach(async({page},info)=>{
    Context.prototype.createOscillator=function(){window.restOscillators++;return oscillator.call(this);};
   }
  });
+ if(info.title.startsWith('audio deadline'))await page.addInitScript(()=>{window.setInterval=()=>0;});
  const pageErrors=[];errors.set(page,pageErrors);
  page.on('pageerror',error=>pageErrors.push(error.message));
  await page.goto('./');
@@ -825,4 +826,67 @@ test('wind gusts render continuously in the audio graph without screen timers',a
   if(result.evolution===0)expect(result.max-result.min).toBeLessThan(.00001);
   else expect(result.max-result.min).toBeGreaterThan(.04);
  }
+});
+
+test('audio deadline closes output with screen timers stopped and reconciles history on return',async({page})=>{
+ await page.addInitScript(()=>{
+  const date=new Date(),key=date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');
+  localStorage.setItem('focus-daily-history-v1',JSON.stringify({[key]:.1}));
+  localStorage.setItem('focus-session-v1',JSON.stringify({duration:1,elapsed:58000}));
+  localStorage.setItem('focus-studio-v3',JSON.stringify({scene:'wind',evolution:35,brightness:50,melody:false,fadeOutSeconds:5}));
+  localStorage.setItem('focus-audio-settings-v2',JSON.stringify({master:75,noise:70,drone:0,notes:0}));
+ });
+ await page.reload();await expect(page.locator('#timer')).toHaveText('00:00:02');
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await attachRestMeter(page);await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeGreaterThan(.00001);
+ await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeLessThan(.000001);
+ await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await expect(page.locator('#timer')).toHaveText('00:00:02');
+ await page.evaluate(()=>{
+  const now=Date.now;Date.now=()=>now()+5*60000;
+  Object.defineProperty(document,'hidden',{configurable:true,value:false});document.dispatchEvent(new Event('visibilitychange'));
+ });
+ await expect(page.locator('#status-text')).toHaveText('En pausa');await expect(page.locator('#timer')).toHaveText('00:00:00');
+ await expect(page.locator('#session-feedback')).toBeVisible();
+ const result=await page.evaluate(()=>({session:JSON.parse(localStorage.getItem('focus-session-v1')),history:JSON.parse(localStorage.getItem('focus-daily-history-v1'))}));
+ expect(result.session.elapsed).toBe(60000);
+ expect(Object.values(result.history).reduce((a,b)=>a+b,0)).toBe(.1); // The two new seconds round down to the stored tenth of a minute.
+});
+test('audio closing renders the selected fade and stays silent after the deadline without timers',async({page})=>{
+ const html=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
+ const start=html.indexOf('      function sessionEnvelope('),end=html.indexOf('      function syncFadeUI()',start);
+ const results=await page.evaluate(async source=>{
+  const schedule=new Function(source+'return scheduleSessionClosing;')(),Context=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const results=[];
+  for(const [duration,elapsed,fade,silent] of [[1,0,5,false],[1,0,60,false],[1,58000,5,false],[0,0,20,false],[1,61000,20,false],[5,0,20,true]]) {
+   const rate=44100,size=62*rate,ctx=new Context(1,size,rate),buffer=ctx.createBuffer(1,size,rate);buffer.getChannelData(0).fill(.25);
+   const input=ctx.createBufferSource();input.buffer=buffer;const gain=ctx.createGain();input.connect(gain);gain.connect(ctx.destination);
+   schedule(ctx,gain.gain,elapsed,duration,fade,silent);input.start();
+   const output=(await ctx.startRendering()).getChannelData(0),effective=Math.min(fade,duration*30);
+   const samples=[0,1,3,30,45,55,57,60,61].map(second=>{
+    const remaining=duration*60-elapsed/1000-second;
+    const expected=silent?0:duration?Math.min(1,Math.max(0,remaining/effective)):1;
+    return {actual:output[second*rate],expected:expected*.25};
+   });
+   results.push(samples);
+  }
+  return results;
+ },html.slice(start,end));
+ for(const samples of results)for(const sample of samples)expect(Math.abs(sample.actual-sample.expected)).toBeLessThan(.00001);
+});
+
+test('audio deadline reset replaces the old cutoff while preserving playback',async({page})=>{
+ await page.addInitScript(()=>{
+  localStorage.setItem('focus-session-v1',JSON.stringify({duration:1,elapsed:58000}));
+  localStorage.setItem('focus-studio-v3',JSON.stringify({scene:'wind',evolution:35,brightness:50,melody:false,fadeOutSeconds:5}));
+  localStorage.setItem('focus-audio-settings-v2',JSON.stringify({master:75,noise:70,drone:0,notes:0}));
+ });
+ await page.reload();await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await attachRestMeter(page);await page.locator('#reset-timer').click();await expect(page.locator('#timer')).toHaveText('00:01:00');
+ await page.waitForTimeout(2300);
+ await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeGreaterThan(.00001);
+ await page.locator('[data-minutes="0"]').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-session-v1')).duration)).toBe(0);
+ await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeGreaterThan(.00001);
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('En pausa');
 });
