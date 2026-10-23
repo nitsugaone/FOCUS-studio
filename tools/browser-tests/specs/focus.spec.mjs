@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
 test.beforeEach(async({page},info)=>{
- if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing'))await page.clock.install();
+ if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session'))await page.clock.install();
  if(info.title.startsWith('note timing'))await page.addInitScript(()=>{
   window.createdOscillators=0;
   const Context=window.AudioContext||window.webkitAudioContext;
@@ -280,6 +280,7 @@ test('custom duration validates, survives mixes and backup, and completes withou
  await page.locator('#custom-minutes').fill('1');
  await page.locator('#apply-duration').click();
  await page.locator('#toggle').click();
+ await expect(page.locator('#status-text')).toHaveText('Sonando');
  await expect(page.locator('#custom-minutes')).toBeDisabled();
  await expect(page.locator('#apply-duration')).toBeDisabled();
  await page.clock.fastForward(61000);
@@ -323,7 +324,7 @@ test('shared mix links preview before applying and preserve personal data',async
  const link=await page.locator('#share-link').inputValue();
  const data=JSON.parse(decodeURIComponent(new URL(link).hash.slice(5)));
  expect(data.duration).toBe(17);
- expect(Object.keys(data).sort()).toEqual(['v','scene','evolution','brightness','melody','stereoWidth','notePace','cyclePlan','duration','levels'].sort());
+ expect(Object.keys(data).sort()).toEqual(['v','scene','evolution','brightness','melody','stereoWidth','notePace','fadeOutSeconds','cyclePlan','duration','levels'].sort());
  expect(link).not.toContain('Nombre');
  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copiedMix=text;}}}));
  await page.locator('#copy-share-link').click();
@@ -537,4 +538,65 @@ test('note timing changes future notes, cancels on mute and persists with mixtur
  await expect(page.locator('#status-text')).toHaveText('En pausa');
  await noOverflow(page);
  await page.screenshot({path:info.outputPath('note-pace.png'),fullPage:true,animations:'disabled'});
+});
+
+
+test('fade session closing starts at the chosen time and survives portable settings',async({page},info)=>{
+ await expand(page,'sound-settings');
+ await expect(page.locator('#fade-out')).toHaveValue('20');await expect(page.locator('#fade-out')).toBeDisabled();
+ await page.locator('#custom-minutes').fill('3');await page.locator('#apply-duration').click();
+ await page.locator('#fade-out').selectOption('60');
+ await expect(page.locator('#fade-out-hint')).toContainText('60 segundos');
+ const volume=await page.locator('#vol-master').inputValue();
+ await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await expect(page.locator('#fade-out')).toBeDisabled();
+ await page.locator('#fade-out').evaluate(el=>{el.value='5';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await expect(page.locator('#fade-out')).toHaveValue('60');
+ await page.clock.fastForward(61000);
+ await expect(page.locator('#session-phase')).toHaveText('Concentración sostenida');
+ await page.clock.fastForward(60000);
+ await expect(page.locator('#session-phase')).toHaveText('Cierre gradual');
+ await expect(page.locator('#vol-master')).toHaveValue(volume);
+ await page.clock.fastForward(60000);
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await expect(page.locator('#timer')).toHaveText('00:00:00');
+ await expect(page.locator('#session-feedback')).toBeVisible();
+ await expect(page.locator('#fade-out')).toBeEnabled();
+ await page.locator('#custom-minutes').fill('1');await page.locator('#apply-duration').click();
+ await expect(page.locator('#fade-out-hint')).toContainText('30 segundos');
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await page.clock.fastForward(29000);
+ await expect(page.locator('#session-phase')).toHaveText('Concentración sostenida');
+ await page.clock.fastForward(2000);
+ await expect(page.locator('#session-phase')).toHaveText('Cierre gradual');
+ await page.locator('#toggle').click();
+ await expand(page,'mix-settings');
+ await page.locator('#preset-name').fill('Cierre tranquilo');await page.locator('#save-mix').click();
+ await page.locator('#create-share-link').click();
+ const link=await page.locator('#share-link').inputValue();
+ expect(JSON.parse(decodeURIComponent(new URL(link).hash.slice(5))).fadeOutSeconds).toBe(60);
+ await expand(page,'backup-panel');
+ const promise=page.waitForEvent('download');await page.locator('#export-backup').click();const download=await promise;
+ const backup=JSON.parse(await readFile(await download.path(),'utf8'));
+ expect(backup.data.studio.fadeOutSeconds).toBe(60);expect(backup.data.mixes[0].fadeOutSeconds).toBe(60);
+ await page.locator('#fade-out').selectOption('5');
+ await page.locator('#saved-mixes').selectOption('0');await page.locator('#load-mix').click();
+ await expect(page.locator('#fade-out')).toHaveValue('60');
+ await page.reload();await expand(page,'sound-settings');
+ await expect(page.locator('#fade-out')).toHaveValue('60');await expect(page.locator('#status-text')).toHaveText('En pausa');
+ delete backup.data.studio.fadeOutSeconds;backup.data.mixes.forEach(mix=>delete mix.fadeOutSeconds);
+ await expand(page,'backup-panel');
+ await page.locator('#backup-file').setInputFiles({name:'old-fade.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+ await page.locator('#backup-settings').check();
+ await Promise.all([page.waitForEvent('load'),page.locator('#import-backup').click()]);
+ await expand(page,'sound-settings');await expect(page.locator('#fade-out')).toHaveValue('20');
+ await page.goto(link);await expect(page.locator('#shared-mix-summary')).toContainText('Cierre: 60 s');
+ await page.locator('#apply-shared-mix').click();await expect(page.locator('#fade-out')).toHaveValue('60');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await page.locator('[data-minutes="0"]').click();await expect(page.locator('#fade-out')).toBeDisabled();
+ await page.locator('#session-plan').selectOption('25-5');await expect(page.locator('#fade-out')).toBeEnabled();
+ await expect(page.locator('#fade-out')).toHaveValue('60');
+ await noOverflow(page);
+ await page.screenshot({path:info.outputPath('session-closing.png'),fullPage:true,animations:'disabled'});
 });

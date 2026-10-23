@@ -64,6 +64,14 @@ checks.push({check:'Creating a shared link does not write local data or start so
 window.location.hash='#mix=%';windowEvents.hashchange();
 checks.push({check:'Malformed shared link leaves settings and audio unchanged',pass:JSON.stringify([...memory])===beforeShare&&sources.length===0&&element('shared-mix-preview').hidden===true});
 window.location.hash='';windowEvents.hashchange();
+
+const fadeTimerBefore=element('timer').textContent;
+checks.push({check:'Older settings use original 20-second closing',pass:element('fade-out').value==='20'&&element('fade-out').disabled===false});
+element('fade-out').value='60';element('fade-out').events.input();
+checks.push({check:'Paused closing choice persists without resetting time',pass:JSON.parse(memory.get('focus-studio-v3')).fadeOutSeconds===60&&element('timer').textContent===fadeTimerBefore&&sources.length===0});
+element('fade-out').value='99';element('fade-out').events.input();
+checks.push({check:'Invalid closing choice does not replace settings',pass:JSON.parse(memory.get('focus-studio-v3')).fadeOutSeconds===60&&element('fade-out').value==='60'});
+element('fade-out').value='20';element('fade-out').events.input();
 await windowEvents.load();
 checks.push({check:'Waiting update is announced',pass:element('apply-update').hidden===false});
 checks.push({check:'Feedback is initially hidden',pass:element('session-feedback').hidden===true});
@@ -72,7 +80,16 @@ observeVisibility([{isIntersecting:true}]);
 checks.push({check:'Dock hides while main control is visible',pass:element('mobile-player').hidden===true});
 observeVisibility([{isIntersecting:false}]);
 checks.push({check:'Dock appears after main control leaves view',pass:element('mobile-player').hidden===false});
-await element('mobile-toggle').events.click();
+
+element('fade-out').value='5';element('fade-out').events.input();
+element('preset-name').value='Arranque';element('save-mix').events.click();element('saved-mixes').value='0';
+element('fade-out').value='20';element('fade-out').events.input();
+const startupPlayback=element('mobile-toggle').events.click();
+element('load-mix').events.click();
+checks.push({check:'Mix loading cannot change closing settings during startup',pass:element('toggle').disabled===true&&element('studio-status').textContent.includes('inicio del audio')&&JSON.parse(memory.get('focus-studio-v3')).fadeOutSeconds===20});
+await startupPlayback;
+element('saved-mixes').value='0';element('delete-mix').events.click();
+
 checks.push({check:'Dock starts shared player',pass:element('play-label').textContent==='Iniciar' ? false : element('play-label').textContent==='Pausar'});
 const activeSession=memory.get('focus-session-v1');
 element('custom-minutes').value='9';element('apply-duration').events.click();
@@ -84,6 +101,9 @@ checks.push({check:'Dock timer matches main timer',pass:element('mobile-timer').
 checks.push({check:'Audio startup: two noise sources, two LFOs, three drones and two note oscillators',pass:sources.length===(continuous?7:9)});
 checks.push({check:'Mobile panels start collapsed',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===false)});
 const activeSources=sources.length;
+element('fade-out').value='5';element('fade-out').events.input();
+checks.push({check:'Closing choice is guarded during audio',pass:element('fade-out').disabled===true&&element('fade-out').value==='20'&&JSON.parse(memory.get('focus-studio-v3')).fadeOutSeconds===20});
+
 const rhythmTimer=element('timer').textContent;
 element('note-pace').value='sparse';element('note-pace').events.input();
 checks.push({check:'Sparse notes reschedule without sound burst or timer reset',pass:sources.length===activeSources&&element('timer').textContent===rhythmTimer&&scheduledTimeouts.size===1&&[...scheduledTimeouts.values()][0].delay>=24000&&[...scheduledTimeouts.values()][0].delay<=32400});

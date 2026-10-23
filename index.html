@@ -834,6 +834,14 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
           <small>Estable ← → Evolutivo · cambios lentos, sin aumentos de volumen</small>
           <label for="brightness">Brillo</label><input id="brightness" type="range" min="0" max="100" value="50">
           <label for="melody"><input id="melody" type="checkbox" checked> Incluir melodía</label>
+
+          <label for="fade-out">Cierre gradual de la sesión</label>
+          <select id="fade-out" aria-describedby="fade-out-hint">
+            <option value="5">Breve · 5 segundos</option>
+            <option value="20" selected>Actual · 20 segundos</option>
+            <option value="60">Más gradual · 60 segundos</option>
+          </select>
+          <p id="fade-out-hint" class="daily-note"></p>
           <label for="note-pace">Frecuencia de notas</label>
           <select id="note-pace" aria-describedby="note-pace-hint">
             <option value="sparse">Más espaciadas</option>
@@ -1111,9 +1119,9 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
         const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
         const number=value=>Number.isFinite(value)&&value>=0&&value<=100;
         function normalize(value) {
-          if(!object(value)||value.v!==1||!scenes.includes(value.scene)||!number(value.evolution)||!number(value.brightness)||typeof value.melody!=='boolean'||(value.stereoWidth!==undefined&&!number(value.stereoWidth))||!(value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))||!Object.prototype.hasOwnProperty.call(cycles.plans,value.cyclePlan)||!object(value.levels)||!['master','noise','drone','notes'].every(key=>number(value.levels[key])))throw Error('Enlace de mezcla inválido.');
+          if(!object(value)||value.v!==1||!scenes.includes(value.scene)||!number(value.evolution)||!number(value.brightness)||typeof value.melody!=='boolean'||(value.stereoWidth!==undefined&&!number(value.stereoWidth))||!(value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))||!(value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds))||!Object.prototype.hasOwnProperty.call(cycles.plans,value.cyclePlan)||!object(value.levels)||!['master','noise','drone','notes'].every(key=>number(value.levels[key])))throw Error('Enlace de mezcla inválido.');
           if(value.cyclePlan==='single'?!cycles.validDuration(value.duration):cycles.plans[value.cyclePlan].focus!==value.duration)throw Error('Duración de mezcla inválida.');
-          return {v:1,scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,notePace:value.notePace??'normal',cyclePlan:value.cyclePlan,duration:value.duration,
+          return {v:1,scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,notePace:value.notePace??'normal',fadeOutSeconds:value.fadeOutSeconds??20,cyclePlan:value.cyclePlan,duration:value.duration,
             levels:Object.fromEntries(['master','noise','drone','notes'].map(key=>[key,value.levels[key]]))};
         }
         function encode(mix) {return '#mix='+encodeURIComponent(JSON.stringify(normalize({...mix,v:1})));}
@@ -1139,7 +1147,7 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
         speech: { label:'Cubrir conversaciones', description:'Textura continua más amplia, sin melodía por defecto. Ajustá a un volumen cómodo.', cutoff:2600, root:55, rate:0.01, depth:0, white:0.85, interval:25, mix:{noise:82,drone:0,notes:0} }
       };
       const STUDIO_KEY = 'focus-studio-v3';
-      let studio = {scene:'rain',evolution:35,brightness:50,melody:true,stereoWidth:100,notePace:'normal'};
+      let studio = {scene:'rain',evolution:35,brightness:50,melody:true,stereoWidth:100,notePace:'normal',fadeOutSeconds:20};
       let savedMixes = [];
       let feedbackSession = null;
       function readLocal(key, fallback) {
@@ -1153,9 +1161,26 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
         return value && SCENES[value.scene] && Number.isFinite(value.evolution) && value.evolution >= 0 && value.evolution <= 100
           && Number.isFinite(value.brightness) && value.brightness >= 0 && value.brightness <= 100 && typeof value.melody === 'boolean'
           && (value.stereoWidth===undefined||(Number.isFinite(value.stereoWidth)&&value.stereoWidth>=0&&value.stereoWidth<=100))
-          && (value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace));
+          && (value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))
+          && (value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds));
       }
+
+      function sessionEnvelope(elapsedMs,durationMinutes,fadeOutSeconds=20) {
+        if(!Number.isFinite(elapsedMs)||elapsedMs<0||!Number.isInteger(durationMinutes)||durationMinutes<0||durationMinutes>180||![5,20,60].includes(fadeOutSeconds))throw Error('Cierre de sesión inválido.');
+        const entry=Math.min(1,0.4+elapsedMs/20000);
+        const effectiveFade=durationMinutes?Math.min(fadeOutSeconds,durationMinutes*30):0;
+        const exit=durationMinutes?Math.min(1,Math.max(0,(durationMinutes*60000-elapsedMs)/(effectiveFade*1000))):1;
+        return {entry,exit,effectiveFade};
+      }
+      function syncFadeUI() {
+        $('fade-out').value=String(studio.fadeOutSeconds);
+        $('fade-out').disabled=playing||transitioning||targetDurationMinutes===0;
+        const seconds=targetDurationMinutes?Math.min(studio.fadeOutSeconds,targetDurationMinutes*30):0;
+        $('fade-out-hint').textContent=!targetDurationMinutes?'Disponible en sesiones con duración y en ciclos. Se conserva tu elección.':'El volumen baja en los últimos '+seconds+' segundos del tramo.'+(seconds<studio.fadeOutSeconds?' El cierre se limita a la mitad de este tramo.':'')+(playing||transitioning?' Pausá para cambiarlo.':'');
+      }
+
       function syncStudio() {
+        syncFadeUI();
         $('soundscape').value=studio.scene; $('evolution').value=studio.evolution;
         $('brightness').value=studio.brightness; $('melody').checked=studio.melody;
         $('note-pace').value=studio.notePace;$('note-pace').disabled=!studio.melody;
@@ -1183,9 +1208,7 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
         const ratios=[1,2,3];
         nodes.droneOscs.forEach((osc,i)=>ramp(osc.frequency,scene.root*ratios[i]*(1+0.002*evolution*Math.sin(accumulatedMs/150000)),smooth));
         // Session envelope is independent of user volume and holds on pause.
-        const entry=Math.min(1,0.4+accumulatedMs/20000);
-        const remaining=targetDurationMinutes*60000-accumulatedMs;
-        const exit=targetDurationMinutes ? Math.min(1,Math.max(0,remaining/20000)) : 1;
+        const {entry,exit}=sessionEnvelope(accumulatedMs,targetDurationMinutes,studio.fadeOutSeconds);
         ramp(nodes.sessionGain.gain,entry*exit,0.4);
         $('session-phase').textContent=exit<1 ? 'Cierre gradual' : entry<1 ? 'Entrada suave' : cycleState.plan!=='single'&&cycleState.phase==='rest' ? 'Descanso sostenido' : progress>0 ? 'Concentración sostenida' : 'Sesión libre';
       }
@@ -1243,11 +1266,16 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
 
       function initStudio() {
         const loaded=readLocal(STUDIO_KEY,null);
-        if(validStudio(loaded)) studio={scene:loaded.scene,evolution:loaded.evolution,brightness:loaded.brightness,melody:loaded.melody,stereoWidth:loaded.stereoWidth??100,notePace:loaded.notePace??'normal'};
+        if(validStudio(loaded)) studio={scene:loaded.scene,evolution:loaded.evolution,brightness:loaded.brightness,melody:loaded.melody,stereoWidth:loaded.stereoWidth??100,notePace:loaded.notePace??'normal',fadeOutSeconds:loaded.fadeOutSeconds??20};
         const mixes=readLocal('focus-mixes-v3',[]);
         savedMixes=Array.isArray(mixes) ? mixes.filter(m=>validStudio(m)&&typeof m.name==='string'&&m.levels&&Object.keys(DEFAULTS).every(k=>Number.isFinite(m.levels[k])&&m.levels[k]>=0&&m.levels[k]<=100)).slice(0,50) : [];
         syncStudio();renderMixes();
-        ['soundscape','evolution','brightness','melody','stereo-width','note-pace'].forEach(id=>$(id).addEventListener('input',()=>{
+        ['soundscape','evolution','brightness','melody','stereo-width','note-pace','fade-out'].forEach(id=>$(id).addEventListener('input',()=>{
+          if(id==='fade-out') {
+            const value=Number($('fade-out').value);
+            if(playing||transitioning||!targetDurationMinutes||![5,20,60].includes(value)){syncFadeUI();return;}
+            studio.fadeOutSeconds=value;
+          }
           if(id==='soundscape') {
             lastNote=-1;noteStep=0;
             studio.scene=$('soundscape').value;
@@ -1274,8 +1302,8 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
         $('load-mix').addEventListener('click',()=>{
           if($('saved-mixes').value==='')return;
           const mix=savedMixes[Number($('saved-mixes').value)];if(!mix)return;
-          if(playing){$('studio-status').textContent='Pausá la sesión antes de cargar una mezcla.';return;}
-          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,notePace:mix.notePace??'normal'};
+          if(playing||transitioning){$('studio-status').textContent=transitioning?'Esperá a que termine el inicio del audio para cargar una mezcla.':'Pausá la sesión antes de cargar una mezcla.';return;}
+          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20};
           Object.keys(DEFAULTS).forEach(k=>{$('vol-'+k).value=mix.levels[k];updateRange(k,false);});
           const plan=Object.prototype.hasOwnProperty.call(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single';
           resetCycle(plan,plan==='single'?(cycleTools.validDuration(mix.duration)?mix.duration:0):cycleState.singleDuration);
@@ -1391,8 +1419,8 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
         const number=(value,min,max)=>Number.isFinite(value)&&value>=min&&value<=max;
         const requireValid=(condition,message)=>{if(!condition)throw Error(message);};
         const normalizeStudio=value=>{
-          requireValid(object(value)&&scenes.includes(value.scene)&&number(value.evolution,0,100)&&number(value.brightness,0,100)&&typeof value.melody==='boolean'&&(value.stereoWidth===undefined||number(value.stereoWidth,0,100))&&(value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace)),'Ajustes de ambiente inválidos.');
-          return {scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,notePace:value.notePace??'normal'};
+          requireValid(object(value)&&scenes.includes(value.scene)&&number(value.evolution,0,100)&&number(value.brightness,0,100)&&typeof value.melody==='boolean'&&(value.stereoWidth===undefined||number(value.stereoWidth,0,100))&&(value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))&&(value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds)),'Ajustes de ambiente inválidos.');
+          return {scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,notePace:value.notePace??'normal',fadeOutSeconds:value.fadeOutSeconds??20};
         };
         const normalizeLevels=value=>{
           requireValid(object(value)&&['master','noise','drone','notes'].every(key=>number(value[key],0,100)),'Volúmenes inválidos.');
@@ -1453,7 +1481,7 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
           requireValid(object(file)&&file.format==='focus-studio-backup'&&file.version===1,'No es una copia de FOCUS compatible.');
           return normalizeData(file.data);
         }
-        const mixIdentity=mix=>JSON.stringify([mix.name,mix.cyclePlan||'single',mix.scene,mix.evolution,mix.brightness,mix.melody,mix.stereoWidth??100,mix.notePace??'normal',mix.duration,mix.levels.master,mix.levels.noise,mix.levels.drone,mix.levels.notes]);
+        const mixIdentity=mix=>JSON.stringify([mix.name,mix.cyclePlan||'single',mix.scene,mix.evolution,mix.brightness,mix.melody,mix.stereoWidth??100,mix.notePace??'normal',mix.fadeOutSeconds??20,mix.duration,mix.levels.master,mix.levels.noise,mix.levels.drone,mix.levels.notes]);
         const ratingIdentity=record=>JSON.stringify([record.date,record.scene,record.rating,record.minutes,record.distractions]);
         function planImport(file,includeSettings=false) {
           const incoming=validateBackup(file),current=collect(),mixes=current.mixes.map(mix=>({...mix}));
@@ -1529,7 +1557,7 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
           try {
             pendingSharedMix=shareTools.decode(hash);
             const mix=pendingSharedMix;
-            $('shared-mix-summary').textContent=SCENES[mix.scene].label+' · '+(mix.cyclePlan==='single'?(mix.duration?mix.duration+' minutos':'Sesión libre'):mix.cyclePlan.replace('-','/'))+' · Volumen maestro: '+mix.levels.master+'% · Amplitud estéreo: '+mix.stereoWidth+'% · Notas: '+(mix.melody?({sparse:'más espaciadas',normal:'ritmo actual',frequent:'más frecuentes'})[mix.notePace]:'desactivadas')+'.';
+            $('shared-mix-summary').textContent=SCENES[mix.scene].label+' · '+(mix.cyclePlan==='single'?(mix.duration?mix.duration+' minutos':'Sesión libre'):mix.cyclePlan.replace('-','/'))+' · Volumen maestro: '+mix.levels.master+'% · Amplitud estéreo: '+mix.stereoWidth+'% · Notas: '+(mix.melody?({sparse:'más espaciadas',normal:'ritmo actual',frequent:'más frecuentes'})[mix.notePace]:'desactivadas')+' · Cierre: '+mix.fadeOutSeconds+' s (hasta la mitad del tramo).';
             $('shared-mix-preview').hidden=false;
           }catch(_) {
             $('shared-mix-status').textContent='El enlace de mezcla no es válido o usa una versión incompatible. Tus ajustes se mantienen.';
@@ -1562,7 +1590,7 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
         $('apply-shared-mix').addEventListener('click',()=>{
           if(!pendingSharedMix||playing||transitioning)return;
           const mix=pendingSharedMix;
-          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,notePace:mix.notePace??'normal'};
+          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20};
           Object.keys(DEFAULTS).forEach(key=>{$('vol-'+key).value=mix.levels[key];updateRange(key,false);});
           const sessionSaved=resetCycle(mix.cyclePlan,mix.cyclePlan==='single'?mix.duration:cycleState.singleDuration);
           applyScene();
@@ -1647,6 +1675,7 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
           label:(last?'Repetir ciclo: ': 'Iniciar ')+(next.phase==='rest'?'descanso':'ronda '+next.round)+' de '+cycleTools.duration(next)+' minutos'};
       }
       function syncCycleUI() {
+        syncFadeUI();
         const active=cycleState.plan!=='single';
         const locked=active||playing||transitioning;
         $('custom-minutes').disabled=locked;
