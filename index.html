@@ -754,7 +754,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         <div class="quick-scene studio-controls">          <label for="soundscape">Ambiente</label>
           <select id="soundscape">
             <option value="rain">Lluvia cálida</option><option value="ocean">Océano profundo</option>
-            <option value="space">Espacio</option><option value="speech">Cubrir conversaciones</option>
+            <option value="space">Espacio</option><option value="speech">Cubrir conversaciones</option><option value="fire">Fogón suave</option>
           </select>
           <p id="scene-description"></p>
 </div>
@@ -998,7 +998,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           <div><label for="insights-period">Período</label>
             <select id="insights-period"><option value="7">Últimos 7 días</option><option value="30" selected>Últimos 30 días</option><option value="0">Todo lo guardado</option></select></div>
           <div><label for="insights-scene">Ambiente</label>
-            <select id="insights-scene"><option value="all">Todos</option><option value="rain">Lluvia cálida</option><option value="ocean">Océano profundo</option><option value="space">Espacio</option><option value="speech">Cubrir conversaciones</option></select></div>
+            <select id="insights-scene"><option value="all">Todos</option><option value="rain">Lluvia cálida</option><option value="ocean">Océano profundo</option><option value="space">Espacio</option><option value="speech">Cubrir conversaciones</option><option value="fire">Fogón suave</option></select></div>
         </div>
         <p id="insights-summary" role="status" aria-live="polite"></p>
         <p id="insights-comparison" class="daily-note"></p>
@@ -1133,7 +1133,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
 
 
       function createShareTools() {
-        const cycles=createCycleTools(),scenes=['rain','ocean','space','speech'];
+        const cycles=createCycleTools(),scenes=['rain','ocean','space','speech','fire'];
         const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
         const number=value=>Number.isFinite(value)&&value>=0&&value<=100;
         function normalize(value) {
@@ -1162,7 +1162,8 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         rain: { label:'Lluvia cálida', description:'Lluvia filtrada, fondo cálido y notas suaves.', cutoff:1900, root:65.406, rate:0.023, depth:70, white:0.65, interval:12, mix:{noise:75,drone:22,notes:18} },
         ocean: { label:'Océano profundo', description:'Ruido grave que respira lentamente como el oleaje.', cutoff:420, root:49, rate:0.065, depth:180, white:0.12, interval:18, mix:{noise:82,drone:35,notes:10} },
         space: { label:'Espacio', description:'Drone abierto y campanas sobre una armonía compartida.', cutoff:650, root:55, rate:0.014, depth:100, white:0.04, interval:8, mix:{noise:30,drone:65,notes:48} },
-        speech: { label:'Cubrir conversaciones', description:'Textura continua más amplia, sin melodía por defecto. Ajustá a un volumen cómodo.', cutoff:2600, root:55, rate:0.01, depth:0, white:0.85, interval:25, mix:{noise:82,drone:0,notes:0} }
+        fire: { label:'Fogón suave', description:'Fondo grave con crepitaciones suaves e irregulares, sin melodía por defecto.', cutoff:900, root:49, rate:0.018, depth:35, white:0.06, crackle:0.55, melody:false, interval:22, mix:{noise:68,drone:0,notes:0} },
+        speech: { melody:false, label:'Cubrir conversaciones', description:'Textura continua más amplia, sin melodía por defecto. Ajustá a un volumen cómodo.', cutoff:2600, root:55, rate:0.01, depth:0, white:0.85, interval:25, mix:{noise:82,drone:0,notes:0} }
       };
       const STUDIO_KEY = 'focus-studio-v3';
       let studio = {scene:'rain',evolution:35,brightness:50,melody:true,stereoWidth:100,notePace:'normal',fadeOutSeconds:20,preserveMix:false,restSound:'sound'};
@@ -1240,6 +1241,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         ramp(nodes.textureFilter.frequency,scene.cutoff*(0.65+studio.brightness/100)*drift,smooth);
         ramp(nodes.textureGain.gain,scene.white,smooth);
         ramp(nodes.brownGain.gain,1-scene.white,smooth);
+        ramp(nodes.crackleGain.gain,scene.crackle??0,smooth);
         ramp(nodes.droneFilter.frequency,220+studio.brightness*6,smooth);
         ramp(nodes.droneLfoDepth.gain,110*evolution,smooth);
         const ratios=[1,2,3];
@@ -1326,7 +1328,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
             lastNote=-1;noteStep=0;
             studio.scene=$('soundscape').value;
             if(!studio.preserveMix) {
-              studio.melody=studio.scene!=='speech';
+              studio.melody=SCENES[studio.scene].melody!==false;
               Object.entries(SCENES[studio.scene].mix).forEach(([k,v])=>{$('vol-'+k).value=v;updateRange(k,false);});
               persistSettings();
             }
@@ -1463,7 +1465,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         const keys={mixes:'focus-mixes-v3',history:'focus-daily-history-v1',ratings:'focus-feedback-v3',settings:'focus-audio-settings-v2',studio:'focus-studio-v3',session:'focus-session-v1'};
         const undoKey='focus-backup-undo-v1';
         const backupCycles=createCycleTools();
-        const scenes=['rain','ocean','space','speech'];
+        const scenes=['rain','ocean','space','speech','fire'];
         const object=value=>value && typeof value==='object' && !Array.isArray(value);
         const number=(value,min,max)=>Number.isFinite(value)&&value>=min&&value<=max;
         const requireValid=(condition,message)=>{if(!condition)throw Error(message);};
@@ -1956,6 +1958,20 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
       }
 
 
+      function createCrackleBuffer(context) {
+        const buffer=context.createBuffer(2,context.sampleRate*19,context.sampleRate);
+        const decay=Math.exp(-1/(context.sampleRate*0.006)),edge=context.sampleRate*0.02;
+        for(let ch=0;ch<2;ch++) {
+          const data=buffer.getChannelData(ch);let envelope=0;
+          for(let i=0;i<data.length;i++) {
+            if(Math.random()<8/context.sampleRate)envelope=Math.min(1,envelope+0.3+Math.random()*0.7);
+            envelope*=decay;
+            data[i]=(Math.random()*2-1)*envelope*0.45*Math.min(1,i/edge,(data.length-1-i)/edge);
+          }
+        }
+        return buffer;
+      }
+
       function startBufferedNoise() {
         nodes.noiseSrc=ctx.createBufferSource();
         nodes.noiseSrc.buffer=createStereoBrownBuffer(ctx);
@@ -1970,6 +1986,9 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         nodes.noiseSrc.connect(nodes.brownGain);
         nodes.textureSrc.connect(nodes.textureFilter);
         nodes.textureSrc.start();nodes.noiseSrc.start();
+        nodes.crackleSrc=ctx.createBufferSource();
+        nodes.crackleSrc.buffer=createCrackleBuffer(ctx);nodes.crackleSrc.loop=true;
+        nodes.crackleSrc.connect(nodes.crackleFilter);nodes.crackleSrc.start();
       }
 
       async function startNoiseSources() {
@@ -1977,10 +1996,11 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           try {
             await ctx.audioWorklet.addModule('./audio/noise-processor.js');
             const source=new window.AudioWorkletNode(ctx,'focus-continuous-noise',{
-              numberOfInputs:0,numberOfOutputs:2,outputChannelCount:[2,2]
+              numberOfInputs:0,numberOfOutputs:3,outputChannelCount:[2,2,2]
             });
             source.connect(nodes.brownGain,0);
             source.connect(nodes.textureFilter,1);
+            source.connect(nodes.crackleFilter,2);
             nodes.noiseWorklet=source;
             source.addEventListener('processorerror',()=>{
               source.disconnect();
@@ -2081,6 +2101,11 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         nodes.noiseGain.gain.value = level('noise');
         nodes.brownGain=ctx.createGain();
         nodes.textureGain=ctx.createGain();
+        nodes.crackleGain=ctx.createGain();
+        nodes.crackleGain.gain.value=0;
+        nodes.crackleFilter=ctx.createBiquadFilter();
+        nodes.crackleFilter.type='lowpass';nodes.crackleFilter.frequency.value=3400;nodes.crackleFilter.Q.value=0.5;
+        nodes.crackleFilter.connect(nodes.crackleGain);nodes.crackleGain.connect(nodes.noiseGain);
         nodes.textureFilter=ctx.createBiquadFilter();
         nodes.textureFilter.type='lowpass';
         nodes.textureFilter.Q.value=0.5;
