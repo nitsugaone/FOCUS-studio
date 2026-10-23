@@ -704,6 +704,10 @@ body[data-focus-view="true"] #shared-mix-status {display:none}
 
 label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48px;line-height:1.5}
 #preserve-mix {flex-shrink:0;accent-color:var(--accent)}
+
+.rest-sound-setting {display:grid;gap:8px;width:100%;text-align:left}
+#rest-sound {width:100%;min-width:0;min-height:44px;padding:10px;border:1px solid var(--line-strong);border-radius:10px;background:var(--panel-strong);font-size:16px}
+#rest-sound-setting[hidden],body[data-focus-view="true"] .rest-sound-setting {display:none}
 </style>
 </head>
 <body>
@@ -780,6 +784,15 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
             <option value="25-5">25 min + 5 de descanso · 4 rondas</option>
             <option value="50-10">50 min + 10 de descanso · 2 rondas</option>
           </select>
+
+          <div id="rest-sound-setting" class="rest-sound-setting" hidden>
+            <label for="rest-sound">Durante el descanso</label>
+            <select id="rest-sound" aria-describedby="rest-sound-hint">
+              <option value="sound">Con el sonido de mi mezcla</option>
+              <option value="silent">En silencio</option>
+            </select>
+            <p id="rest-sound-hint" class="daily-note">El descanso usa su propio reloj. En silencio no suma tiempo de escucha. La siguiente ronda empieza cuando toques Siguiente.</p>
+          </div>
           <p id="cycle-status" role="status" aria-live="polite"></p>
           <p id="cycle-hint" class="daily-note" hidden>Hay un descanso entre rondas. Cada tramo se detiene al terminar y el siguiente empieza al tocar el botón. El tiempo de escucha incluye los descansos.</p>
         </div>
@@ -1124,9 +1137,9 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
         const number=value=>Number.isFinite(value)&&value>=0&&value<=100;
         function normalize(value) {
-          if(!object(value)||value.v!==1||!scenes.includes(value.scene)||!number(value.evolution)||!number(value.brightness)||typeof value.melody!=='boolean'||(value.stereoWidth!==undefined&&!number(value.stereoWidth))||!(value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))||!(value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds))||!(value.preserveMix===undefined||typeof value.preserveMix==='boolean')||!Object.prototype.hasOwnProperty.call(cycles.plans,value.cyclePlan)||!object(value.levels)||!['master','noise','drone','notes'].every(key=>number(value.levels[key])))throw Error('Enlace de mezcla inválido.');
+          if(!object(value)||value.v!==1||!scenes.includes(value.scene)||!number(value.evolution)||!number(value.brightness)||typeof value.melody!=='boolean'||(value.stereoWidth!==undefined&&!number(value.stereoWidth))||!(value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))||!(value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds))||!(value.preserveMix===undefined||typeof value.preserveMix==='boolean')||!(value.restSound===undefined||['sound','silent'].includes(value.restSound))||!Object.prototype.hasOwnProperty.call(cycles.plans,value.cyclePlan)||!object(value.levels)||!['master','noise','drone','notes'].every(key=>number(value.levels[key])))throw Error('Enlace de mezcla inválido.');
           if(value.cyclePlan==='single'?!cycles.validDuration(value.duration):cycles.plans[value.cyclePlan].focus!==value.duration)throw Error('Duración de mezcla inválida.');
-          return {v:1,scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,notePace:value.notePace??'normal',fadeOutSeconds:value.fadeOutSeconds??20,preserveMix:value.preserveMix??false,cyclePlan:value.cyclePlan,duration:value.duration,
+          return {v:1,scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,notePace:value.notePace??'normal',fadeOutSeconds:value.fadeOutSeconds??20,preserveMix:value.preserveMix??false,restSound:value.restSound??'sound',cyclePlan:value.cyclePlan,duration:value.duration,
             levels:Object.fromEntries(['master','noise','drone','notes'].map(key=>[key,value.levels[key]]))};
         }
         function encode(mix) {return '#mix='+encodeURIComponent(JSON.stringify(normalize({...mix,v:1})));}
@@ -1152,7 +1165,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         speech: { label:'Cubrir conversaciones', description:'Textura continua más amplia, sin melodía por defecto. Ajustá a un volumen cómodo.', cutoff:2600, root:55, rate:0.01, depth:0, white:0.85, interval:25, mix:{noise:82,drone:0,notes:0} }
       };
       const STUDIO_KEY = 'focus-studio-v3';
-      let studio = {scene:'rain',evolution:35,brightness:50,melody:true,stereoWidth:100,notePace:'normal',fadeOutSeconds:20,preserveMix:false};
+      let studio = {scene:'rain',evolution:35,brightness:50,melody:true,stereoWidth:100,notePace:'normal',fadeOutSeconds:20,preserveMix:false,restSound:'sound'};
       let savedMixes = [];
       let feedbackSession = null;
       function readLocal(key, fallback) {
@@ -1168,7 +1181,8 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           && (value.stereoWidth===undefined||(Number.isFinite(value.stereoWidth)&&value.stereoWidth>=0&&value.stereoWidth<=100))
           && (value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))
           && (value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds))
-          && (value.preserveMix===undefined||typeof value.preserveMix==='boolean');
+          && (value.preserveMix===undefined||typeof value.preserveMix==='boolean')
+          && (value.restSound===undefined||['sound','silent'].includes(value.restSound));
       }
 
       function sessionEnvelope(elapsedMs,durationMinutes,fadeOutSeconds=20) {
@@ -1185,7 +1199,19 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         $('fade-out-hint').textContent=!targetDurationMinutes?'Disponible en sesiones con duración y en ciclos. Se conserva tu elección.':'El volumen baja en los últimos '+seconds+' segundos del tramo.'+(seconds<studio.fadeOutSeconds?' El cierre se limita a la mitad de este tramo.':'')+(playing||transitioning?' Pausá para cambiarlo.':'');
       }
 
+
+      function isSilentRestState(state,restSound) {
+        return Boolean(state&&['25-5','50-10'].includes(state.plan)&&state.phase==='rest'&&restSound==='silent');
+      }
+      function isSilentRest() {return isSilentRestState(cycleState,studio.restSound);}
+      function syncRestSoundUI() {
+        $('rest-sound-setting').hidden=cycleState.plan==='single';
+        $('rest-sound').value=studio.restSound;
+        $('rest-sound').disabled=playing||transitioning||cycleState.plan==='single';
+      }
+
       function syncStudio() {
+        syncRestSoundUI();
         syncFadeUI();
         $('soundscape').value=studio.scene; $('evolution').value=studio.evolution;
         $('brightness').value=studio.brightness; $('melody').checked=studio.melody;
@@ -1195,7 +1221,8 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         $('evolution-value').textContent=studio.evolution+'%';
         $('stereo-width').value=studio.stereoWidth;$('stereo-width-value').textContent=studio.stereoWidth+'%';
         $('scene-description').textContent=SCENES[studio.scene].description;
-        $('mobile-scene').textContent=SCENES[studio.scene].label;
+        $('mobile-scene').textContent=isSilentRest()?'Descanso en silencio':SCENES[studio.scene].label;
+        $('focus-view-scene').textContent=isSilentRest()?'Descanso en silencio':SCENES[studio.scene].label;
       }
       function applyScene(smooth=1.5) {
         syncStudio();
@@ -1216,8 +1243,11 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         nodes.droneOscs.forEach((osc,i)=>ramp(osc.frequency,scene.root*ratios[i]*(1+0.002*evolution*Math.sin(accumulatedMs/150000)),smooth));
         // Session envelope is independent of user volume and holds on pause.
         const {entry,exit}=sessionEnvelope(accumulatedMs,targetDurationMinutes,studio.fadeOutSeconds);
-        ramp(nodes.sessionGain.gain,entry*exit,0.4);
-        $('session-phase').textContent=exit<1 ? 'Cierre gradual' : entry<1 ? 'Entrada suave' : cycleState.plan!=='single'&&cycleState.phase==='rest' ? 'Descanso sostenido' : progress>0 ? 'Concentración sostenida' : 'Sesión libre';
+        if(isSilentRest()) {
+          nodes.sessionGain.gain.cancelScheduledValues(ctx.currentTime);
+          nodes.sessionGain.gain.setValueAtTime(0,ctx.currentTime);
+        } else ramp(nodes.sessionGain.gain,entry*exit,0.4);
+        $('session-phase').textContent=isSilentRest()?'Descanso en silencio':exit<1 ? 'Cierre gradual' : entry<1 ? 'Entrada suave' : cycleState.plan!=='single'&&cycleState.phase==='rest' ? 'Descanso sostenido' : progress>0 ? 'Concentración sostenida' : 'Sesión libre';
       }
 
       function selectedMixIndex() {
@@ -1273,15 +1303,20 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
 
       function initStudio() {
         const loaded=readLocal(STUDIO_KEY,null);
-        if(validStudio(loaded)) studio={scene:loaded.scene,evolution:loaded.evolution,brightness:loaded.brightness,melody:loaded.melody,stereoWidth:loaded.stereoWidth??100,notePace:loaded.notePace??'normal',fadeOutSeconds:loaded.fadeOutSeconds??20,preserveMix:loaded.preserveMix??false};
+        if(validStudio(loaded)) studio={scene:loaded.scene,evolution:loaded.evolution,brightness:loaded.brightness,melody:loaded.melody,stereoWidth:loaded.stereoWidth??100,notePace:loaded.notePace??'normal',fadeOutSeconds:loaded.fadeOutSeconds??20,preserveMix:loaded.preserveMix??false,restSound:loaded.restSound??'sound'};
         const mixes=readLocal('focus-mixes-v3',[]);
         savedMixes=Array.isArray(mixes) ? mixes.filter(m=>validStudio(m)&&typeof m.name==='string'&&m.levels&&Object.keys(DEFAULTS).every(k=>Number.isFinite(m.levels[k])&&m.levels[k]>=0&&m.levels[k]<=100)).slice(0,50) : [];
         syncStudio();renderMixes();
-        ['soundscape','evolution','brightness','melody','stereo-width','note-pace','fade-out','preserve-mix'].forEach(id=>$(id).addEventListener('input',()=>{
+        ['soundscape','evolution','brightness','melody','stereo-width','note-pace','fade-out','preserve-mix','rest-sound'].forEach(id=>$(id).addEventListener('input',()=>{
           if(id==='fade-out') {
             const value=Number($('fade-out').value);
             if(playing||transitioning||!targetDurationMinutes||![5,20,60].includes(value)){syncFadeUI();return;}
             studio.fadeOutSeconds=value;
+          }
+          if(id==='rest-sound') {
+            const value=$('rest-sound').value;
+            if(playing||transitioning||cycleState.plan==='single'||!['sound','silent'].includes(value)){syncRestSoundUI();return;}
+            syncFocusHistoryProgress(true);studio.restSound=value;
           }
           if(id==='preserve-mix')studio.preserveMix=$('preserve-mix').checked;
           if(id==='soundscape') {
@@ -1302,6 +1337,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
             studio.notePace=$('note-pace').value;
           }
           applyScene();writeLocal(STUDIO_KEY,studio);
+          if(id==='rest-sound')syncUI();
           if(playing&&['soundscape','melody','note-pace'].includes(id))scheduleNextNote();
         }));
         $('save-mix').addEventListener('click',()=>{
@@ -1313,7 +1349,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           if($('saved-mixes').value==='')return;
           const mix=savedMixes[Number($('saved-mixes').value)];if(!mix)return;
           if(playing||transitioning){$('studio-status').textContent=transitioning?'Esperá a que termine el inicio del audio para cargar una mezcla.':'Pausá la sesión antes de cargar una mezcla.';return;}
-          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20,preserveMix:mix.preserveMix??false};
+          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20,preserveMix:mix.preserveMix??false,restSound:mix.restSound??'sound'};
           Object.keys(DEFAULTS).forEach(k=>{$('vol-'+k).value=mix.levels[k];updateRange(k,false);});
           const plan=Object.prototype.hasOwnProperty.call(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single';
           resetCycle(plan,plan==='single'?(cycleTools.validDuration(mix.duration)?mix.duration:0):cycleState.singleDuration);
@@ -1429,8 +1465,8 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         const number=(value,min,max)=>Number.isFinite(value)&&value>=min&&value<=max;
         const requireValid=(condition,message)=>{if(!condition)throw Error(message);};
         const normalizeStudio=value=>{
-          requireValid(object(value)&&scenes.includes(value.scene)&&number(value.evolution,0,100)&&number(value.brightness,0,100)&&typeof value.melody==='boolean'&&(value.stereoWidth===undefined||number(value.stereoWidth,0,100))&&(value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))&&(value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds))&&(value.preserveMix===undefined||typeof value.preserveMix==='boolean'),'Ajustes de ambiente inválidos.');
-          return {scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,notePace:value.notePace??'normal',fadeOutSeconds:value.fadeOutSeconds??20,preserveMix:value.preserveMix??false};
+          requireValid(object(value)&&scenes.includes(value.scene)&&number(value.evolution,0,100)&&number(value.brightness,0,100)&&typeof value.melody==='boolean'&&(value.stereoWidth===undefined||number(value.stereoWidth,0,100))&&(value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))&&(value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds))&&(value.preserveMix===undefined||typeof value.preserveMix==='boolean')&&(value.restSound===undefined||['sound','silent'].includes(value.restSound)),'Ajustes de ambiente inválidos.');
+          return {scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,notePace:value.notePace??'normal',fadeOutSeconds:value.fadeOutSeconds??20,preserveMix:value.preserveMix??false,restSound:value.restSound??'sound'};
         };
         const normalizeLevels=value=>{
           requireValid(object(value)&&['master','noise','drone','notes'].every(key=>number(value[key],0,100)),'Volúmenes inválidos.');
@@ -1491,7 +1527,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           requireValid(object(file)&&file.format==='focus-studio-backup'&&file.version===1,'No es una copia de FOCUS compatible.');
           return normalizeData(file.data);
         }
-        const mixIdentity=mix=>JSON.stringify([mix.name,mix.cyclePlan||'single',mix.scene,mix.evolution,mix.brightness,mix.melody,mix.stereoWidth??100,mix.notePace??'normal',mix.fadeOutSeconds??20,mix.preserveMix??false,mix.duration,mix.levels.master,mix.levels.noise,mix.levels.drone,mix.levels.notes]);
+        const mixIdentity=mix=>JSON.stringify([mix.name,mix.cyclePlan||'single',mix.scene,mix.evolution,mix.brightness,mix.melody,mix.stereoWidth??100,mix.notePace??'normal',mix.fadeOutSeconds??20,mix.preserveMix??false,mix.restSound??'sound',mix.duration,mix.levels.master,mix.levels.noise,mix.levels.drone,mix.levels.notes]);
         const ratingIdentity=record=>JSON.stringify([record.date,record.scene,record.rating,record.minutes,record.distractions]);
         function planImport(file,includeSettings=false) {
           const incoming=validateBackup(file),current=collect(),mixes=current.mixes.map(mix=>({...mix}));
@@ -1567,7 +1603,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           try {
             pendingSharedMix=shareTools.decode(hash);
             const mix=pendingSharedMix;
-            $('shared-mix-summary').textContent=SCENES[mix.scene].label+' · '+(mix.cyclePlan==='single'?(mix.duration?mix.duration+' minutos':'Sesión libre'):mix.cyclePlan.replace('-','/'))+' · Volumen maestro: '+mix.levels.master+'% · Amplitud estéreo: '+mix.stereoWidth+'% · Notas: '+(mix.melody?({sparse:'más espaciadas',normal:'ritmo actual',frequent:'más frecuentes'})[mix.notePace]:'desactivadas')+' · Cierre: '+mix.fadeOutSeconds+' s (hasta la mitad del tramo).'+(mix.preserveMix?' Conserva volúmenes y melodía al cambiar de ambiente.':'');
+            $('shared-mix-summary').textContent=SCENES[mix.scene].label+' · '+(mix.cyclePlan==='single'?(mix.duration?mix.duration+' minutos':'Sesión libre'):mix.cyclePlan.replace('-','/'))+' · Volumen maestro: '+mix.levels.master+'% · Amplitud estéreo: '+mix.stereoWidth+'% · Notas: '+(mix.melody?({sparse:'más espaciadas',normal:'ritmo actual',frequent:'más frecuentes'})[mix.notePace]:'desactivadas')+' · Cierre: '+mix.fadeOutSeconds+' s (hasta la mitad del tramo).'+(mix.preserveMix?' Conserva volúmenes y melodía al cambiar de ambiente.':'')+(mix.cyclePlan!=='single'?' Descansos: '+(mix.restSound==='silent'?'en silencio.':'con sonido.'):'');
             $('shared-mix-preview').hidden=false;
           }catch(_) {
             $('shared-mix-status').textContent='El enlace de mezcla no es válido o usa una versión incompatible. Tus ajustes se mantienen.';
@@ -1600,7 +1636,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         $('apply-shared-mix').addEventListener('click',()=>{
           if(!pendingSharedMix||playing||transitioning)return;
           const mix=pendingSharedMix;
-          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20,preserveMix:mix.preserveMix??false};
+          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20,preserveMix:mix.preserveMix??false,restSound:mix.restSound??'sound'};
           Object.keys(DEFAULTS).forEach(key=>{$('vol-'+key).value=mix.levels[key];updateRange(key,false);});
           const sessionSaved=resetCycle(mix.cyclePlan,mix.cyclePlan==='single'?mix.duration:cycleState.singleDuration);
           applyScene();
@@ -1679,13 +1715,13 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
 
 
       function cycleAction() {
-        if(cycleState.plan==='single'||!cycleState.completed)return {text:'Iniciar',label:'Iniciar paisaje sonoro'};
+        if(cycleState.plan==='single'||!cycleState.completed)return {text:'Iniciar',label:isSilentRest()?'Iniciar descanso en silencio':'Iniciar paisaje sonoro'};
         const next=cycleTools.next(cycleState),last=next.round===1&&next.phase==='focus';
         return {text:last?'Repetir':next.phase==='rest'?'Descansar':'Siguiente',
-          label:(last?'Repetir ciclo: ': 'Iniciar ')+(next.phase==='rest'?'descanso':'ronda '+next.round)+' de '+cycleTools.duration(next)+' minutos'};
+          label:(last?'Repetir ciclo: ': 'Iniciar ')+(next.phase==='rest'?(studio.restSound==='silent'?'descanso en silencio':'descanso'):'ronda '+next.round)+' de '+cycleTools.duration(next)+' minutos'};
       }
       function syncCycleUI() {
-        syncFadeUI();
+        syncFadeUI();syncRestSoundUI();
         const active=cycleState.plan!=='single';
         const locked=active||playing||transitioning;
         $('custom-minutes').disabled=locked;
@@ -1694,10 +1730,11 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         $('session-plan').value=cycleState.plan;
         $('session-plan').disabled=playing||transitioning;
         $('cycle-hint').hidden=!active;
+        $('cycle-hint').textContent='Hay un descanso entre rondas. Cada tramo se detiene al terminar y el siguiente empieza al tocar el botón. '+(studio.restSound==='silent'?'Los descansos en silencio no suman tiempo de escucha.':'El tiempo de escucha incluye los descansos con sonido.');
         document.querySelectorAll('.mode-chip').forEach(chip=>{chip.disabled=active;chip.setAttribute('aria-pressed',String(!active&&Number(chip.dataset.minutes)===targetDurationMinutes));});
         $('reset-timer').textContent=active?'Reiniciar tramo':'Reiniciar reloj';
         if(!active){$('cycle-status').textContent='';return;}
-        const plan=cycleTools.plans[cycleState.plan],kind=cycleState.phase==='rest'?'Descanso':'Concentración';
+        const plan=cycleTools.plans[cycleState.plan],kind=cycleState.phase==='rest'?(isSilentRest()?'Descanso en silencio':'Descanso'):'Concentración';
         $('cycle-status').textContent=kind+' · Ronda '+cycleState.round+' de '+plan.rounds+
           (cycleState.completed?' · Tramo terminado':'');
         modeLabelEl.textContent=kind+' ('+targetDurationMinutes+' min)';
@@ -2116,7 +2153,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
       }
 
       function playNote() {
-        if (!ctx || ctx.state !== 'running' || !nodes.notesGain || !studio.melody) return;
+        if (!ctx || ctx.state !== 'running' || !nodes.notesGain || !studio.melody || isSilentRest()) return;
         let index;
         if(studio.evolution===0) {
           index=[0,2,4,2][noteStep++ % 4];
@@ -2192,10 +2229,10 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
       }
       function scheduleNextNote() {
         clearTimeout(noteTimer);noteTimer=null;
-        if (!playing || !studio.melody) return;
+        if (!playing || !studio.melody || isSilentRest()) return;
         const delay=noteDelaySeconds(SCENES[studio.scene].interval,studio.evolution,studio.notePace)*1000;
         noteTimer = window.setTimeout(() => {
-          if (!playing || !studio.melody) return;
+          if (!playing || !studio.melody || isSilentRest()) return;
           playNote();
           scheduleNextNote();
         }, delay);
@@ -2257,11 +2294,11 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         syncCycleUI();
         const action=cycleAction();
         playLabel.textContent = playing ? 'Pausar' : action.text;
-        btn.setAttribute('aria-label',playing?'Pausar paisaje sonoro':action.label);
+        btn.setAttribute('aria-label',playing?(isSilentRest()?'Pausar descanso':'Pausar paisaje sonoro'):action.label);
         playIcon.innerHTML = playing
           ? '<path d="M7 5.5h3.6v13H7zM13.4 5.5H17v13h-3.6z"/>'
           : '<path d="M8 5.8c0-.8.9-1.3 1.6-.9l9 6.2a1.1 1.1 0 0 1 0 1.8l-9 6.2c-.7.5-1.6 0-1.6-.9V5.8Z"/>';
-        statusText.textContent = playing ? 'Sonando' : cycleState.plan!=='single'&&cycleState.completed?'Tramo terminado':'En pausa';
+        statusText.textContent = playing ? (isSilentRest()?'Descanso en silencio':'Sonando') : cycleState.plan!=='single'&&cycleState.completed?'Tramo terminado':'En pausa';
         statusPill.dataset.playing = String(playing);
         playerCard.classList.toggle('is-playing', playing);
         syncUpdateButton();
@@ -2271,7 +2308,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         const mobileToggle=$('mobile-toggle');
         mobileToggle.disabled=transitioning;
         mobileToggle.textContent=playing ? 'Pausar' : action.text;
-        mobileToggle.setAttribute('aria-label',playing ? 'Pausar paisaje sonoro' : action.label);
+        mobileToggle.setAttribute('aria-label',playing ? (isSilentRest()?'Pausar descanso':'Pausar paisaje sonoro') : action.label);
         mobileToggle.setAttribute('aria-pressed',String(playing));
 
         if ('mediaSession' in navigator) {
@@ -2539,6 +2576,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
 
       function syncFocusHistoryProgress(flush = false) {
         const currentMs = accumulatedMs;
+        if(isSilentRest()){sessionRecordedMs=currentMs;return;}
         const deltaMs = currentMs - sessionRecordedMs;
         if (deltaMs >= (flush ? 1000 : 5000)) {
           const deltaSecs = Math.floor(deltaMs / 1000);
@@ -2708,7 +2746,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         control.setAttribute('aria-pressed',String(focusView));
         control.textContent=focusView?'Ver todos los controles':'Vista de concentración';
         $('focus-view-scene').hidden=!focusView;
-        $('focus-view-scene').textContent=SCENES[studio.scene].label;
+        $('focus-view-scene').textContent=isSilentRest()?'Descanso en silencio':SCENES[studio.scene].label;
       }
       $('focus-view-toggle').addEventListener('click',()=>setFocusView(!focusView));
 

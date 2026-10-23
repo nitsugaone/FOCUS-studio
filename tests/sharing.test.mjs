@@ -38,3 +38,8 @@ assert.equal(tools.decode(encoded).preserveMix,false);
 for(const preserveMix of [true,false])assert.equal(tools.decode(tools.encode({...mix,preserveMix})).preserveMix,preserveMix);
 for(const preserveMix of [0,1,'true',null])assert.throws(()=>tools.normalize({...data,preserveMix}));
 console.log('PASS: preserving scene levels in links and old data defaults');
+
+assert.equal(tools.decode(encoded).restSound,'sound');
+for(const restSound of ['sound','silent'])assert.equal(tools.decode(tools.encode({...mix,restSound})).restSound,restSound);
+for(const restSound of ['unknown',true,1,null])assert.throws(()=>tools.normalize({...data,restSound}));
+console.log('PASS: silent rest in links and old data defaults');

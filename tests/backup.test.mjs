@@ -146,3 +146,15 @@ for(const preserveMix of [0,1,'true',null]){
  assert.throws(()=>tools.validateBackup(invalid));
 }
 console.log('PASS: preserving scene levels in backups and old data defaults');
+
+assert.equal(tools.validateBackup(file).studio.restSound,'sound');
+assert.equal(tools.validateBackup(file).mixes[0].restSound,'sound');
+const restCopy=clone(file);restCopy.data.studio.restSound='silent';restCopy.data.mixes[0].restSound='silent';
+tools.applyImport(restCopy,true);
+const restExport=tools.validateBackup(tools.exportBackup());
+assert.equal(restExport.studio.restSound,'silent');
+assert.ok(restExport.mixes.some(mix=>mix.restSound==='silent'));
+for(const restSound of ['unknown',true,1,null]){
+ const invalid=clone(file);invalid.data.studio.restSound=restSound;assert.throws(()=>tools.validateBackup(invalid));
+}
+console.log('PASS: silent rest in backups and old data keeps audible rests');
