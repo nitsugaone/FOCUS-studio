@@ -163,3 +163,8 @@ const fireBackup={...file,data:{...file.data,studio:{...scene,scene:'fire',melod
 assert.equal(tools.validateBackup(fireBackup).studio.scene,'fire');
 assert.equal(tools.validateBackup(fireBackup).mixes[0].scene,'fire');
 assert.equal(tools.validateBackup(fireBackup).ratings[0].scene,'fire');
+
+const windBackup={...file,data:{...file.data,studio:{...scene,scene:'wind',melody:false},mixes:[{...mix,scene:'wind',melody:false}],ratings:[{...rating,scene:'wind'}]}};
+assert.equal(tools.validateBackup(windBackup).studio.scene,'wind');
+assert.equal(tools.validateBackup(windBackup).mixes[0].scene,'wind');
+assert.equal(tools.validateBackup(windBackup).ratings[0].scene,'wind');

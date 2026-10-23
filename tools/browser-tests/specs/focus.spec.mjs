@@ -9,7 +9,7 @@ test.beforeEach(async({page},info)=>{
   const Context=window.AudioContext||window.webkitAudioContext;
   if(Context){const original=Context.prototype.createOscillator;Context.prototype.createOscillator=function(){window.createdOscillators++;return original.call(this);};}
  });
- if(info.title.startsWith('silent rest'))await page.addInitScript(()=>{
+ if(info.title.startsWith('silent rest')||info.title.startsWith('wind scene'))await page.addInitScript(()=>{
   const Context=window.AudioContext||window.webkitAudioContext;
   window.restOscillators=0;
   if(Context){
@@ -766,4 +766,63 @@ test('fire scene plays, switches, saves and shares on mobile and desktop',async(
  await page.locator('#apply-shared-mix').click();await expect(page.locator('#soundscape')).toHaveValue('fire');
  await expect(page.locator('#status-text')).toHaveText('En pausa');await noOverflow(page);
  await page.screenshot({path:info.outputPath('fire.png'),fullPage:true,animations:'disabled'});
+});
+
+test('wind scene produces audio, follows ambient volume and survives portable settings',async({page},info)=>{
+ await page.locator('#soundscape').selectOption('wind');
+ await expect(page.locator('#scene-description')).toContainText('ráfagas');
+ await expand(page,'sound-settings');await expect(page.locator('#melody')).not.toBeChecked();
+ await expect(page.locator('#vol-noise')).toHaveValue('70');await expect(page.locator('#vol-drone')).toHaveValue('0');
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await attachRestMeter(page);
+ await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeGreaterThan(.00001);
+ await page.locator('#vol-noise').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeLessThan(.000001);
+ await page.locator('#vol-noise').evaluate(el=>{el.value='70';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeGreaterThan(.00001);
+ await page.locator('#evolution').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.locator('#soundscape').selectOption('fire');await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await page.locator('#soundscape').selectOption('wind');await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await page.locator('#toggle').click();
+ await expand(page,'mix-settings');await page.locator('#preset-name').fill('Mi brisa');await page.locator('#save-mix').click();
+ await page.locator('#favorite-mix').click();await page.locator('#create-share-link').click();
+ const link=await page.locator('#share-link').inputValue();
+ expect(JSON.parse(decodeURIComponent(new URL(link).hash.slice(5))).scene).toBe('wind');
+ await page.reload();await page.locator('#favorite-mixes button').click();
+ await expect(page.locator('#soundscape')).toHaveValue('wind');await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await expand(page,'sound-settings');await expect(page.locator('#evolution')).toHaveValue('0');
+ await expand(page,'backup-panel');const promise=page.waitForEvent('download');await page.locator('#export-backup').click();
+ const backup=JSON.parse(await readFile(await (await promise).path(),'utf8'));
+ expect(backup.data.studio.scene).toBe('wind');expect(backup.data.mixes[0].scene).toBe('wind');
+ await page.locator('#backup-file').setInputFiles({name:'wind.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+ await expect(page.locator('#backup-preview')).toBeVisible();await page.locator('#cancel-backup').click();
+ await page.goto(link);await expect(page.locator('#shared-mix-summary')).toContainText('Viento entre hojas');
+ await page.locator('#apply-shared-mix').click();await expect(page.locator('#soundscape')).toHaveValue('wind');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');await noOverflow(page);
+ await page.screenshot({path:info.outputPath('wind.png'),fullPage:true,animations:'disabled'});
+});
+
+test('wind gusts render continuously in the audio graph without screen timers',async({page})=>{
+ const html=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
+ const start=html.indexOf('      function windCoefficients('),end=html.indexOf('      function applyScene(',start);
+ const results=await page.evaluate(async source=>{
+  const create=new Function(source+'return createWindGust;')(),Context=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const results=[];
+  for(const evolution of [0,100]) {
+   const rate=44100,size=46*rate,ctx=new Context(1,size,rate),buffer=ctx.createBuffer(1,size,rate);
+   buffer.getChannelData(0).fill(.25);const input=ctx.createBufferSource();input.buffer=buffer;
+   const gust=create(ctx,input,ctx.destination,evolution);gust.start();input.start();
+   const output=(await ctx.startRendering()).getChannelData(0);
+   const samples=[1,9,18,30,45].map(second=>({actual:output[second*rate],expected:.25*(.52+(evolution/100)*(.18*Math.sin(second/9)+.12*Math.sin(second/23)))}));
+   let min=Infinity,max=-Infinity;for(const value of output){min=Math.min(min,value);max=Math.max(max,value);}
+   results.push({evolution,samples,min,max});
+  }
+  return results;
+ },html.slice(start,end));
+ for(const result of results) {
+  for(const sample of result.samples)expect(Math.abs(sample.actual-sample.expected)).toBeLessThan(.0002);
+  expect(result.min).toBeGreaterThanOrEqual(.25*.22-.0002);expect(result.max).toBeLessThanOrEqual(.25*.82+.0002);
+  if(result.evolution===0)expect(result.max-result.min).toBeLessThan(.00001);
+  else expect(result.max-result.min).toBeGreaterThan(.04);
+ }
 });
