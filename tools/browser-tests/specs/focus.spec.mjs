@@ -830,6 +830,8 @@ test('wind gusts render continuously in the audio graph without screen timers',a
 
 test('audio deadline closes output with screen timers stopped and reconciles history on return',async({page})=>{
  await page.evaluate(()=>{
+  const date=new Date(),key=date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');
+  localStorage.setItem('focus-daily-history-v1',JSON.stringify({[key]:.1}));
   localStorage.setItem('focus-session-v1',JSON.stringify({duration:1,elapsed:58000}));
   localStorage.setItem('focus-studio-v3',JSON.stringify({scene:'wind',evolution:35,brightness:50,melody:false,fadeOutSeconds:5}));
   localStorage.setItem('focus-audio-settings-v2',JSON.stringify({master:75,noise:70,drone:0,notes:0}));
@@ -840,12 +842,15 @@ test('audio deadline closes output with screen timers stopped and reconciles his
  await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeLessThan(.000001);
  await expect(page.locator('#status-text')).toHaveText('Sonando');
  await expect(page.locator('#timer')).toHaveText('00:00:02');
- await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:false});document.dispatchEvent(new Event('visibilitychange'));});
+ await page.evaluate(()=>{
+  const now=Date.now;Date.now=()=>now()+5*60000;
+  Object.defineProperty(document,'hidden',{configurable:true,value:false});document.dispatchEvent(new Event('visibilitychange'));
+ });
  await expect(page.locator('#status-text')).toHaveText('En pausa');await expect(page.locator('#timer')).toHaveText('00:00:00');
  await expect(page.locator('#session-feedback')).toBeVisible();
  const result=await page.evaluate(()=>({session:JSON.parse(localStorage.getItem('focus-session-v1')),history:JSON.parse(localStorage.getItem('focus-daily-history-v1'))}));
  expect(result.session.elapsed).toBe(60000);
- expect(Object.values(result.history).reduce((a,b)=>a+b,0)).toBeCloseTo(2/60,5);
+ expect(Object.values(result.history).reduce((a,b)=>a+b,0)).toBe(.1); // The two new seconds round down to the stored tenth of a minute.
 });
 test('audio closing renders the selected fade and stays silent after the deadline without timers',async({page})=>{
  const html=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
