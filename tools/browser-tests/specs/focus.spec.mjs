@@ -149,6 +149,7 @@ test('guided cycles wait for explicit start and restore a paused break',async({p
  await page.clock.fastForward(60000);
  await expect(page.locator('#play-label')).toHaveText('Descansar');
  await page.locator('#toggle').click();
+ await expect(page.locator('#status-text')).toHaveText('Sonando');
  await expect(page.locator('#cycle-status')).toContainText('Descanso');
  await expect(page.locator('#timer')).toHaveText('00:05:00');
  await expect(page.locator('#session-feedback')).toBeHidden();
@@ -156,6 +157,7 @@ test('guided cycles wait for explicit start and restore a paused break',async({p
  await expect(page.locator('#play-label')).toHaveText('Siguiente');
  await expect(page.locator('#session-feedback')).toBeHidden();
  await page.locator('#toggle').click();
+ await expect(page.locator('#status-text')).toHaveText('Sonando');
  await expect(page.locator('#cycle-status')).toContainText('Ronda 2 de 4');
  await page.locator('#toggle').click();
  await page.locator('#focus-view-toggle').click();
@@ -334,7 +336,7 @@ test('shared mix links preview before applying and preserve personal data',async
  const link=await page.locator('#share-link').inputValue();
  const data=JSON.parse(decodeURIComponent(new URL(link).hash.slice(5)));
  expect(data.duration).toBe(17);
- expect(Object.keys(data).sort()).toEqual(['v','scene','evolution','brightness','melody','stereoWidth','notePace','fadeOutSeconds','preserveMix','restSound','cyclePlan','duration','levels'].sort());
+ expect(Object.keys(data).sort()).toEqual(['v','scene','evolution','brightness','melody','stereoWidth','balance','notePace','fadeOutSeconds','preserveMix','restSound','cyclePlan','duration','levels'].sort());
  expect(link).not.toContain('Nombre');
  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copiedMix=text;}}}));
  await page.locator('#copy-share-link').click();
