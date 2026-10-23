@@ -2558,6 +2558,7 @@ body[data-focus-view="true"] .custom-duration {display:none}
             c.setAttribute('aria-pressed', String(Number(c.dataset.minutes) === modeParam));
           });
           modeLabelEl.textContent = `Cuenta regresiva (${modeParam} min)`;
+          saveSession(true);
         }
       } catch (_) {}
 
