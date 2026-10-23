@@ -1204,6 +1204,10 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         return Boolean(state&&['25-5','50-10'].includes(state.plan)&&state.phase==='rest'&&restSound==='silent');
       }
       function isSilentRest() {return isSilentRestState(cycleState,studio.restSound);}
+      function syncSceneLabels() {
+        const label=isSilentRest()?'Descanso en silencio':SCENES[studio.scene].label;
+        $('mobile-scene').textContent=label;$('focus-view-scene').textContent=label;
+      }
       function syncRestSoundUI() {
         $('rest-sound-setting').hidden=cycleState.plan==='single';
         $('rest-sound').value=studio.restSound;
@@ -1221,8 +1225,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         $('evolution-value').textContent=studio.evolution+'%';
         $('stereo-width').value=studio.stereoWidth;$('stereo-width-value').textContent=studio.stereoWidth+'%';
         $('scene-description').textContent=SCENES[studio.scene].description;
-        $('mobile-scene').textContent=isSilentRest()?'Descanso en silencio':SCENES[studio.scene].label;
-        $('focus-view-scene').textContent=isSilentRest()?'Descanso en silencio':SCENES[studio.scene].label;
+        syncSceneLabels();
       }
       function applyScene(smooth=1.5) {
         syncStudio();
@@ -1721,7 +1724,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           label:(last?'Repetir ciclo: ': 'Iniciar ')+(next.phase==='rest'?(studio.restSound==='silent'?'descanso en silencio':'descanso'):'ronda '+next.round)+' de '+cycleTools.duration(next)+' minutos'};
       }
       function syncCycleUI() {
-        syncFadeUI();syncRestSoundUI();
+        syncFadeUI();syncRestSoundUI();syncSceneLabels();
         const active=cycleState.plan!=='single';
         const locked=active||playing||transitioning;
         $('custom-minutes').disabled=locked;
@@ -2746,7 +2749,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         control.setAttribute('aria-pressed',String(focusView));
         control.textContent=focusView?'Ver todos los controles':'Vista de concentración';
         $('focus-view-scene').hidden=!focusView;
-        $('focus-view-scene').textContent=isSilentRest()?'Descanso en silencio':SCENES[studio.scene].label;
+        syncSceneLabels();
       }
       $('focus-view-toggle').addEventListener('click',()=>setFocusView(!focusView));
 

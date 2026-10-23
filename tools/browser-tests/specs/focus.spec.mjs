@@ -714,6 +714,9 @@ test('silent rest mutes output, excludes listening time and resumes focus explic
  await expect(page.locator('#cycle-status')).toContainText('Descanso en silencio');
  await expect(page.locator('#rest-sound')).toHaveValue('silent');
  await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await expect(page.locator('#mobile-scene')).toHaveText('Descanso en silencio');
+ await page.locator('#focus-view-toggle').click();await expect(page.locator('#focus-view-scene')).toHaveText('Descanso en silencio');
+ await page.locator('#focus-view-toggle').click();
  await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Descanso en silencio');
  await attachRestMeter(page);await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeLessThan(.000001);
  await page.clock.fastForward(241000);
