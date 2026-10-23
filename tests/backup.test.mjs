@@ -93,3 +93,17 @@ assert.equal(tools.validateBackup(customCycle).session.cycle.singleDuration,17);
 const wrongCycleMix=clone(cycleCopy);wrongCycleMix.data.mixes[0].duration=17;
 assert.throws(()=>tools.validateBackup(wrongCycleMix),'Custom timers do not change fixed cycle lengths');
 console.log('PASS: custom durations round-trip through backup and fixed cycles remain validated');
+
+const oldStereo=tools.validateBackup(file);
+assert.equal(oldStereo.studio.stereoWidth,100);
+assert.equal(oldStereo.mixes[0].stereoWidth,100);
+const widthCopy=clone(file);widthCopy.data.studio.stereoWidth=0;widthCopy.data.mixes[0].stereoWidth=37;
+tools.applyImport(widthCopy,true);
+const widthExport=tools.validateBackup(tools.exportBackup());
+assert.equal(widthExport.studio.stereoWidth,0);
+assert.ok(widthExport.mixes.some(mix=>mix.stereoWidth===37));
+for(const stereoWidth of [-1,101,'50',null]){
+ const invalid=clone(file);invalid.data.studio.stereoWidth=stereoWidth;
+ assert.throws(()=>tools.validateBackup(invalid));
+}
+console.log('PASS: stereo settings survive backups and old copies preserve original width');

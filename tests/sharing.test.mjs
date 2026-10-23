@@ -17,3 +17,9 @@ for(const extra of [{v:2},{scene:'__proto__'},{scene:'<script>'},{evolution:101}
 for(const hash of ['#mix=%','invalid','#mix=null','#mix='+encodeURIComponent('{}'),'#mix='+encodeURIComponent('{"v":2}'),'#mix='+'x'.repeat(4096)])assert.throws(()=>tools.decode(hash));
 assert.throws(()=>tools.decode(null));
 console.log('PASS: shared mix round-trip, privacy whitelist, duration bounds, cycle lengths and malformed links');
+
+assert.equal(tools.decode(encoded).stereoWidth,100,'Older shared links default to original stereo');
+assert.equal(tools.decode(tools.encode({...mix,stereoWidth:0})).stereoWidth,0);
+assert.equal(tools.decode(tools.encode({...mix,stereoWidth:37})).stereoWidth,37);
+for(const stereoWidth of [-1,101,'50',null,NaN])assert.throws(()=>tools.normalize({...data,stereoWidth}));
+console.log('PASS: stereo width round-trip and backwards compatible shared links');

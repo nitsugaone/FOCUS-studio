@@ -9,7 +9,7 @@ const sources=[];let workletNode=null,moduleLoads=0;
 const continuous=workletMode==='success',offset=continuous?2:0;
 function param(){return {value:0,cancelScheduledValues(){},setTargetAtTime(v){if(!Number.isFinite(v))throw Error('Nonfinite audio parameter');this.value=v},setValueAtTime(v){this.value=v},linearRampToValueAtTime(v){this.value=v},exponentialRampToValueAtTime(v){this.value=v}};}
 function node(){return {gain:param(),frequency:param(),Q:param(),detune:param(),pan:param(),threshold:param(),knee:param(),ratio:param(),attack:param(),release:param(),connections:[],connect(target){this.connections.push(target)},disconnect(){},start(){sources.push(this)},stop(){},events:{},addEventListener(type,fn){this.events[type]=fn}};}
-const ctx={sampleRate:8000,currentTime:0,state:'running',destination:node(),createBuffer(ch,len){const d=Array.from({length:ch},()=>new Float32Array(len));return{getChannelData:i=>d[i]}},createGain:node,createOscillator:node,createBufferSource:node,createBiquadFilter:node,createStereoPanner:node,createConvolver:node,createDynamicsCompressor:node,createMediaStreamDestination(){return{...node(),stream:{}}},resume:async()=>{},suspend:async()=>{},close:async()=>{}};
+const ctx={sampleRate:8000,currentTime:0,state:'running',destination:node(),createBuffer(ch,len){const d=Array.from({length:ch},()=>new Float32Array(len));return{getChannelData:i=>d[i]}},createChannelSplitter:node,createChannelMerger:node,createGain:node,createOscillator:node,createBufferSource:node,createBiquadFilter:node,createStereoPanner:node,createConvolver:node,createDynamicsCompressor:node,createMediaStreamDestination(){return{...node(),stream:{}}},resume:async()=>{},suspend:async()=>{},close:async()=>{}};
 let generated=0;
 if(workletMode!=='none')ctx.audioWorklet={addModule:async()=>{moduleLoads++;if(workletMode==='failure')throw Error('Module blocked')}};
 const document={body:element('body'),createElement:()=>element('generated-'+generated++),getElementById:element,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}};
@@ -84,6 +84,11 @@ checks.push({check:'Dock timer matches main timer',pass:element('mobile-timer').
 checks.push({check:'Audio startup: two noise sources, two LFOs, three drones and two note oscillators',pass:sources.length===(continuous?7:9)});
 checks.push({check:'Mobile panels start collapsed',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===false)});
 const activeSources=sources.length;
+const beforeWidthTimer=element('timer').textContent;
+element('stereo-width').value='0';element('stereo-width').events.input();
+checks.push({check:'Stereo width updates while playing without new sources or timer reset',pass:sources.length===activeSources&&element('timer').textContent===beforeWidthTimer&&JSON.parse(memory.get('focus-studio-v3')).stereoWidth===0});
+element('stereo-width').value='100';element('stereo-width').events.input();
+
 compactLayout.matches=false;layoutChange();
 checks.push({check:'Desktop panels open when the window becomes wide',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===true)});
 checks.push({check:'Resize preserves playback and audio graph',pass:element('play-label').textContent==='Pausar'&&sources.length===activeSources});

@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
 test.beforeEach(async({page},info)=>{
- if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration'))await page.clock.install();
+ if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width'))await page.clock.install();
  const pageErrors=[];errors.set(page,pageErrors);
  page.on('pageerror',error=>pageErrors.push(error.message));
  await page.goto('./');
@@ -318,7 +318,7 @@ test('shared mix links preview before applying and preserve personal data',async
  const link=await page.locator('#share-link').inputValue();
  const data=JSON.parse(decodeURIComponent(new URL(link).hash.slice(5)));
  expect(data.duration).toBe(17);
- expect(Object.keys(data).sort()).toEqual(['v','scene','evolution','brightness','melody','cyclePlan','duration','levels'].sort());
+ expect(Object.keys(data).sort()).toEqual(['v','scene','evolution','brightness','melody','stereoWidth','cyclePlan','duration','levels'].sort());
  expect(link).not.toContain('Nombre');
  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copiedMix=text;}}}));
  await page.locator('#copy-share-link').click();
@@ -379,4 +379,86 @@ test('shared mix links preview before applying and preserve personal data',async
  await expect(page.locator('#timer')).toHaveText('00:17:00');
  await expect(page.locator('#status-text')).toHaveText('En pausa');
  await noOverflow(page);
+});
+
+
+test('stereo width persists in mixes, shared links and backups without restarting playback',async({page},info)=>{
+ await page.locator('#custom-minutes').fill('17');
+ await page.locator('#apply-duration').click();
+ await expand(page,'sound-settings');
+ await expect(page.locator('#stereo-width')).toHaveValue('100');
+ await page.locator('#toggle').click();
+ await page.clock.fastForward(60000);
+ await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
+ const timer=await page.locator('#timer').textContent(),master=await page.locator('#vol-master').inputValue();
+ await page.locator('#stereo-width').evaluate(el=>{el.value='25';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await expect(page.locator('#stereo-width-value')).toHaveText('25%');
+ await expect(page.locator('#timer')).toHaveText(timer);
+ await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await expect(page.locator('#vol-master')).toHaveValue(master);
+ await page.locator('#toggle').click();
+ await expand(page,'mix-settings');
+ await page.locator('#preset-name').fill('Lectura centrada');
+ await page.locator('#save-mix').click();
+ await page.locator('#create-share-link').click();
+ const shared=await page.locator('#share-link').inputValue();
+ expect(JSON.parse(decodeURIComponent(new URL(shared).hash.slice(5))).stereoWidth).toBe(25);
+ await expand(page,'backup-panel');
+ const promise=page.waitForEvent('download');
+ await page.locator('#export-backup').click();
+ const download=await promise;
+ const backup=JSON.parse(await readFile(await download.path(),'utf8'));
+ expect(backup.data.studio.stereoWidth).toBe(25);expect(backup.data.mixes[0].stereoWidth).toBe(25);
+ await page.locator('#stereo-width').evaluate(el=>{el.value='80';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.locator('#saved-mixes').selectOption('0');await page.locator('#load-mix').click();
+ await expect(page.locator('#stereo-width')).toHaveValue('25');
+ await page.reload();
+ await expand(page,'sound-settings');
+ await expect(page.locator('#stereo-width')).toHaveValue('25');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ delete backup.data.studio.stereoWidth;backup.data.mixes.forEach(mix=>delete mix.stereoWidth);
+ await expand(page,'backup-panel');
+ await page.locator('#backup-file').setInputFiles({name:'old-stereo.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+ await page.locator('#backup-settings').check();
+ await Promise.all([page.waitForEvent('load'),page.locator('#import-backup').click()]);
+ await expand(page,'sound-settings');
+ await expect(page.locator('#stereo-width')).toHaveValue('100');
+ await page.goto(shared);
+ await expect(page.locator('#shared-mix-summary')).toContainText('Amplitud estéreo: 25%');
+ await page.locator('#apply-shared-mix').click();
+ await expect(page.locator('#stereo-width')).toHaveValue('25');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await noOverflow(page);
+ await page.screenshot({path:info.outputPath('stereo-width.png'),fullPage:true,animations:'disabled'});
+});
+
+test('stereo field renders identity, mono and intermediate widths with real Web Audio',async({page})=>{
+ const html=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
+ const start=html.indexOf('      function stereoCoefficients('),end=html.indexOf('      async function initAudio()',start);
+ const result=await page.evaluate(async source=>{
+  const create=new Function(source+'return createStereoField;')();
+  const Context=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const results=[];
+  for(const [width,channels] of [[100,2],[50,2],[0,2],[100,1],[0,1]]) {
+   const size=2048,ctx=new Context(2,size,44100),buffer=ctx.createBuffer(channels,size,44100);
+   for(let i=0;i<size;i++){buffer.getChannelData(0)[i]=.2*Math.sin(i*.13);if(channels===2)buffer.getChannelData(1)[i]=.13*Math.cos(i*.07);}
+   const node=ctx.createBufferSource();node.buffer=buffer;
+   create(ctx,node,ctx.destination,width);node.start();
+   const output=await ctx.startRendering(),direct=(1+width/100)/2,cross=(1-width/100)/2;
+   let error=0,excess=0,channelDiff=0;
+   for(let i=0;i<size;i++){
+    const left=buffer.getChannelData(0)[i],right=channels===1?left:buffer.getChannelData(1)[i],a=output.getChannelData(0)[i],b=output.getChannelData(1)[i];
+    error=Math.max(error,Math.abs(a-(left*direct+right*cross)),Math.abs(b-(right*direct+left*cross)));
+    excess=Math.max(excess,Math.max(Math.abs(a),Math.abs(b))-Math.max(Math.abs(left),Math.abs(right)));
+    channelDiff=Math.max(channelDiff,Math.abs(a-b));
+   }
+   results.push({width,channels,error,excess,channelDiff});
+  }
+  return results;
+ },html.slice(start,end));
+ for(const value of result){
+  expect(value.error).toBeLessThan(0.000001);
+  expect(value.excess).toBeLessThan(0.000001);
+  if(value.width===0||value.channels===1)expect(value.channelDiff).toBeLessThan(0.000001);
+ }
 });
