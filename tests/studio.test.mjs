@@ -115,6 +115,15 @@ element('melody').checked=true;element('melody').events.input();
 checks.push({check:'Melody on schedules once without an immediate new note',pass:scheduledTimeouts.size===1&&sources.length===activeSources&&element('note-pace').disabled===false});
 element('note-pace').value='normal';element('note-pace').events.input();
 
+const beforeBalanceTimer=element('timer').textContent;
+const balanceVolumes=JSON.stringify(['master','noise','drone','notes'].map(key=>element('vol-'+key).value));
+checks.push({check:'Old studio uses centered balance',pass:element('channel-balance').value===0&&element('channel-balance').attributes['aria-valuetext']==='Centro'});
+element('channel-balance').value='-40';element('channel-balance').events.input();
+checks.push({check:'Balance changes persist without restarting or changing levels',pass:JSON.parse(memory.get('focus-studio-v3')).balance===-40&&element('channel-balance-value').textContent==='40% izquierda'&&element('timer').textContent===beforeBalanceTimer&&sources.length===activeSources&&JSON.stringify(['master','noise','drone','notes'].map(key=>element('vol-'+key).value))===balanceVolumes});
+element('channel-balance').value='101';element('channel-balance').events.input();
+checks.push({check:'Invalid balance cannot replace saved settings',pass:JSON.parse(memory.get('focus-studio-v3')).balance===-40&&element('channel-balance').value===-40});
+element('center-balance').events.click();
+checks.push({check:'Center balance restores both channels without resetting the timer',pass:JSON.parse(memory.get('focus-studio-v3')).balance===0&&element('channel-balance-value').textContent==='Centro'&&element('timer').textContent===beforeBalanceTimer&&sources.length===activeSources});
 const beforeWidthTimer=element('timer').textContent;
 element('stereo-width').value='0';element('stereo-width').events.input();
 checks.push({check:'Stereo width updates while playing without new sources or timer reset',pass:sources.length===activeSources&&element('timer').textContent===beforeWidthTimer&&JSON.parse(memory.get('focus-studio-v3')).stereoWidth===0});
