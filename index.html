@@ -691,6 +691,16 @@ body[data-focus-view="true"] #cycle-status:empty {display:none}
 #apply-duration {min-height:44px;flex-shrink:0}
 #custom-duration-status:empty {display:none}
 body[data-focus-view="true"] .custom-duration {display:none}
+
+.share-mix {display:grid;gap:10px;margin-top:6px}
+#share-link-panel {display:grid;gap:10px;min-width:0}
+#shared-mix-preview {display:grid;gap:12px;width:100%;padding:16px;border:1px solid var(--line-strong);border-radius:14px;text-align:left}
+#shared-mix-title {font-size:17px;margin:0}
+.shared-mix-actions {display:flex;flex-wrap:wrap;gap:10px}
+#shared-mix-preview[hidden],#share-link-panel[hidden] {display:none}
+#shared-mix-status:empty,#share-link-status:empty {display:none}
+body[data-focus-view="true"] #shared-mix-preview,
+body[data-focus-view="true"] #shared-mix-status {display:none}
 </style>
 </head>
 <body>
@@ -723,6 +733,17 @@ body[data-focus-view="true"] .custom-duration {display:none}
           <p class="intro">Elegí tu ambiente y empezá tu sesión.</p>
         </div>
 
+
+        <section id="shared-mix-preview" aria-labelledby="shared-mix-title" hidden>
+          <h2 id="shared-mix-title">Te compartieron una mezcla</h2>
+          <p id="shared-mix-summary" class="daily-note"></p>
+          <p class="daily-note">Aplicar reemplaza los ajustes actuales y reinicia el reloj en la primera ronda. Tus mezclas guardadas y tu historial se conservan. El sonido empieza solo al tocar Iniciar.</p>
+          <div class="shared-mix-actions">
+            <button id="apply-shared-mix" type="button" class="subtle-button">Aplicar ajustes compartidos</button>
+            <button id="dismiss-shared-mix" type="button" class="subtle-button">Descartar</button>
+          </div>
+        </section>
+        <p id="shared-mix-status" class="daily-note" role="status"></p>
         <div class="quick-scene studio-controls">          <label for="soundscape">Ambiente</label>
           <select id="soundscape">
             <option value="rain">Lluvia cálida</option><option value="ocean">Océano profundo</option>
@@ -868,6 +889,16 @@ body[data-focus-view="true"] .custom-duration {display:none}
           <button id="rename-mix" type="button" class="subtle-button">Renombrar</button>
           <button id="favorite-mix" type="button" class="subtle-button" aria-pressed="false">Marcar favorita</button>
           <button id="delete-mix" type="button" class="subtle-button">Eliminar</button>
+          <div class="share-mix">
+            <button id="create-share-link" type="button" class="subtle-button">Crear enlace de estos ajustes</button>
+            <p class="daily-note">El enlace incluye ambiente, volúmenes y plan. El nombre de la mezcla, tu historial y el progreso de la sesión quedan en este dispositivo.</p>
+            <div id="share-link-panel" hidden>
+              <label for="share-link">Enlace para abrir en otro dispositivo</label>
+              <input id="share-link" type="url" readonly spellcheck="false">
+              <button id="copy-share-link" type="button" class="subtle-button">Copiar enlace</button>
+            </div>
+            <p id="share-link-status" class="daily-note" role="status"></p>
+          </div>
 </div>
           </details>
           <p id="studio-status" role="status" aria-live="polite"></p>
@@ -1062,8 +1093,29 @@ body[data-focus-view="true"] .custom-duration {display:none}
         return {plans,initial,normalize,duration,next,validDuration};
       }
 
+
+      function createShareTools() {
+        const cycles=createCycleTools(),scenes=['rain','ocean','space','speech'];
+        const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
+        const number=value=>Number.isFinite(value)&&value>=0&&value<=100;
+        function normalize(value) {
+          if(!object(value)||value.v!==1||!scenes.includes(value.scene)||!number(value.evolution)||!number(value.brightness)||typeof value.melody!=='boolean'||!Object.prototype.hasOwnProperty.call(cycles.plans,value.cyclePlan)||!object(value.levels)||!['master','noise','drone','notes'].every(key=>number(value.levels[key])))throw Error('Enlace de mezcla inválido.');
+          if(value.cyclePlan==='single'?!cycles.validDuration(value.duration):cycles.plans[value.cyclePlan].focus!==value.duration)throw Error('Duración de mezcla inválida.');
+          return {v:1,scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,cyclePlan:value.cyclePlan,duration:value.duration,
+            levels:Object.fromEntries(['master','noise','drone','notes'].map(key=>[key,value.levels[key]]))};
+        }
+        function encode(mix) {return '#mix='+encodeURIComponent(JSON.stringify(normalize({...mix,v:1})));}
+        function decode(hash) {
+          if(typeof hash!=='string'||!hash.startsWith('#mix=')||hash.length>4096)throw Error('Enlace de mezcla inválido.');
+          return normalize(JSON.parse(decodeURIComponent(hash.slice(5))));
+        }
+        return {normalize,encode,decode};
+      }
+
       const cycleTools=createCycleTools();
       let cycleState=cycleTools.initial();
+      const shareTools=createShareTools();
+      let pendingSharedMix=null;
       let lastNote = -1;
       let noteStep = 0;
 
@@ -1437,6 +1489,73 @@ body[data-focus-view="true"] .custom-duration {display:none}
       const backupTools=createBackupTools(localStorage);
       let pendingBackup=null,backupReadSequence=0;
       let reloadingAfterRestore=false;
+
+      function syncSharedMixButton() {
+        $('apply-shared-mix').disabled=!pendingSharedMix||playing||transitioning;
+      }
+      function clearSharedMixLink() {
+        try {
+          if(window.location.hash?.startsWith('#mix='))window.history.replaceState(null,'',window.location.pathname+window.location.search);
+        }catch(_) {}
+      }
+      function previewSharedMix() {
+        pendingSharedMix=null;$('shared-mix-preview').hidden=true;$('shared-mix-status').textContent='';
+        const hash=window.location.hash||'';
+        if(hash.startsWith('#mix=')) {
+          try {
+            pendingSharedMix=shareTools.decode(hash);
+            const mix=pendingSharedMix;
+            $('shared-mix-summary').textContent=SCENES[mix.scene].label+' · '+(mix.cyclePlan==='single'?(mix.duration?mix.duration+' minutos':'Sesión libre'):mix.cyclePlan.replace('-','/'))+' · Volumen maestro: '+mix.levels.master+'%.';
+            $('shared-mix-preview').hidden=false;
+          }catch(_) {
+            $('shared-mix-status').textContent='El enlace de mezcla no es válido o usa una versión incompatible. Tus ajustes se mantienen.';
+          }
+        }
+        syncSharedMixButton();
+      }
+      function initSharedMix() {
+        previewSharedMix();
+        window.addEventListener('hashchange',previewSharedMix);
+        $('create-share-link').addEventListener('click',()=>{
+          try {
+            const link=window.location.origin+window.location.pathname+shareTools.encode(currentMix(''));
+            $('share-link').value=link;
+            $('share-link-panel').hidden=false;
+            $('share-link-status').textContent='Enlace creado con los ajustes actuales. Podés copiarlo y abrirlo en otro dispositivo.';
+          }catch(_) {$('share-link-status').textContent='No se pudo crear el enlace de esta mezcla.';}
+        });
+        $('copy-share-link').addEventListener('click',async()=>{
+          if(!$('share-link').value)return;
+          try {
+            if(!navigator.clipboard?.writeText)throw Error('Clipboard unavailable');
+            await navigator.clipboard.writeText($('share-link').value);
+            $('share-link-status').textContent='Enlace copiado.';
+          }catch(_) {
+            $('share-link').focus();$('share-link').select();
+            $('share-link-status').textContent='No se pudo copiar automáticamente. El enlace está seleccionado para copiarlo manualmente.';
+          }
+        });
+        $('apply-shared-mix').addEventListener('click',()=>{
+          if(!pendingSharedMix||playing||transitioning)return;
+          const mix=pendingSharedMix;
+          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody};
+          Object.keys(DEFAULTS).forEach(key=>{$('vol-'+key).value=mix.levels[key];updateRange(key,false);});
+          const sessionSaved=resetCycle(mix.cyclePlan,mix.cyclePlan==='single'?mix.duration:cycleState.singleDuration);
+          applyScene();
+          const levelsSaved=persistSettings(),studioSaved=writeLocal(STUDIO_KEY,studio);
+          $('shared-mix-preview').hidden=true;pendingSharedMix=null;
+          $('session-feedback').hidden=true;feedbackSession=null;$('feedback-status').textContent='';
+          $('shared-mix-status').textContent=sessionSaved&&levelsSaved&&studioSaved?'Ajustes compartidos aplicados. Tocá Iniciar para escuchar. Podés guardarlos en Mis mezclas.':'Ajustes aplicados en esta pestaña. No se pudieron guardar todos los cambios en este dispositivo.';
+          clearSharedMixLink();syncSharedMixButton();
+        });
+        $('dismiss-shared-mix').addEventListener('click',()=>{
+          pendingSharedMix=null;$('shared-mix-preview').hidden=true;
+          $('shared-mix-status').textContent='Mezcla descartada. Tus ajustes se mantienen.';
+          clearSharedMixLink();syncSharedMixButton();
+        });
+        syncSharedMixButton();
+      }
+
       function syncBackupButtons() {
         $('import-backup').disabled=!pendingBackup||playing||transitioning;
         try{$('undo-backup').hidden=!backupTools.canUndo();}catch(_){$('undo-backup').hidden=true;}
@@ -1529,7 +1648,7 @@ body[data-focus-view="true"] .custom-duration {display:none}
         $('custom-duration-status').textContent='';
         $('custom-minutes').setAttribute('aria-invalid','false');
         if(plan==='single'&&singleDuration>0)$('custom-minutes').value=singleDuration;
-        syncCycleUI();renderTimer();saveSession(true);syncUI();
+        syncCycleUI();renderTimer();const saved=saveSession(true);syncUI();return saved;
       }
       function initCycles() {
         if(cycleState.singleDuration>0)$('custom-minutes').value=cycleState.singleDuration;
@@ -1550,7 +1669,7 @@ body[data-focus-view="true"] .custom-duration {display:none}
       function saveSession(force=false) {
         if(!force && Date.now()-lastSessionSave<5000)return;
         lastSessionSave=Date.now();
-        writeLocal(SESSION_KEY,{duration:targetDurationMinutes,elapsed:accumulatedMs,cycle:cycleState});
+        return writeLocal(SESSION_KEY,{duration:targetDurationMinutes,elapsed:accumulatedMs,cycle:cycleState});
       }
       function restoreSession() {
         const saved=readLocal(SESSION_KEY,null);
@@ -2047,6 +2166,7 @@ body[data-focus-view="true"] .custom-duration {display:none}
         playerCard.classList.toggle('is-playing', playing);
         syncUpdateButton();
         syncBackupButtons();
+        syncSharedMixButton();
         btn.disabled = transitioning;
         const mobileToggle=$('mobile-toggle');
         mobileToggle.disabled=transitioning;
@@ -2184,8 +2304,8 @@ body[data-focus-view="true"] .custom-duration {display:none}
       function persistSettings() {
         const settings = {};
         Object.keys(DEFAULTS).forEach((id) => { settings[id] = Number($('vol-' + id).value); });
-        try { localStorage.setItem('focus-audio-settings-v2', JSON.stringify(settings)); }
-        catch (_) {}
+        try { localStorage.setItem('focus-audio-settings-v2', JSON.stringify(settings)); return true; }
+        catch (_) {return false;}
       }
 
       function syncPresetState() {
@@ -2562,6 +2682,7 @@ body[data-focus-view="true"] .custom-duration {display:none}
         }
       } catch (_) {}
 
+      initSharedMix();
       renderTimer();
       renderHistoryChart();
       syncUI();

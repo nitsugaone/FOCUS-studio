@@ -21,7 +21,7 @@ const windowEvents={};
 let updateMessages=0,reloads=0;
 const worker={postMessage(message){if(message.type==='SKIP_WAITING')updateMessages++}};
 const serviceWorker={ready:Promise.resolve(),addEventListener(){},register:async()=>({waiting:worker,addEventListener(){}})};
-const window={matchMedia:()=>compactLayout,IntersectionObserver:class {constructor(callback){observeVisibility=callback;} observe(){}},AudioContext:function(){return ctx},setInterval:fn=>{timers.push(fn);return timers.length},setTimeout:()=>1,addEventListener(type,fn){windowEvents[type]=fn},location:{search:'',reload(){reloads++;windowEvents.pagehide?.()}}};
+const window={matchMedia:()=>compactLayout,IntersectionObserver:class {constructor(callback){observeVisibility=callback;} observe(){}},AudioContext:function(){return ctx},setInterval:fn=>{timers.push(fn);return timers.length},setTimeout:()=>1,addEventListener(type,fn){windowEvents[type]=fn},location:{origin:'https://focus.test',pathname:'/FOCUS-studio/',hash:'',search:'',reload(){reloads++;windowEvents.pagehide?.()}}};
 if(workletMode!=='none')window.AudioWorkletNode=function(){workletNode=node();return workletNode;};
 let downloadContent='';
 const downloadURL={createObjectURL:()=> 'blob:focus-test',revokeObjectURL(){}};
@@ -55,6 +55,15 @@ for(const value of ['', '0', '181', '1.5']) {
 element('custom-minutes').value='17';element('apply-duration').events.click();
 checks.push({check:'Apply custom duration without autoplay',pass:element('timer').textContent==='00:17:00'&&sources.length===0&&JSON.parse(memory.get('focus-session-v1')).duration===17});
 element('custom-minutes').value='25';element('apply-duration').events.click();
+
+const beforeShare=JSON.stringify([...memory]);
+element('create-share-link').events.click();
+const sharedPayload=JSON.parse(decodeURIComponent(element('share-link').value.split('#mix=')[1]));
+checks.push({check:'Sharing exports only settings and custom duration',pass:sharedPayload.duration===25&&!Object.hasOwn(sharedPayload,'history')&&!Object.hasOwn(sharedPayload,'name')&&!Object.hasOwn(sharedPayload,'elapsed')});
+checks.push({check:'Creating a shared link does not write local data or start sound',pass:JSON.stringify([...memory])===beforeShare&&sources.length===0});
+window.location.hash='#mix=%';windowEvents.hashchange();
+checks.push({check:'Malformed shared link leaves settings and audio unchanged',pass:JSON.stringify([...memory])===beforeShare&&sources.length===0&&element('shared-mix-preview').hidden===true});
+window.location.hash='';windowEvents.hashchange();
 await windowEvents.load();
 checks.push({check:'Waiting update is announced',pass:element('apply-update').hidden===false});
 checks.push({check:'Feedback is initially hidden',pass:element('session-feedback').hidden===true});
