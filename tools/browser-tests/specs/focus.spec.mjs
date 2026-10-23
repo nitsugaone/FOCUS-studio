@@ -477,6 +477,7 @@ test('note timing changes future notes, cancels on mute and persists with mixtur
  await page.locator('#note-pace').selectOption('frequent');
  await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
  await page.locator('#toggle').click();
+ await expect(page.locator('#status-text')).toHaveText('Sonando');
  const initial=await page.evaluate(()=>window.createdOscillators);
  const volume=await page.locator('#vol-notes').inputValue();
  await page.clock.fastForward(5999);
