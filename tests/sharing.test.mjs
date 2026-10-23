@@ -52,3 +52,8 @@ for(const balance of [-100,-35,0,45,100])assert.equal(tools.decode(tools.encode(
 assert.equal(tools.decode(tools.encode(mix)).balance,0);
 for(const balance of [-101,101,NaN,null,'35',.5])assert.throws(()=>tools.encode({...mix,balance}));
 console.log('PASS: balance links, defaults for older links and invalid values');
+
+for(const fadeInSeconds of [0,3,12,30])assert.equal(tools.decode(tools.encode({...mix,fadeInSeconds})).fadeInSeconds,fadeInSeconds);
+assert.equal(tools.decode(tools.encode(mix)).fadeInSeconds,12);
+for(const fadeInSeconds of [-1,5,60,null,'12'])assert.throws(()=>tools.encode({...mix,fadeInSeconds}));
+console.log('PASS: entry choices, old link defaults and invalid values');
