@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
 test.beforeEach(async({page},info)=>{
- if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session'))await page.clock.install();
+ if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix'))await page.clock.install();
  if(info.title.startsWith('note timing'))await page.addInitScript(()=>{
   window.createdOscillators=0;
   const Context=window.AudioContext||window.webkitAudioContext;
@@ -324,7 +324,7 @@ test('shared mix links preview before applying and preserve personal data',async
  const link=await page.locator('#share-link').inputValue();
  const data=JSON.parse(decodeURIComponent(new URL(link).hash.slice(5)));
  expect(data.duration).toBe(17);
- expect(Object.keys(data).sort()).toEqual(['v','scene','evolution','brightness','melody','stereoWidth','notePace','fadeOutSeconds','cyclePlan','duration','levels'].sort());
+ expect(Object.keys(data).sort()).toEqual(['v','scene','evolution','brightness','melody','stereoWidth','notePace','fadeOutSeconds','preserveMix','cyclePlan','duration','levels'].sort());
  expect(link).not.toContain('Nombre');
  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copiedMix=text;}}}));
  await page.locator('#copy-share-link').click();
@@ -599,4 +599,63 @@ test('fade session closing starts at the chosen time and survives portable setti
  await expect(page.locator('#fade-out')).toHaveValue('60');
  await noOverflow(page);
  await page.screenshot({path:info.outputPath('session-closing.png'),fullPage:true,animations:'disabled'});
+});
+
+
+test('keep mix preserves levels and melody across scenes and portable settings',async({page},info)=>{
+ await expand(page,'sound-settings');
+ await expect(page.locator('#preserve-mix')).not.toBeChecked();
+ await page.locator('#custom-minutes').fill('17');await page.locator('#apply-duration').click();
+ for(const [key,value] of [['master','27'],['noise','55'],['drone','14'],['notes','9']]){
+  await page.locator('#vol-'+key).evaluate((el,value)=>{el.value=value;el.dispatchEvent(new Event('input',{bubbles:true}));},value);
+ }
+ await page.locator('#melody').uncheck();await page.locator('#preserve-mix').check();
+ const levels=await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value));
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await page.clock.fastForward(61000);await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
+ const timer=await page.locator('#timer').textContent();
+ for(const scene of ['ocean','space','speech','rain']){
+  await page.locator('#soundscape').selectOption(scene);
+  expect(await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value))).toEqual(levels);
+  await expect(page.locator('#melody')).not.toBeChecked();
+  await expect(page.locator('#timer')).toHaveText(timer);
+  await expect(page.locator('#status-text')).toHaveText('Sonando');
+ }
+ await page.locator('#melody').check();await page.locator('#soundscape').selectOption('speech');
+ await expect(page.locator('#melody')).toBeChecked();
+ expect(await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value))).toEqual(levels);
+ await page.locator('#preserve-mix').uncheck();
+ expect(await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value))).toEqual(levels);
+ await expect(page.locator('#melody')).toBeChecked();
+ await page.locator('#soundscape').selectOption('space');
+ await expect(page.locator('#vol-noise')).toHaveValue('30');await expect(page.locator('#vol-drone')).toHaveValue('65');await expect(page.locator('#vol-notes')).toHaveValue('48');
+ await expect(page.locator('#vol-master')).toHaveValue('27');
+ await page.locator('#soundscape').selectOption('speech');await expect(page.locator('#melody')).not.toBeChecked();
+ await expect(page.locator('#vol-noise')).toHaveValue('82');await expect(page.locator('#vol-drone')).toHaveValue('0');await expect(page.locator('#vol-notes')).toHaveValue('0');
+ await expect(page.locator('#timer')).toHaveText(timer);
+ await page.locator('#toggle').click();
+ await page.locator('#preserve-mix').check();
+ await expand(page,'mix-settings');await page.locator('#preset-name').fill('Mis niveles');await page.locator('#save-mix').click();
+ await page.locator('#create-share-link').click();
+ const link=await page.locator('#share-link').inputValue();
+ expect(JSON.parse(decodeURIComponent(new URL(link).hash.slice(5))).preserveMix).toBe(true);
+ await expand(page,'backup-panel');
+ const promise=page.waitForEvent('download');await page.locator('#export-backup').click();const download=await promise;
+ const backup=JSON.parse(await readFile(await download.path(),'utf8'));
+ expect(backup.data.studio.preserveMix).toBe(true);expect(backup.data.mixes[0].preserveMix).toBe(true);
+ await page.locator('#preserve-mix').uncheck();
+ await page.locator('#saved-mixes').selectOption('0');await page.locator('#load-mix').click();await expect(page.locator('#preserve-mix')).toBeChecked();
+ await page.reload();await expand(page,'sound-settings');
+ await expect(page.locator('#preserve-mix')).toBeChecked();await expect(page.locator('#status-text')).toHaveText('En pausa');
+ delete backup.data.studio.preserveMix;backup.data.mixes.forEach(mix=>delete mix.preserveMix);
+ await expand(page,'backup-panel');
+ await page.locator('#backup-file').setInputFiles({name:'old-scene-levels.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+ await page.locator('#backup-settings').check();
+ await Promise.all([page.waitForEvent('load'),page.locator('#import-backup').click()]);
+ await expand(page,'sound-settings');await expect(page.locator('#preserve-mix')).not.toBeChecked();
+ await page.goto(link);await expect(page.locator('#shared-mix-summary')).toContainText('Conserva volúmenes y melodía');
+ await page.locator('#apply-shared-mix').click();await expect(page.locator('#preserve-mix')).toBeChecked();
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await noOverflow(page);
+ await page.screenshot({path:info.outputPath('preserve-mix.png'),fullPage:true,animations:'disabled'});
 });

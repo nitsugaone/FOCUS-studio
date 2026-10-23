@@ -133,3 +133,16 @@ for(const fadeOutSeconds of [0,10,61,'20',null]){
  assert.throws(()=>tools.validateBackup(invalid));
 }
 console.log('PASS: closing preferences in backups and older data defaults');
+
+assert.equal(tools.validateBackup(file).studio.preserveMix,false);
+assert.equal(tools.validateBackup(file).mixes[0].preserveMix,false);
+const preserveCopy=clone(file);preserveCopy.data.studio.preserveMix=true;preserveCopy.data.mixes[0].preserveMix=true;
+tools.applyImport(preserveCopy,true);
+const preserveExport=tools.validateBackup(tools.exportBackup());
+assert.equal(preserveExport.studio.preserveMix,true);
+assert.ok(preserveExport.mixes.some(mix=>mix.preserveMix===true));
+for(const preserveMix of [0,1,'true',null]){
+ const invalid=clone(file);invalid.data.studio.preserveMix=preserveMix;
+ assert.throws(()=>tools.validateBackup(invalid));
+}
+console.log('PASS: preserving scene levels in backups and old data defaults');
