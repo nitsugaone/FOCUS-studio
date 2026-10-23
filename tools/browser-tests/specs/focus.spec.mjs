@@ -801,3 +801,28 @@ test('wind scene produces audio, follows ambient volume and survives portable se
  await expect(page.locator('#status-text')).toHaveText('En pausa');await noOverflow(page);
  await page.screenshot({path:info.outputPath('wind.png'),fullPage:true,animations:'disabled'});
 });
+
+test('wind gusts render continuously in the audio graph without screen timers',async({page})=>{
+ const html=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
+ const start=html.indexOf('      function windCoefficients('),end=html.indexOf('      function applyScene(',start);
+ const results=await page.evaluate(async source=>{
+  const create=new Function(source+'return createWindGust;')(),Context=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const results=[];
+  for(const evolution of [0,100]) {
+   const rate=44100,size=46*rate,ctx=new Context(1,size,rate),buffer=ctx.createBuffer(1,size,rate);
+   buffer.getChannelData(0).fill(.25);const input=ctx.createBufferSource();input.buffer=buffer;
+   const gust=create(ctx,input,ctx.destination,evolution);gust.start();input.start();
+   const output=(await ctx.startRendering()).getChannelData(0);
+   const samples=[1,9,18,30,45].map(second=>({actual:output[second*rate],expected:.25*(.52+(evolution/100)*(.18*Math.sin(second/9)+.12*Math.sin(second/23)))}));
+   let min=Infinity,max=-Infinity;for(const value of output){min=Math.min(min,value);max=Math.max(max,value);}
+   results.push({evolution,samples,min,max});
+  }
+  return results;
+ },html.slice(start,end));
+ for(const result of results) {
+  for(const sample of result.samples)expect(Math.abs(sample.actual-sample.expected)).toBeLessThan(.0002);
+  expect(result.min).toBeGreaterThanOrEqual(.25*.22-.0002);expect(result.max).toBeLessThanOrEqual(.25*.82+.0002);
+  if(result.evolution===0)expect(result.max-result.min).toBeLessThan(.00001);
+  else expect(result.max-result.min).toBeGreaterThan(.04);
+ }
+});

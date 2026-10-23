@@ -1229,9 +1229,31 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         $('scene-description').textContent=SCENES[studio.scene].description;
         syncSceneLabels();
       }
-      function windEnvelope(seconds,evolution) {
-        if(!Number.isFinite(seconds)||seconds<0||!Number.isFinite(evolution)||evolution<0||evolution>100)throw Error('Ráfagas inválidas.');
-        return 0.52+(evolution/100)*(0.18*Math.sin(seconds/9)+0.12*Math.sin(seconds/23+0.7));
+      function windCoefficients(evolution) {
+        if(!Number.isFinite(evolution)||evolution<0||evolution>100)throw Error('Ráfagas inválidas.');
+        return {base:0.52,slow:0.18*evolution/100,slower:0.12*evolution/100};
+      }
+      function createWindGust(context,input,output,evolution=35) {
+        const envelope=context.createGain();envelope.gain.value=0.52;
+        const oscillators=[context.createOscillator(),context.createOscillator()];
+        const depths=[context.createGain(),context.createGain()];
+        input.connect(envelope);envelope.connect(output);
+        oscillators.forEach((osc,index)=>{
+          osc.type='sine';osc.frequency.value=1/(2*Math.PI*(index===0?9:23));
+          osc.connect(depths[index]);depths[index].connect(envelope.gain);
+        });
+        let current=null;
+        function setEvolution(value) {
+          const coefficients=windCoefficients(value);if(value===current)return;
+          const first=current===null;current=value;
+          depths.forEach((node,index)=>{
+            const target=index===0?coefficients.slow:coefficients.slower;
+            if(first)node.gain.value=target;
+            else {node.gain.cancelScheduledValues(context.currentTime);node.gain.setTargetAtTime(target,context.currentTime,0.5);}
+          });
+        }
+        setEvolution(evolution);
+        return {envelope,oscillators,depths,setEvolution,start(){oscillators.forEach(osc=>osc.start());}};
       }
       function applyScene(smooth=1.5) {
         syncStudio();
@@ -1246,7 +1268,8 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         ramp(nodes.textureFilter.frequency,scene.cutoff*(0.65+studio.brightness/100)*drift,smooth);
         ramp(nodes.textureGain.gain,scene.white,smooth);
         ramp(nodes.brownGain.gain,scene.brown??(1-scene.white),smooth);
-        ramp(nodes.windGain.gain,(scene.wind??0)*windEnvelope(accumulatedMs/1000,studio.evolution),smooth);
+        ramp(nodes.windGain.gain,scene.wind??0,smooth);
+        nodes.windGust.setEvolution(studio.evolution);
         ramp(nodes.windLowpass.frequency,2600+studio.brightness*40,smooth);
         ramp(nodes.crackleGain.gain,scene.crackle??0,smooth);
         ramp(nodes.droneFilter.frequency,220+studio.brightness*6,smooth);
@@ -2113,7 +2136,9 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         nodes.windGain=ctx.createGain();nodes.windGain.gain.value=0;
         nodes.windHighpass=ctx.createBiquadFilter();nodes.windHighpass.type='highpass';nodes.windHighpass.frequency.value=650;nodes.windHighpass.Q.value=0.5;
         nodes.windLowpass=ctx.createBiquadFilter();nodes.windLowpass.type='lowpass';nodes.windLowpass.Q.value=0.5;
-        nodes.windHighpass.connect(nodes.windLowpass);nodes.windLowpass.connect(nodes.windGain);nodes.windGain.connect(nodes.noiseGain);
+        nodes.windHighpass.connect(nodes.windLowpass);
+        nodes.windGust=createWindGust(ctx,nodes.windLowpass,nodes.windGain,studio.evolution);
+        nodes.windGain.connect(nodes.noiseGain);
         nodes.crackleGain=ctx.createGain();
         nodes.crackleGain.gain.value=0;
         nodes.crackleFilter=ctx.createBiquadFilter();
@@ -2191,6 +2216,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         nodes.lfo.start();
         nodes.droneLfo.start();
         nodes.droneOscs.forEach((osc) => osc.start());
+        nodes.windGust.start();
       }
 
       function playNote() {
