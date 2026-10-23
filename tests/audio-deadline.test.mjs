@@ -37,3 +37,16 @@ assert.equal(advance({...state,targetDurationMinutes:0},301000).accumulatedMs,35
 assert.equal(advance({...state,playing:false},301000).accumulatedMs,58000,'Paused time is excluded');
 assert.equal(advance(state,500).accumulatedMs,58000,'A backwards wall clock cannot subtract time');
 console.log('PASS: audio deadline, resume, short sessions, free mode, silent rests and capped background time');
+
+const p=html.indexOf('      function pause(slowFade = false)'),q=html.indexOf('      function updateRange(',p);
+const paused=new Function(`
+ let playing=true,transitioning=false,targetDurationMinutes=5,accumulatedMs=300000,noteTimer=null,suspendTimer=null,feedbackSession=null;
+ let cycleState={plan:'25-5',phase:'rest',completed:false},saved=false;
+ const elements=new Map(),$=id=>{if(!elements.has(id))elements.set(id,{pause(){}});return elements.get(id);};
+ const nodes={},ctx=null,navigator={},window={setTimeout:()=>0};
+ function stopSessionClock(){} function saveSession(){saved=cycleState.completed;} function ramp(){} function clearTimeout(){} function releaseWakeLock(){} function syncUI(){}
+ ${html.slice(p,q)}
+ pause();
+ return {completed:cycleState.completed,saved,playing};
+`)();
+assert.deepEqual(paused,{completed:true,saved:true,playing:false},'A late multimedia pause preserves cycle completion');
