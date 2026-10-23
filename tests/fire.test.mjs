@@ -39,7 +39,7 @@ const create=new Function(html.slice(start,end)+'return createCrackleBuffer;')()
 const fallback=create({sampleRate:8000,createBuffer(channels,length){const data=Array.from({length:channels},()=>new Float32Array(length));return{getChannelData:channel=>data[channel]};}});
 for(let ch=0;ch<2;ch++) {
  const data=fallback.getChannelData(ch);
- assert.ok(data.every(Number.isFinite));assert.equal(data[0],0);assert.equal(data.at(-1),0);
+ assert.ok(data.every(Number.isFinite));assert.equal(Math.abs(data[0]),0);assert.equal(Math.abs(data.at(-1)),0);
  assert.ok(data.some(value=>Math.abs(value)>.03));assert.ok(data.every(value=>Math.abs(value)<=.45));
 }
 console.log('PASS: fire bounds, sparsity, stereo, DC, sample rates, block continuity, unchanged base signals and fallback seams');
