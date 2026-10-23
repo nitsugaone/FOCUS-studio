@@ -120,3 +120,16 @@ for(const notePace of ['unknown','__proto__',1,null]){
  assert.throws(()=>tools.validateBackup(invalid));
 }
 console.log('PASS: note pace backups and old copies default to original timing');
+
+assert.equal(tools.validateBackup(file).studio.fadeOutSeconds,20);
+assert.equal(tools.validateBackup(file).mixes[0].fadeOutSeconds,20);
+const fadeCopy=clone(file);fadeCopy.data.studio.fadeOutSeconds=60;fadeCopy.data.mixes[0].fadeOutSeconds=5;
+tools.applyImport(fadeCopy,true);
+const fadeExport=tools.validateBackup(tools.exportBackup());
+assert.equal(fadeExport.studio.fadeOutSeconds,60);
+assert.ok(fadeExport.mixes.some(mix=>mix.fadeOutSeconds===5));
+for(const fadeOutSeconds of [0,10,61,'20',null]){
+ const invalid=clone(file);invalid.data.studio.fadeOutSeconds=fadeOutSeconds;
+ assert.throws(()=>tools.validateBackup(invalid));
+}
+console.log('PASS: closing preferences in backups and older data defaults');

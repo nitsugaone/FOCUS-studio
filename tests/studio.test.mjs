@@ -64,6 +64,14 @@ checks.push({check:'Creating a shared link does not write local data or start so
 window.location.hash='#mix=%';windowEvents.hashchange();
 checks.push({check:'Malformed shared link leaves settings and audio unchanged',pass:JSON.stringify([...memory])===beforeShare&&sources.length===0&&element('shared-mix-preview').hidden===true});
 window.location.hash='';windowEvents.hashchange();
+
+const fadeTimerBefore=element('timer').textContent;
+checks.push({check:'Older settings use original 20-second closing',pass:element('fade-out').value==='20'&&element('fade-out').disabled===false});
+element('fade-out').value='60';element('fade-out').events.input();
+checks.push({check:'Paused closing choice persists without resetting time',pass:JSON.parse(memory.get('focus-studio-v3')).fadeOutSeconds===60&&element('timer').textContent===fadeTimerBefore&&sources.length===0});
+element('fade-out').value='99';element('fade-out').events.input();
+checks.push({check:'Invalid closing choice does not replace settings',pass:JSON.parse(memory.get('focus-studio-v3')).fadeOutSeconds===60&&element('fade-out').value==='60'});
+element('fade-out').value='20';element('fade-out').events.input();
 await windowEvents.load();
 checks.push({check:'Waiting update is announced',pass:element('apply-update').hidden===false});
 checks.push({check:'Feedback is initially hidden',pass:element('session-feedback').hidden===true});
@@ -84,6 +92,9 @@ checks.push({check:'Dock timer matches main timer',pass:element('mobile-timer').
 checks.push({check:'Audio startup: two noise sources, two LFOs, three drones and two note oscillators',pass:sources.length===(continuous?7:9)});
 checks.push({check:'Mobile panels start collapsed',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===false)});
 const activeSources=sources.length;
+element('fade-out').value='5';element('fade-out').events.input();
+checks.push({check:'Closing choice is guarded during audio',pass:element('fade-out').disabled===true&&element('fade-out').value==='20'&&JSON.parse(memory.get('focus-studio-v3')).fadeOutSeconds===20});
+
 const rhythmTimer=element('timer').textContent;
 element('note-pace').value='sparse';element('note-pace').events.input();
 checks.push({check:'Sparse notes reschedule without sound burst or timer reset',pass:sources.length===activeSources&&element('timer').textContent===rhythmTimer&&scheduledTimeouts.size===1&&[...scheduledTimeouts.values()][0].delay>=24000&&[...scheduledTimeouts.values()][0].delay<=32400});

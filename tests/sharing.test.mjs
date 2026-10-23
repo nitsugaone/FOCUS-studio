@@ -28,3 +28,8 @@ assert.equal(tools.decode(encoded).notePace,'normal');
 for(const notePace of ['sparse','normal','frequent'])assert.equal(tools.decode(tools.encode({...mix,notePace})).notePace,notePace);
 for(const notePace of ['unknown','__proto__',1,null])assert.throws(()=>tools.normalize({...data,notePace}));
 console.log('PASS: note pace links and backwards compatible defaults');
+
+assert.equal(tools.decode(encoded).fadeOutSeconds,20);
+for(const fadeOutSeconds of [5,20,60])assert.equal(tools.decode(tools.encode({...mix,fadeOutSeconds})).fadeOutSeconds,fadeOutSeconds);
+for(const fadeOutSeconds of [0,10,61,'20',null])assert.throws(()=>tools.normalize({...data,fadeOutSeconds}));
+console.log('PASS: closing preferences in links and older data defaults');
