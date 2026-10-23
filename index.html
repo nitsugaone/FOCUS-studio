@@ -754,7 +754,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         <div class="quick-scene studio-controls">          <label for="soundscape">Ambiente</label>
           <select id="soundscape">
             <option value="rain">Lluvia cálida</option><option value="ocean">Océano profundo</option>
-            <option value="space">Espacio</option><option value="speech">Cubrir conversaciones</option><option value="fire">Fogón suave</option>
+            <option value="space">Espacio</option><option value="speech">Cubrir conversaciones</option><option value="fire">Fogón suave</option><option value="wind">Viento entre hojas</option>
           </select>
           <p id="scene-description"></p>
 </div>
@@ -998,7 +998,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           <div><label for="insights-period">Período</label>
             <select id="insights-period"><option value="7">Últimos 7 días</option><option value="30" selected>Últimos 30 días</option><option value="0">Todo lo guardado</option></select></div>
           <div><label for="insights-scene">Ambiente</label>
-            <select id="insights-scene"><option value="all">Todos</option><option value="rain">Lluvia cálida</option><option value="ocean">Océano profundo</option><option value="space">Espacio</option><option value="speech">Cubrir conversaciones</option><option value="fire">Fogón suave</option></select></div>
+            <select id="insights-scene"><option value="all">Todos</option><option value="rain">Lluvia cálida</option><option value="ocean">Océano profundo</option><option value="space">Espacio</option><option value="speech">Cubrir conversaciones</option><option value="fire">Fogón suave</option><option value="wind">Viento entre hojas</option></select></div>
         </div>
         <p id="insights-summary" role="status" aria-live="polite"></p>
         <p id="insights-comparison" class="daily-note"></p>
@@ -1133,7 +1133,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
 
 
       function createShareTools() {
-        const cycles=createCycleTools(),scenes=['rain','ocean','space','speech','fire'];
+        const cycles=createCycleTools(),scenes=['rain','ocean','space','speech','fire','wind'];
         const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
         const number=value=>Number.isFinite(value)&&value>=0&&value<=100;
         function normalize(value) {
@@ -1162,6 +1162,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         rain: { label:'Lluvia cálida', description:'Lluvia filtrada, fondo cálido y notas suaves.', cutoff:1900, root:65.406, rate:0.023, depth:70, white:0.65, interval:12, mix:{noise:75,drone:22,notes:18} },
         ocean: { label:'Océano profundo', description:'Ruido grave que respira lentamente como el oleaje.', cutoff:420, root:49, rate:0.065, depth:180, white:0.12, interval:18, mix:{noise:82,drone:35,notes:10} },
         space: { label:'Espacio', description:'Drone abierto y campanas sobre una armonía compartida.', cutoff:650, root:55, rate:0.014, depth:100, white:0.04, interval:8, mix:{noise:30,drone:65,notes:48} },
+        wind: { label:'Viento entre hojas', description:'Brisa aireada con ráfagas lentas y susurro de hojas, sin melodía por defecto. Evolución regula las ráfagas.', cutoff:380, root:49, rate:0.02, depth:30, white:0, brown:0.18, wind:0.85, melody:false, interval:24, mix:{noise:70,drone:0,notes:0} },
         fire: { label:'Fogón suave', description:'Fondo grave con crepitaciones suaves e irregulares, sin melodía por defecto.', cutoff:900, root:49, rate:0.018, depth:35, white:0.06, crackle:0.55, melody:false, interval:22, mix:{noise:68,drone:0,notes:0} },
         speech: { melody:false, label:'Cubrir conversaciones', description:'Textura continua más amplia, sin melodía por defecto. Ajustá a un volumen cómodo.', cutoff:2600, root:55, rate:0.01, depth:0, white:0.85, interval:25, mix:{noise:82,drone:0,notes:0} }
       };
@@ -1228,6 +1229,10 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         $('scene-description').textContent=SCENES[studio.scene].description;
         syncSceneLabels();
       }
+      function windEnvelope(seconds,evolution) {
+        if(!Number.isFinite(seconds)||seconds<0||!Number.isFinite(evolution)||evolution<0||evolution>100)throw Error('Ráfagas inválidas.');
+        return 0.52+(evolution/100)*(0.18*Math.sin(seconds/9)+0.12*Math.sin(seconds/23+0.7));
+      }
       function applyScene(smooth=1.5) {
         syncStudio();
         if (!ctx || !nodes.textureGain) return;
@@ -1240,7 +1245,9 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         ramp(nodes.lfoDepth.gain,scene.depth*evolution,smooth);
         ramp(nodes.textureFilter.frequency,scene.cutoff*(0.65+studio.brightness/100)*drift,smooth);
         ramp(nodes.textureGain.gain,scene.white,smooth);
-        ramp(nodes.brownGain.gain,1-scene.white,smooth);
+        ramp(nodes.brownGain.gain,scene.brown??(1-scene.white),smooth);
+        ramp(nodes.windGain.gain,(scene.wind??0)*windEnvelope(accumulatedMs/1000,studio.evolution),smooth);
+        ramp(nodes.windLowpass.frequency,2600+studio.brightness*40,smooth);
         ramp(nodes.crackleGain.gain,scene.crackle??0,smooth);
         ramp(nodes.droneFilter.frequency,220+studio.brightness*6,smooth);
         ramp(nodes.droneLfoDepth.gain,110*evolution,smooth);
@@ -1465,7 +1472,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         const keys={mixes:'focus-mixes-v3',history:'focus-daily-history-v1',ratings:'focus-feedback-v3',settings:'focus-audio-settings-v2',studio:'focus-studio-v3',session:'focus-session-v1'};
         const undoKey='focus-backup-undo-v1';
         const backupCycles=createCycleTools();
-        const scenes=['rain','ocean','space','speech','fire'];
+        const scenes=['rain','ocean','space','speech','fire','wind'];
         const object=value=>value && typeof value==='object' && !Array.isArray(value);
         const number=(value,min,max)=>Number.isFinite(value)&&value>=min&&value<=max;
         const requireValid=(condition,message)=>{if(!condition)throw Error(message);};
@@ -1985,6 +1992,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         nodes.textureSrc.buffer=texture;nodes.textureSrc.loop=true;
         nodes.noiseSrc.connect(nodes.brownGain);
         nodes.textureSrc.connect(nodes.textureFilter);
+        nodes.textureSrc.connect(nodes.windHighpass);
         nodes.textureSrc.start();nodes.noiseSrc.start();
         nodes.crackleSrc=ctx.createBufferSource();
         nodes.crackleSrc.buffer=createCrackleBuffer(ctx);nodes.crackleSrc.loop=true;
@@ -2001,6 +2009,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
             source.connect(nodes.brownGain,0);
             source.connect(nodes.textureFilter,1);
             source.connect(nodes.crackleFilter,2);
+            source.connect(nodes.windHighpass,1);
             nodes.noiseWorklet=source;
             source.addEventListener('processorerror',()=>{
               source.disconnect();
@@ -2101,6 +2110,10 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         nodes.noiseGain.gain.value = level('noise');
         nodes.brownGain=ctx.createGain();
         nodes.textureGain=ctx.createGain();
+        nodes.windGain=ctx.createGain();nodes.windGain.gain.value=0;
+        nodes.windHighpass=ctx.createBiquadFilter();nodes.windHighpass.type='highpass';nodes.windHighpass.frequency.value=650;nodes.windHighpass.Q.value=0.5;
+        nodes.windLowpass=ctx.createBiquadFilter();nodes.windLowpass.type='lowpass';nodes.windLowpass.Q.value=0.5;
+        nodes.windHighpass.connect(nodes.windLowpass);nodes.windLowpass.connect(nodes.windGain);nodes.windGain.connect(nodes.noiseGain);
         nodes.crackleGain=ctx.createGain();
         nodes.crackleGain.gain.value=0;
         nodes.crackleFilter=ctx.createBiquadFilter();

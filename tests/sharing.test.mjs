@@ -45,3 +45,5 @@ for(const restSound of ['unknown',true,1,null])assert.throws(()=>tools.normalize
 console.log('PASS: silent rest in links and old data defaults');
 
 assert.equal(tools.decode(tools.encode({...mix,scene:'fire',melody:false})).scene,'fire');
+
+assert.equal(tools.decode(tools.encode({...mix,scene:'wind',melody:false})).scene,'wind');

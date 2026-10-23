@@ -9,7 +9,7 @@ test.beforeEach(async({page},info)=>{
   const Context=window.AudioContext||window.webkitAudioContext;
   if(Context){const original=Context.prototype.createOscillator;Context.prototype.createOscillator=function(){window.createdOscillators++;return original.call(this);};}
  });
- if(info.title.startsWith('silent rest'))await page.addInitScript(()=>{
+ if(info.title.startsWith('silent rest')||info.title.startsWith('wind scene'))await page.addInitScript(()=>{
   const Context=window.AudioContext||window.webkitAudioContext;
   window.restOscillators=0;
   if(Context){
@@ -766,4 +766,38 @@ test('fire scene plays, switches, saves and shares on mobile and desktop',async(
  await page.locator('#apply-shared-mix').click();await expect(page.locator('#soundscape')).toHaveValue('fire');
  await expect(page.locator('#status-text')).toHaveText('En pausa');await noOverflow(page);
  await page.screenshot({path:info.outputPath('fire.png'),fullPage:true,animations:'disabled'});
+});
+
+test('wind scene produces audio, follows ambient volume and survives portable settings',async({page},info)=>{
+ await page.locator('#soundscape').selectOption('wind');
+ await expect(page.locator('#scene-description')).toContainText('ráfagas');
+ await expand(page,'sound-settings');await expect(page.locator('#melody')).not.toBeChecked();
+ await expect(page.locator('#vol-noise')).toHaveValue('70');await expect(page.locator('#vol-drone')).toHaveValue('0');
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await attachRestMeter(page);
+ await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeGreaterThan(.00001);
+ await page.locator('#vol-noise').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeLessThan(.000001);
+ await page.locator('#vol-noise').evaluate(el=>{el.value='70';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeGreaterThan(.00001);
+ await page.locator('#evolution').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.locator('#soundscape').selectOption('fire');await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await page.locator('#soundscape').selectOption('wind');await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await page.locator('#toggle').click();
+ await expand(page,'mix-settings');await page.locator('#preset-name').fill('Mi brisa');await page.locator('#save-mix').click();
+ await page.locator('#favorite-mix').click();await page.locator('#create-share-link').click();
+ const link=await page.locator('#share-link').inputValue();
+ expect(JSON.parse(decodeURIComponent(new URL(link).hash.slice(5))).scene).toBe('wind');
+ await page.reload();await page.locator('#favorite-mixes button').click();
+ await expect(page.locator('#soundscape')).toHaveValue('wind');await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await expand(page,'sound-settings');await expect(page.locator('#evolution')).toHaveValue('0');
+ await expand(page,'backup-panel');const promise=page.waitForEvent('download');await page.locator('#export-backup').click();
+ const backup=JSON.parse(await readFile(await (await promise).path(),'utf8'));
+ expect(backup.data.studio.scene).toBe('wind');expect(backup.data.mixes[0].scene).toBe('wind');
+ await page.locator('#backup-file').setInputFiles({name:'wind.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+ await expect(page.locator('#backup-preview')).toBeVisible();await page.locator('#cancel-backup').click();
+ await page.goto(link);await expect(page.locator('#shared-mix-summary')).toContainText('Viento entre hojas');
+ await page.locator('#apply-shared-mix').click();await expect(page.locator('#soundscape')).toHaveValue('wind');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');await noOverflow(page);
+ await page.screenshot({path:info.outputPath('wind.png'),fullPage:true,animations:'disabled'});
 });
