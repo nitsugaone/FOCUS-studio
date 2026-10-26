@@ -950,6 +950,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           <label for="saved-mixes">Mis mezclas</label><select id="saved-mixes"><option value="">Elegí una mezcla</option></select>
           <button id="load-mix" type="button" class="subtle-button">Cargar</button>
           <button id="update-mix" type="button" class="subtle-button">Actualizar con estos ajustes</button>
+          <button id="duplicate-mix" type="button" class="subtle-button" title="Copia la mezcla guardada; conserva la original y no cambia el sonido actual.">Duplicar mezcla guardada</button>
           <button id="rename-mix" type="button" class="subtle-button">Renombrar</button>
           <button id="favorite-mix" type="button" class="subtle-button" aria-pressed="false">Marcar favorita</button>
           <button id="delete-mix" type="button" class="subtle-button">Eliminar</button>
@@ -1389,7 +1390,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
       }
       function syncMixActions() {
         const index=selectedMixIndex(), mix=savedMixes[index];
-        ['update-mix','rename-mix','favorite-mix','delete-mix','load-mix'].forEach(id=>$(id).disabled=index<0);
+        ['update-mix','duplicate-mix','rename-mix','favorite-mix','delete-mix','load-mix'].forEach(id=>$(id).disabled=index<0);
         $('favorite-mix').textContent=mix?.favorite ? 'Quitar de favoritas' : 'Marcar favorita';
         $('favorite-mix').setAttribute('aria-pressed',String(Boolean(mix?.favorite)));
       }
@@ -1397,6 +1398,24 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         return {...studio,name,favorite,cyclePlan:cycleState.plan,duration:cycleState.plan==='single'?targetDurationMinutes:cycleTools.plans[cycleState.plan].focus,
           levels:Object.fromEntries(Object.keys(DEFAULTS).map(k=>[k,Number($('vol-'+k).value)]))};
       }
+      function createMixCopy(mixes,index) {
+        if(!Array.isArray(mixes)||!Number.isInteger(index)||index<0||index>=mixes.length)throw Error('Elegí una mezcla para duplicar.');
+        if(mixes.length>=50)throw Error('Podés guardar hasta 50 mezclas.');
+        const source=mixes[index];
+        if(!source||typeof source.name!=='string'||!source.levels||typeof source.levels!=='object'||Array.isArray(source.levels))throw Error('La mezcla seleccionada no es válida.');
+        const key=name=>name.trim().normalize('NFC').toLocaleLowerCase('es');
+        const used=new Set(mixes.filter(mix=>mix&&typeof mix.name==='string').map(mix=>key(mix.name)));
+        const base=source.name.trim()||'Mezcla';
+        for(let number=1;number<=50;number++){
+          const suffix=number===1?' (copia)':' (copia '+number+')';
+          let stem='';
+          for(const char of base){if(stem.length+char.length>60-suffix.length)break;stem+=char;}
+          const name=stem.trimEnd()+suffix;
+          if(!used.has(key(name)))return {...source,name,favorite:false,levels:{...source.levels}};
+        }
+        throw Error('No se pudo elegir un nombre para la copia.');
+      }
+
       function commitMixes(next, selected='', reveal=false) {
         if(!writeLocal('focus-mixes-v3',next))return false;
         savedMixes=next;
@@ -1505,6 +1524,16 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           const i=selectedMixIndex();if(i<0)return;
           const next=savedMixes.map((mix,j)=>j===i?currentMix(mix.name,mix.favorite===true):mix);
           if(commitMixes(next,String(i)))$('studio-status').textContent='Ajustes de la mezcla actualizados.';
+        });
+        $('duplicate-mix').addEventListener('click',()=>{
+          const index=selectedMixIndex();if(index<0)return;
+          try {
+            const copy=createMixCopy(savedMixes,index);
+            if(commitMixes([...savedMixes,copy],String(savedMixes.length),true)){
+              $('preset-name').value=copy.name;
+              $('studio-status').textContent='Copia guardada. Cargala en pausa para editar su sonido.';
+            }
+          }catch(error){$('studio-status').textContent=error.message;}
         });
         $('rename-mix').addEventListener('click',()=>{
           const i=selectedMixIndex(),name=$('preset-name').value.trim();if(i<0)return;
