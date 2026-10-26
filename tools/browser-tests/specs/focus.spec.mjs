@@ -3,8 +3,8 @@ import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
 test.beforeEach(async({page},info)=>{
- if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension'))await page.clock.install();
- if(info.title.startsWith('note timing')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension'))await page.addInitScript(()=>{
+ if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search'))await page.clock.install();
+ if(info.title.startsWith('note timing')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search'))await page.addInitScript(()=>{
   window.createdOscillators=0;
   const Context=window.AudioContext||window.webkitAudioContext;
   if(Context){const original=Context.prototype.createOscillator;Context.prototype.createOscillator=function(){window.createdOscillators++;return original.call(this);};}
@@ -1088,4 +1088,57 @@ test('audio extension replaces the old cutoff while screen timers are stopped',a
  await page.locator('#toggle').click();
  const paused=await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-session-v1')));
  expect(paused.duration).toBe(6);expect(paused.elapsed).toBeGreaterThanOrEqual(60000);
+});
+
+test('mix search preserves indices, protects data and keeps playback running',async({page},info)=>{
+ await expand(page,'mix-settings');
+ for(const [scene,name,favorite] of [['rain','Lluvia suave',false],['ocean','Café de lectura',true],['space','Trabajo de tarde',true]]) {
+  await page.locator('#soundscape').selectOption(scene);await page.locator('#preset-name').fill(name);await page.locator('#save-mix').click();
+  if(favorite)await page.locator('#favorite-mix').click();
+ }
+ const stored=await page.evaluate(()=>localStorage.getItem('focus-mixes-v3'));
+ await page.locator('#mix-search').fill('LECTURA CAFE');
+ await expect(page.locator('#mix-search-status')).toHaveText('1 de 3 mezclas');
+ await expect(page.locator('#saved-mixes option[value="1"]')).toHaveText('★ Café de lectura');
+ await expect(page.locator('#saved-mixes option[value="0"]')).toHaveCount(0);
+ await expect(page.locator('#saved-mixes')).toHaveValue('');
+ await expect(page.locator('#favorite-mixes button')).toHaveText('★ Café de lectura');
+ await page.locator('#saved-mixes').selectOption('1');await page.locator('#load-mix').click();
+ await expect(page.locator('#soundscape')).toHaveValue('ocean');
+ await page.locator('#mix-search').fill('tarde');await page.locator('#favorite-mixes button').click();
+ await expect(page.locator('#soundscape')).toHaveValue('space');
+ await page.locator('#mix-search').fill('zzzz');await expect(page.locator('#saved-mixes')).toBeDisabled();
+ await expect(page.locator('#mix-search-status')).toContainText('No hay mezclas que coincidan');
+ for(const id of ['load-mix','rename-mix','update-mix','delete-mix','favorite-mix'])await expect(page.locator('#'+id)).toBeDisabled();
+ expect(await page.evaluate(()=>localStorage.getItem('focus-mixes-v3'))).toBe(stored);
+ await page.locator('#clear-mix-search').click();await expect(page.locator('#mix-search')).toBeFocused();
+ await expect(page.locator('#mix-search-status')).toHaveText('3 de 3 mezclas');
+ await page.locator('#soundscape').selectOption('wind');
+ await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');await page.clock.fastForward(60000);
+ const timer=await page.locator('#timer').textContent(),oscillators=await page.evaluate(()=>window.createdOscillators);
+ const levels=await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value));
+ await page.locator('#mix-search').fill('cafe');await page.locator('#saved-mixes').selectOption('1');await page.locator('#load-mix').click();
+ await expect(page.locator('#studio-status')).toContainText('Pausá');
+ await expect(page.locator('#soundscape')).toHaveValue('wind');await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await expect(page.locator('#timer')).toHaveText(timer);expect(await page.evaluate(()=>window.createdOscillators)).toBe(oscillators);
+ expect(await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value))).toEqual(levels);
+ expect(await page.evaluate(()=>localStorage.getItem('focus-mixes-v3'))).toBe(stored);
+ await page.locator('#toggle').click();
+ await page.locator('#preset-name').fill('Café profundo');await page.locator('#rename-mix').click();
+ await expect(page.locator('#mix-search')).toHaveValue('');await expect(page.locator('#saved-mixes')).toHaveValue('1');
+ const renamed=await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-mixes-v3')));
+ expect(renamed[0].name).toBe('Lluvia suave');expect(renamed[1].name).toBe('Café profundo');
+ await page.locator('#mix-search').fill('profundo');await page.locator('#delete-mix').click();
+ const remaining=await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-mixes-v3')));
+ expect(remaining.map(mix=>mix.name)).toEqual(['Lluvia suave','Trabajo de tarde']);
+ await expect(page.locator('#saved-mixes')).toBeDisabled();await page.locator('#clear-mix-search').click();
+ await page.locator('#preset-name').fill('Lectura nueva');await page.locator('#mix-search').fill('lluvia');await page.locator('#save-mix').click();
+ await expect(page.locator('#mix-search')).toHaveValue('');await expect(page.locator('#saved-mixes')).toHaveValue('2');
+ await expect(page.locator('#saved-mixes option[value="2"]')).toHaveText('Lectura nueva');
+ await page.locator('#mix-search').fill('TRABAJO');await expect(page.locator('#favorite-mixes button')).toHaveText('★ Trabajo de tarde');
+ await noOverflow(page);await page.screenshot({path:info.outputPath('mix-search.png'),fullPage:true,animations:'disabled'});
+ await page.reload();await expand(page,'mix-settings');await expect(page.locator('#mix-search')).toHaveValue('');
+ await expect(page.locator('#mix-search-status')).toHaveText('3 de 3 mezclas');
+ await page.locator('#favorite-mixes button').click();await expect(page.locator('#soundscape')).toHaveValue('space');
 });

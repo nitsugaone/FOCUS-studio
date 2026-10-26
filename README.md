@@ -246,3 +246,8 @@ La entrada adicional puede ser directa, rápida (3 segundos), original (12 segun
 ## Prolongar una sesión
 
 El botón «+5 min» añade tiempo a una sesión individual con duración, en reproducción o en pausa, antes de que termine. Conserva el tiempo transcurrido, el historial de escucha, los volúmenes, la entrada y el sonido. Actualiza el cierre de audio sin recrear las fuentes. Cerca del máximo de 180 minutos añade solo el margen disponible y muestra el incremento real. No se ofrece en modo libre ni en ciclos guiados, y no reactiva sesiones ya terminadas. La duración ampliada se conserva en la recuperación de sesión, las mezclas, los enlaces y las copias de seguridad mediante los campos existentes.
+
+
+## Buscar mezclas guardadas
+
+El buscador filtra por nombre la lista de mezclas y los accesos a favoritas. Ignora mayúsculas y tildes, y admite varias palabras en cualquier orden. Muestra cuántas mezclas coinciden y permite limpiar la búsqueda; sin resultados, las acciones de mezcla quedan desactivadas. Buscar no modifica datos ni interrumpe el sonido. Cargar una mezcla conserva la protección de la sesión activa. Al guardar o renombrar se limpia el filtro para mostrar la mezcla resultante. La búsqueda es temporal y se borra al recargar; no cambia los formatos de enlaces ni copias de seguridad.
