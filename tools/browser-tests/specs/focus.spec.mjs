@@ -3,13 +3,13 @@ import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
 test.beforeEach(async({page},info)=>{
- if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest')||info.title.startsWith('channel balance')||info.title.startsWith('session entry'))await page.clock.install();
- if(info.title.startsWith('note timing')||info.title.startsWith('channel balance')||info.title.startsWith('session entry'))await page.addInitScript(()=>{
+ if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension'))await page.clock.install();
+ if(info.title.startsWith('note timing')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension'))await page.addInitScript(()=>{
   window.createdOscillators=0;
   const Context=window.AudioContext||window.webkitAudioContext;
   if(Context){const original=Context.prototype.createOscillator;Context.prototype.createOscillator=function(){window.createdOscillators++;return original.call(this);};}
  });
- if(info.title.startsWith('silent rest')||info.title.startsWith('wind scene')||info.title.startsWith('audio deadline'))await page.addInitScript(()=>{
+ if(info.title.startsWith('silent rest')||info.title.startsWith('wind scene')||info.title.startsWith('audio deadline')||info.title.startsWith('audio extension'))await page.addInitScript(()=>{
   const Context=window.AudioContext||window.webkitAudioContext;
   window.restOscillators=0;
   if(Context){
@@ -18,7 +18,7 @@ test.beforeEach(async({page},info)=>{
    Context.prototype.createOscillator=function(){window.restOscillators++;return oscillator.call(this);};
   }
  });
- if(info.title.startsWith('audio deadline'))await page.addInitScript(()=>{window.setInterval=()=>0;});
+ if(info.title.startsWith('audio deadline')||info.title.startsWith('audio extension'))await page.addInitScript(()=>{window.setInterval=()=>0;});
  const pageErrors=[];errors.set(page,pageErrors);
  page.on('pageerror',error=>pageErrors.push(error.message));
  await page.goto('./');
@@ -1026,4 +1026,66 @@ test('session entry renders without screen timers and combines with the closing 
   return results;
  },html.slice(start,end));
  for(const samples of results)for(const sample of samples)expect(Math.abs(sample.actual-sample.expected)).toBeLessThan(.00001);
+});
+
+test('session extension preserves playback, progress and portable duration and respects limits',async({page},info)=>{
+ await expect(page.locator('#extend-session')).toBeHidden();
+ await page.locator('#soundscape').selectOption('wind');
+ await page.locator('#custom-minutes').fill('17');await page.locator('#apply-duration').click();
+ await expect(page.locator('#extend-session')).toHaveText('+5 min');await page.locator('#extend-session').click();
+ await expect(page.locator('#timer')).toHaveText('00:22:00');await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await expect(page.locator('#custom-minutes')).toHaveValue('22');
+ await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await page.clock.fastForward(60000);
+ const oscillators=await page.evaluate(()=>window.createdOscillators),levels=await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value));
+ await page.locator('#extend-session').click();
+ await expect(page.locator('#timer')).toHaveText('00:26:00');await expect(page.locator('#status-text')).toHaveText('Sonando');
+ expect(await page.evaluate(()=>window.createdOscillators)).toBe(oscillators);
+ expect(await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value))).toEqual(levels);
+ const active=await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-session-v1')));
+ expect(active.duration).toBe(27);expect(active.elapsed).toBe(60000);expect(active.cycle.singleDuration).toBe(27);
+ await page.locator('#toggle').click();await page.locator('#extend-session').click();
+ await expect(page.locator('#timer')).toHaveText('00:31:00');await expect(page.locator('#extension-status')).toContainText('Duración total: 32 minutos');
+ await expand(page,'mix-settings');await page.locator('#preset-name').fill('Sesión ampliada');await page.locator('#save-mix').click();
+ await page.locator('#create-share-link').click();const link=await page.locator('#share-link').inputValue();
+ expect(JSON.parse(decodeURIComponent(new URL(link).hash.slice(5))).duration).toBe(32);
+ await expand(page,'backup-panel');const promise=page.waitForEvent('download');await page.locator('#export-backup').click();
+ const backup=JSON.parse(await readFile(await (await promise).path(),'utf8'));
+ expect(backup.data.session.duration).toBe(32);expect(backup.data.session.elapsed).toBe(60000);expect(backup.data.mixes[0].duration).toBe(32);
+ await page.reload();await expect(page.locator('#timer')).toHaveText('00:31:00');await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await noOverflow(page);await page.screenshot({path:info.outputPath('session-extension.png'),fullPage:true,animations:'disabled'});
+ await page.locator('#custom-minutes').fill('179');await page.locator('#apply-duration').click();
+ await expect(page.locator('#extend-session')).toHaveText('+1 min');await page.locator('#extend-session').click();
+ await expect(page.locator('#timer')).toHaveText('03:00:00');await expect(page.locator('#extend-session')).toBeDisabled();
+ await expect(page.locator('#extend-session')).toHaveText('Máximo 180 min');await expect(page.locator('#extension-status')).toContainText('Sumaste 1 minuto.');
+ await page.locator('#session-plan').selectOption('25-5');await expect(page.locator('#extend-session')).toBeHidden();
+ const cycle=await page.evaluate(()=>localStorage.getItem('focus-session-v1'));
+ await page.locator('#extend-session').dispatchEvent('click');
+ expect(await page.evaluate(()=>localStorage.getItem('focus-session-v1'))).toBe(cycle);
+ await page.locator('#session-plan').selectOption('single');await page.locator('[data-minutes="0"]').click();
+ await expect(page.locator('#extend-session')).toBeHidden();await noOverflow(page);
+ await page.addInitScript(()=>localStorage.setItem('focus-session-v1',JSON.stringify({duration:1,elapsed:60000})));
+ await page.reload();await expect(page.locator('#timer')).toHaveText('00:00:00');
+ await expect(page.locator('#extend-session')).toBeDisabled();
+ const ended=await page.evaluate(()=>localStorage.getItem('focus-session-v1'));
+ await page.locator('#extend-session').dispatchEvent('click');
+ expect(await page.evaluate(()=>localStorage.getItem('focus-session-v1'))).toBe(ended);
+});
+test('audio extension replaces the old cutoff while screen timers are stopped',async({page})=>{
+ await page.addInitScript(()=>{
+  localStorage.setItem('focus-session-v1',JSON.stringify({duration:1,elapsed:56000}));
+  localStorage.setItem('focus-studio-v3',JSON.stringify({scene:'wind',evolution:35,brightness:50,melody:false,fadeOutSeconds:5}));
+  localStorage.setItem('focus-audio-settings-v2',JSON.stringify({master:75,noise:70,drone:0,notes:0}));
+ });
+ await page.reload();await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await page.locator('#extend-session').click();
+ const extended=await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-session-v1')));
+ expect(extended.duration).toBe(6);expect(extended.elapsed).toBeGreaterThanOrEqual(56000);expect(extended.elapsed).toBeLessThan(60000);
+ await attachRestMeter(page);await page.waitForTimeout(4300);
+ await expect.poll(()=>page.evaluate(()=>window.readRestPeak())).toBeGreaterThan(.00001);
+ await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await page.locator('#toggle').click();
+ const paused=await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-session-v1')));
+ expect(paused.duration).toBe(6);expect(paused.elapsed).toBeGreaterThanOrEqual(60000);
 });
