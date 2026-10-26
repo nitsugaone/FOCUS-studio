@@ -1,8 +1,7 @@
+import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
-const start=html.indexOf('      function syncMixUndoUI()'),end=html.indexOf('      // Only crossing the breakpoint',start);
-assert.ok(start>=0&&end>start);
+const html=await readApplicationSource();
 function library(input) {
  return new Function('input',`
   let savedMixes=input,mixDeletionUndo=null,selection='',fail=false,writes=0,disk=JSON.stringify(input);
@@ -10,7 +9,7 @@ function library(input) {
   function selectedMixIndex(){return selection!==''&&savedMixes[Number(selection)]?Number(selection):-1;}
   function writeLocal(key,value){if(fail)return false;writes++;disk=JSON.stringify(value);return true;}
   function renderMixes(selected=''){selection=String(selected);syncMixUndoUI();}
-  ${html.slice(start,end)}
+  ${extractFunctions(html,["syncMixUndoUI","commitMixes","deleteSelectedMix","undoMixDeletion"])}
   syncMixUndoUI();
   return {
    select(index){selection=index<0?'':String(index);},

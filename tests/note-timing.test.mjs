@@ -1,8 +1,8 @@
+import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
-const start=html.indexOf('      function noteDelaySeconds('),end=html.indexOf('      function scheduleNextNote()',start);
-const delay=new Function(html.slice(start,end)+'return noteDelaySeconds;')();
+const html=await readApplicationSource();
+const delay=new Function(extractFunctions(html,["noteDelaySeconds"])+'return noteDelaySeconds;')();
 for(const interval of [8,12,18,25]){
  assert.equal(delay(interval,0,'normal',0),interval);
  assert.equal(delay(interval,0,'sparse',0),interval*2);

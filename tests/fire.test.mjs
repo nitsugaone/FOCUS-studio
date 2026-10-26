@@ -1,7 +1,8 @@
+import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const source=await readFile(new URL('../audio/noise-processor.js',import.meta.url),'utf8');
-const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
+const html=await readApplicationSource();
 function processor(rate,seed=31) {
  let Type;new Function('AudioWorkletProcessor','registerProcessor','sampleRate',source)(class {},(_,value)=>Type=value,rate);
  return new Type({processorOptions:{seed}});
@@ -33,9 +34,7 @@ for(const rate of [8000,44100,48000,96000]) {
 const full=render(processor(48000),4096),node=processor(48000);
 const blocks=Array.from({length:32},()=>render(node,128));
 for(let channel=0;channel<2;channel++)assert.deepEqual(full[2][channel],Float32Array.from(blocks.flatMap(block=>Array.from(block[2][channel]))),'Crackles continue across block boundaries');
-const start=html.indexOf('      function createCrackleBuffer(context)'),end=html.indexOf('      function startBufferedNoise()',start);
-assert.ok(start>=0&&end>start);
-const create=new Function(html.slice(start,end)+'return createCrackleBuffer;')();
+const create=new Function(extractFunctions(html,["createCrackleBuffer"])+'return createCrackleBuffer;')();
 const fallback=create({sampleRate:8000,createBuffer(channels,length){const data=Array.from({length:channels},()=>new Float32Array(length));return{getChannelData:channel=>data[channel]};}});
 for(let ch=0;ch<2;ch++) {
  const data=fallback.getChannelData(ch);

@@ -1,9 +1,8 @@
+import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
-const start=html.indexOf('      function balanceCoefficients('),end=html.indexOf('      async function initAudio()',start);
-assert.ok(start>=0&&end>start);
-const tools=new Function(html.slice(start,end)+'return {balanceCoefficients,balanceLabel,createChannelBalance};')();
+const html=await readApplicationSource();
+const tools=new Function(extractFunctions(html,["balanceCoefficients","balanceLabel","createChannelBalance"])+'return {balanceCoefficients,balanceLabel,createChannelBalance};')();
 assert.deepEqual(tools.balanceCoefficients(-100),{left:1,right:0});
 assert.deepEqual(tools.balanceCoefficients(0),{left:1,right:1});
 assert.deepEqual(tools.balanceCoefficients(100),{left:0,right:1});

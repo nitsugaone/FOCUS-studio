@@ -1,8 +1,9 @@
+import {startFocusApp} from '../src/ui/FocusController.js';
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 function verify(html, workletMode='none') {
-const script=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
+
 const elems=new Map(), memory=new Map(), checks=[];
 function element(id){if(!elems.has(id))elems.set(id,{hidden:html.includes('id="'+id+'" hidden'),value:({'vol-master':75,'vol-noise':70,'vol-drone':60,'vol-notes':55,evolution:35,brightness:50,'session-rating':3}[id]??''),checked:true,dataset:{},style:{setProperty(){}},classList:{toggle(){}},events:{},attributes:{},focus(){this.focused=true},setAttribute(k,v){this.attributes[k]=v},addEventListener(k,fn){this.events[k]=fn},replaceChildren(){this.children=[]},append(child){(this.children??=[]).push(child)},add(){},click(){if(!this.disabled)return this.events.click?.()},remove(){},play(){return Promise.resolve()},pause(){}});return elems.get(id);}
 const sources=[];let workletNode=null,moduleLoads=0;
@@ -34,7 +35,7 @@ memory.set('focus-feedback-v3',JSON.stringify([
  {scene:'space',rating:2,date:new Date(Date.now()-40*86400000).toISOString(),minutes:25,distractions:'high'}
 ]));
 memory.set('focus-session-v1',JSON.stringify({duration:25,elapsed:60000}));
-new Function('window','document','navigator','localStorage','Option','clearTimeout','clearInterval','URL','Blob',script)(window,document,{serviceWorker,onLine:true},localStorage,function(){},id=>scheduledTimeouts.delete(id),()=>{},downloadURL,DownloadBlob);
+startFocusApp({window,document,navigator:{serviceWorker,onLine:true},localStorage,Option:function(){},clearTimeout:id=>scheduledTimeouts.delete(id),clearInterval:()=>{},URL:downloadURL,Blob:DownloadBlob});
 return (async()=>{
 checks.push({check:'Insights render saved ratings for the default period',pass:element('insights-summary').textContent.startsWith('6 valoraciones')});
 checks.push({check:'Insights show group and recent rows',pass:element('insights-rows').children.length===2&&element('insights-recent').children.length===6});

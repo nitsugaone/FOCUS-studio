@@ -1,3 +1,4 @@
+import {readApplicationSource,extractFunctions} from '../../../tests/support/application-source.mjs';
 import {test,expect} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
 
@@ -459,8 +460,8 @@ test('stereo width persists in mixes, shared links and backups without restartin
 });
 
 test('stereo field renders identity, mono and intermediate widths with real Web Audio',async({page})=>{
- const html=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
- const start=html.indexOf('      function stereoCoefficients('),end=html.indexOf('      async function initAudio()',start);
+ const html=await readApplicationSource();
+ const source=extractFunctions(html,['stereoCoefficients','createStereoField','balanceCoefficients','balanceLabel','createChannelBalance']);
  const result=await page.evaluate(async source=>{
   const create=new Function(source+'return createStereoField;')();
   const Context=window.OfflineAudioContext||window.webkitOfflineAudioContext;
@@ -481,7 +482,7 @@ test('stereo field renders identity, mono and intermediate widths with real Web 
    results.push({width,channels,error,excess,channelDiff});
   }
   return results;
- },html.slice(start,end));
+ },source);
  for(const value of result){
   expect(value.error).toBeLessThan(0.000001);
   expect(value.excess).toBeLessThan(0.000001);
@@ -814,8 +815,8 @@ test('wind scene produces audio, follows ambient volume and survives portable se
 });
 
 test('wind gusts render continuously in the audio graph without screen timers',async({page})=>{
- const html=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
- const start=html.indexOf('      function windCoefficients('),end=html.indexOf('      function applyScene(',start);
+ const html=await readApplicationSource();
+ const source=extractFunctions(html,['windCoefficients','createWindGust']);
  const results=await page.evaluate(async source=>{
   const create=new Function(source+'return createWindGust;')(),Context=window.OfflineAudioContext||window.webkitOfflineAudioContext;
   const results=[];
@@ -829,7 +830,7 @@ test('wind gusts render continuously in the audio graph without screen timers',a
    results.push({evolution,samples,min,max});
   }
   return results;
- },html.slice(start,end));
+ },source);
  for(const result of results) {
   for(const sample of result.samples)expect(Math.abs(sample.actual-sample.expected)).toBeLessThan(.0002);
   expect(result.min).toBeGreaterThanOrEqual(.25*.22-.0002);expect(result.max).toBeLessThanOrEqual(.25*.82+.0002);
@@ -863,8 +864,8 @@ test('audio deadline closes output with screen timers stopped and reconciles his
  expect(Object.values(result.history).reduce((a,b)=>a+b,0)).toBe(.1); // The two new seconds round down to the stored tenth of a minute.
 });
 test('audio closing renders the selected fade and stays silent after the deadline without timers',async({page})=>{
- const html=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
- const start=html.indexOf('      function sessionEnvelope('),end=html.indexOf('      function syncFadeUI()',start);
+ const html=await readApplicationSource();
+ const source=extractFunctions(html,['sessionEnvelope','scheduleSessionClosing']);
  const results=await page.evaluate(async source=>{
   const schedule=new Function(source+'return scheduleSessionClosing;')(),Context=window.OfflineAudioContext||window.webkitOfflineAudioContext;
   const results=[];
@@ -881,7 +882,7 @@ test('audio closing renders the selected fade and stays silent after the deadlin
    results.push(samples);
   }
   return results;
- },html.slice(start,end));
+ },source);
  for(const samples of results)for(const sample of samples)expect(Math.abs(sample.actual-sample.expected)).toBeLessThan(.00001);
 });
 
@@ -944,8 +945,8 @@ test('channel balance persists in settings, mixes, shared links and old backups'
  await noOverflow(page);await page.screenshot({path:info.outputPath('balance.png'),fullPage:true,animations:'disabled'});
 });
 test('channel balance renders each channel after stereo width with real Web Audio',async({page})=>{
- const html=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
- const start=html.indexOf('      function stereoCoefficients('),end=html.indexOf('      async function initAudio()',start);
+ const html=await readApplicationSource();
+ const source=extractFunctions(html,['stereoCoefficients','createStereoField','balanceCoefficients','balanceLabel','createChannelBalance']);
  const results=await page.evaluate(async source=>{
   const tools=new Function(source+'return {createStereoField,createChannelBalance};')(),Context=window.OfflineAudioContext||window.webkitOfflineAudioContext;
   const results=[];
@@ -964,7 +965,7 @@ test('channel balance renders each channel after stereo width with real Web Audi
    results.push({error,excess});
   }
   return results;
- },html.slice(start,end));
+ },source);
  for(const value of results){expect(value.error).toBeLessThan(.000001);expect(value.excess).toBeLessThan(.000001);}
 });
 
@@ -1014,8 +1015,8 @@ test('session entry preserves progress on resume and survives portable settings'
  await noOverflow(page);await page.screenshot({path:info.outputPath('entry.png'),fullPage:true,animations:'disabled'});
 });
 test('session entry renders without screen timers and combines with the closing envelope',async({page})=>{
- const html=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
- const start=html.indexOf('      function entryEnvelope('),end=html.indexOf('      function syncFadeUI()',start);
+ const html=await readApplicationSource();
+ const source=extractFunctions(html,['entryEnvelope','scheduleSessionEntry','sessionEnvelope','scheduleSessionClosing']);
  const results=await page.evaluate(async source=>{
   const tools=new Function(source+'return {scheduleSessionEntry,scheduleSessionClosing};')(),Context=window.OfflineAudioContext||window.webkitOfflineAudioContext;
   const results=[];
@@ -1032,7 +1033,7 @@ test('session entry renders without screen timers and combines with the closing 
    }));
   }
   return results;
- },html.slice(start,end));
+ },source);
  for(const samples of results)for(const sample of samples)expect(Math.abs(sample.actual-sample.expected)).toBeLessThan(.00001);
 });
 

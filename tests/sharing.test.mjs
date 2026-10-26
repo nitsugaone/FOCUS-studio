@@ -1,8 +1,8 @@
+import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
-const start=html.indexOf('      function createCycleTools()'),end=html.indexOf('      const cycleTools=createCycleTools()',start);
-const tools=new Function(html.slice(start,end)+'return createShareTools();')();
+const html=await readApplicationSource();
+const tools=new Function(extractFunctions(html,["createCycleTools","createShareTools"])+'return createShareTools();')();
 const mix={scene:'ocean',evolution:42,brightness:30,melody:false,cyclePlan:'single',duration:17,levels:{master:28,noise:65,drone:25,notes:0},name:'Privado',history:{secret:1},ratings:['private'],elapsed:90000};
 const encoded=tools.encode(mix),data=tools.decode(encoded);
 assert.equal(data.duration,17);assert.equal(data.levels.master,28);assert.equal(data.scene,'ocean');

@@ -1,9 +1,8 @@
+import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
-const start=html.indexOf('      function summarizeRatings('),end=html.indexOf('      function renderInsights()',start);
-assert.ok(start>=0 && end>start);
-const summarize=new Function('SCENES',html.slice(start,end)+'return summarizeRatings;')({rain:{},ocean:{},space:{},speech:{}});
+const html=await readApplicationSource();
+const summarize=new Function('SCENES',extractFunctions(html,["summarizeRatings"])+'return summarizeRatings;')({rain:{},ocean:{},space:{},speech:{}});
 const now=Date.parse('2026-10-22T12:00:00Z');
 const make=(scene,rating=4,days=1)=>({scene,rating,date:new Date(now-days*86400000).toISOString(),minutes:25,distractions:'low'});
 const records=[...Array.from({length:3},()=>make('rain',5)),...Array.from({length:3},()=>make('ocean',4)),make('space',2,20),make('rain',3,40)];

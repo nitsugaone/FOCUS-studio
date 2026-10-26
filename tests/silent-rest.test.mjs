@@ -1,8 +1,8 @@
+import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
-const a=html.indexOf('      function isSilentRestState('),b=html.indexOf('      function isSilentRest()',a);
-const silent=new Function(html.slice(a,b)+'return isSilentRestState;')();
+const html=await readApplicationSource();
+const silent=new Function(extractFunctions(html,['isSilentRestState'])+'return isSilentRestState;')();
 for(const plan of ['25-5','50-10']){
  assert.equal(silent({plan,phase:'rest'},'silent'),true);
  assert.equal(silent({plan,phase:'focus'},'silent'),false);
@@ -10,13 +10,12 @@ for(const plan of ['25-5','50-10']){
 }
 assert.equal(silent({plan:'single',phase:'rest'},'silent'),false);
 assert.equal(silent(null,'silent'),false);
-const c=html.indexOf('      function syncFocusHistoryProgress('),d=html.indexOf('      function getLast7DaysData()',c);
 const run=new Function(`
  let quiet=true,accumulatedMs=61500,sessionRecordedMs=0,additions=[];
  function isSilentRest(){return quiet;}
  function addFocusSecondsToToday(value){additions.push(value);}
  function renderHistoryChart(){}
- ${html.slice(c,d)}
+ ${extractFunctions(html,['syncFocusHistoryProgress'])}
  syncFocusHistoryProgress(true);
  const silentRecorded=sessionRecordedMs;
  quiet=false;accumulatedMs=122500;syncFocusHistoryProgress(true);
