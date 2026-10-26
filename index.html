@@ -954,6 +954,8 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           <button id="rename-mix" type="button" class="subtle-button">Renombrar</button>
           <button id="favorite-mix" type="button" class="subtle-button" aria-pressed="false">Marcar favorita</button>
           <button id="delete-mix" type="button" class="subtle-button">Eliminar</button>
+          <button id="undo-delete-mix" type="button" class="subtle-button" hidden>Deshacer eliminación</button>
+          <p id="mix-undo-hint" class="daily-note" hidden>Podés recuperar la última mezcla eliminada hasta hacer otro cambio en tus mezclas o recargar la página.</p>
           <div class="share-mix">
             <button id="create-share-link" type="button" class="subtle-button">Crear enlace de estos ajustes</button>
             <p class="daily-note">El enlace incluye ambiente, volúmenes y plan. El nombre de la mezcla, tu historial y el progreso de la sesión quedan en este dispositivo.</p>
@@ -1196,6 +1198,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
       const STUDIO_KEY = 'focus-studio-v3';
       let studio = {scene:'rain',evolution:35,brightness:50,melody:true,stereoWidth:100,balance:0,notePace:'normal',fadeOutSeconds:20,fadeInSeconds:12,preserveMix:false,restSound:'sound'};
       let savedMixes = [];
+      let mixDeletionUndo = null;
       let feedbackSession = null;
       function readLocal(key, fallback) {
         try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch (_) { return fallback; }
@@ -1386,7 +1389,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         select.disabled=indices.length===0;
         $('clear-mix-search').hidden=query.length===0;
         $('mix-search-status').textContent=!savedMixes.length?'Todavía no guardaste mezclas.':!indices.length?'No hay mezclas que coincidan. Probá con otro nombre.':indices.length+' de '+savedMixes.length+' mezclas';
-        syncMixActions();
+        syncMixActions();syncMixUndoUI();
       }
       function syncMixActions() {
         const index=selectedMixIndex(), mix=savedMixes[index];
@@ -1416,11 +1419,35 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         throw Error('No se pudo elegir un nombre para la copia.');
       }
 
+      function syncMixUndoUI() {
+        const available=mixDeletionUndo!==null;
+        $('undo-delete-mix').hidden=!available;
+        $('undo-delete-mix').disabled=!available;
+        $('mix-undo-hint').hidden=!available;
+      }
       function commitMixes(next, selected='', reveal=false) {
         if(!writeLocal('focus-mixes-v3',next))return false;
-        savedMixes=next;
+        savedMixes=next;mixDeletionUndo=null;
         if(reveal)$('mix-search').value='';
         renderMixes(selected);return true;
+      }
+      function deleteSelectedMix() {
+        const index=selectedMixIndex();if(index<0)return;
+        const mix=savedMixes[index],removed={index,mix:{...mix,levels:{...mix.levels}}};
+        if(commitMixes(savedMixes.filter((_,i)=>i!==index))){
+          mixDeletionUndo=removed;syncMixUndoUI();
+          $('studio-status').textContent='Mezcla eliminada.';
+        }
+      }
+      function undoMixDeletion() {
+        if(!mixDeletionUndo)return;
+        if(savedMixes.length>=50){$('studio-status').textContent='No hay espacio para recuperar la mezcla.';return;}
+        const {mix}=mixDeletionUndo,index=Math.min(mixDeletionUndo.index,savedMixes.length);
+        const next=[...savedMixes.slice(0,index),mix,...savedMixes.slice(index)];
+        if(commitMixes(next,String(index),true)){
+          $('preset-name').value=mix.name;
+          $('studio-status').textContent='Mezcla recuperada. Cargala en pausa para usarla.';
+        }
       }
       // Only crossing the breakpoint resets panels. Manual toggles within a
       // layout remain untouched, and playback nodes are never recreated.
@@ -1509,11 +1536,8 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           applyScene();persistSettings();writeLocal(STUDIO_KEY,studio);
           $('studio-status').textContent='Mezcla cargada.';
         });
-        $('delete-mix').addEventListener('click',()=>{
-          if($('saved-mixes').value==='')return;
-          const index=selectedMixIndex();if(index<0)return;
-          if(commitMixes(savedMixes.filter((_,i)=>i!==index)))$('studio-status').textContent='Mezcla eliminada.';
-        });
+        $('delete-mix').addEventListener('click',deleteSelectedMix);
+        $('undo-delete-mix').addEventListener('click',undoMixDeletion);
 
         $('saved-mixes').addEventListener('change',()=>{
           syncMixActions();
