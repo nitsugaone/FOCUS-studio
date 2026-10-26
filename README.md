@@ -266,3 +266,8 @@ Después de eliminar una mezcla aparece «Deshacer eliminación». Recupera sus 
 ## Compartir desde el celular
 
 Al crear un enlace, «Compartir enlace…» abre el menú del sistema cuando el navegador ofrece Web Share. Permite elegir entre las aplicaciones disponibles. Se comparte únicamente el enlace generado con los ajustes de sonido y sesión, sin nombres de mezclas, historial ni progreso. Cancelar conserva el enlace; si falla el menú, se puede usar «Copiar enlace» o copiarlo manualmente. El botón de copiar permanece disponible también en navegadores sin Web Share. Compartir no cambia el audio ni guarda cambios en la biblioteca.
+
+
+## Vista previa de mezclas guardadas
+
+Seleccionar una mezcla muestra un resumen de los datos guardados: nombre, ambiente, melodía, duración o ciclo, tipo de descanso y niveles de maestro, textura, drone y notas. El resumen se actualiza al guardar cambios, duplicar o deshacer una eliminación, y desaparece si no hay selección o la búsqueda la oculta. Permite revisar una mezcla mientras suena otra, sin cambiar el audio, el reloj ni el almacenamiento. Para aplicarla se sigue usando «Cargar» en pausa. Las mezclas antiguas sin duración o plan se muestran como sesión libre, igual que al cargarlas.
