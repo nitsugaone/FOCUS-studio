@@ -962,6 +962,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
             <div id="share-link-panel" hidden>
               <label for="share-link">Enlace para abrir en otro dispositivo</label>
               <input id="share-link" type="url" readonly spellcheck="false">
+              <button id="native-share-link" type="button" class="subtle-button" hidden>Compartir enlace…</button>
               <button id="copy-share-link" type="button" class="subtle-button">Copiar enlace</button>
             </div>
             <p id="share-link-status" class="daily-note" role="status"></p>
@@ -1775,6 +1776,23 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
       let pendingBackup=null,backupReadSequence=0;
       let reloadingAfterRestore=false;
 
+      async function shareGeneratedMix() {
+        const button=$('native-share-link'),url=$('share-link').value;
+        if(!url||button.disabled||typeof navigator.share!=='function')return;
+        button.disabled=true;
+        try {
+          await navigator.share({title:'FOCUS — Paisaje sonoro',url});
+          $('share-link-status').textContent='El enlace sigue disponible para compartir o copiar.';
+        }catch(error) {
+          if(error?.name==='AbortError') {
+            $('share-link-status').textContent='Compartir cancelado. El enlace sigue disponible.';
+          }else {
+            $('share-link').focus();$('share-link').select();
+            $('share-link-status').textContent='No se pudo abrir el menú de compartir. Usá Copiar enlace o copialo manualmente.';
+          }
+        }finally {button.disabled=false;}
+      }
+
       function syncSharedMixButton() {
         $('apply-shared-mix').disabled=!pendingSharedMix||playing||transitioning;
       }
@@ -1809,6 +1827,8 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
             $('share-link-status').textContent='Enlace creado con los ajustes actuales. Podés copiarlo y abrirlo en otro dispositivo.';
           }catch(_) {$('share-link-status').textContent='No se pudo crear el enlace de esta mezcla.';}
         });
+        $('native-share-link').hidden=typeof navigator.share!=='function';
+        $('native-share-link').addEventListener('click',shareGeneratedMix);
         $('copy-share-link').addEventListener('click',async()=>{
           if(!$('share-link').value)return;
           try {

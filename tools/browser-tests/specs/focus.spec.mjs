@@ -3,8 +3,8 @@ import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
 test.beforeEach(async({page},info)=>{
- if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search')||info.title.startsWith('mix duplication')||info.title.startsWith('mix undo'))await page.clock.install();
- if(info.title.startsWith('note timing')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search')||info.title.startsWith('mix duplication')||info.title.startsWith('mix undo'))await page.addInitScript(()=>{
+ if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search')||info.title.startsWith('mix duplication')||info.title.startsWith('mix undo')||info.title.startsWith('native sharing'))await page.clock.install();
+ if(info.title.startsWith('note timing')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search')||info.title.startsWith('mix duplication')||info.title.startsWith('mix undo')||info.title.startsWith('native sharing'))await page.addInitScript(()=>{
   window.createdOscillators=0;
   const Context=window.AudioContext||window.webkitAudioContext;
   if(Context){const original=Context.prototype.createOscillator;Context.prototype.createOscillator=function(){window.createdOscillators++;return original.call(this);};}
@@ -19,6 +19,14 @@ test.beforeEach(async({page},info)=>{
   }
  });
  if(info.title.startsWith('audio deadline')||info.title.startsWith('audio extension'))await page.addInitScript(()=>{window.setInterval=()=>0;});
+ if(info.title.startsWith('native sharing'))await page.addInitScript(()=>{
+  window.shareCalls=[];
+  Object.defineProperty(navigator,'share',{configurable:true,value:data=>{window.shareCalls.push(data);return new Promise((resolve,reject)=>{window.finishShare=resolve;window.failShare=name=>reject(new DOMException('Share result',name));});}});
+ });
+ if(info.title.startsWith('share fallback'))await page.addInitScript(()=>{
+  Object.defineProperty(navigator,'share',{configurable:true,value:undefined});
+  Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('Clipboard blocked');}}});
+ });
  const pageErrors=[];errors.set(page,pageErrors);
  page.on('pageerror',error=>pageErrors.push(error.message));
  await page.goto('./');
@@ -1226,4 +1234,45 @@ test('mix undo restores filtered favorites without changing playback and expires
  expect(backup.data.mixes.map(mix=>mix.name)).toEqual(['Lluvia nueva']);await expect(page.locator('#undo-delete-mix')).toBeVisible();
  await page.reload();await expand(page,'mix-settings');await expect(page.locator('#undo-delete-mix')).toBeHidden();
  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-mixes-v3')).map(mix=>mix.name))).toEqual(['Lluvia nueva']);
+});
+
+
+test('native sharing sends only the generated link, handles cancellation and failure, and preserves playback',async({page},info)=>{
+ await expand(page,'mix-settings');await expect(page.locator('#native-share-link')).toBeHidden();
+ await page.locator('#preset-name').fill('Nombre privado');await page.locator('#save-mix').click();
+ await page.locator('#soundscape').selectOption('wind');
+ await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');await page.clock.fastForward(60000);
+ const timer=await page.locator('#timer').textContent(),sources=await page.evaluate(()=>window.createdOscillators);
+ const library=await page.evaluate(()=>localStorage.getItem('focus-mixes-v3'));
+ await page.locator('#create-share-link').click();await expect(page.locator('#native-share-link')).toBeVisible();
+ const link=await page.locator('#share-link').inputValue();
+ await page.locator('#native-share-link').click();await expect(page.locator('#native-share-link')).toBeDisabled();
+ expect(await page.evaluate(()=>window.shareCalls)).toEqual([{title:'FOCUS — Paisaje sonoro',url:link}]);
+ const payload=JSON.parse(decodeURIComponent(new URL(link).hash.slice(5)));
+ expect(payload.scene).toBe('wind');expect(payload.name).toBeUndefined();expect(payload.history).toBeUndefined();expect(payload.elapsed).toBeUndefined();
+ await page.locator('#native-share-link').dispatchEvent('click');expect(await page.evaluate(()=>window.shareCalls.length)).toBe(1);
+ await page.evaluate(()=>window.finishShare());await expect(page.locator('#native-share-link')).toBeEnabled();
+ await expect(page.locator('#share-link-status')).toContainText('sigue disponible');
+ await page.locator('#native-share-link').click();await page.evaluate(()=>window.failShare('AbortError'));
+ await expect(page.locator('#share-link-status')).toContainText('cancelado');await expect(page.locator('#native-share-link')).toBeEnabled();
+ await page.locator('#native-share-link').click();await page.evaluate(()=>window.failShare('NotAllowedError'));
+ await expect(page.locator('#share-link-status')).toContainText('Usá Copiar enlace');
+ await expect(page.locator('#native-share-link')).toBeEnabled();await expect(page.locator('#share-link')).toHaveValue(link);
+ expect(await page.locator('#share-link').evaluate(el=>el.selectionEnd-el.selectionStart)).toBe(link.length);
+ await expect(page.locator('#status-text')).toHaveText('Sonando');await expect(page.locator('#timer')).toHaveText(timer);
+ expect(await page.evaluate(()=>window.createdOscillators)).toBe(sources);
+ expect(await page.evaluate(()=>localStorage.getItem('focus-mixes-v3'))).toBe(library);
+ await page.locator('#toggle').click();await noOverflow(page);
+ await page.screenshot({path:info.outputPath('native-share.png'),fullPage:true,animations:'disabled'});
+});
+
+test('share fallback keeps copying available when native sharing and clipboard access are unavailable',async({page})=>{
+ await expand(page,'mix-settings');await page.locator('#create-share-link').click();
+ await expect(page.locator('#native-share-link')).toBeHidden();await expect(page.locator('#copy-share-link')).toBeVisible();
+ const link=await page.locator('#share-link').inputValue();
+ await page.locator('#native-share-link').dispatchEvent('click');
+ await page.locator('#copy-share-link').click();await expect(page.locator('#share-link-status')).toContainText('copiarlo manualmente');
+ expect(await page.locator('#share-link').evaluate(el=>el.selectionEnd-el.selectionStart)).toBe(link.length);
+ await expect(page.locator('#status-text')).toHaveText('En pausa');await noOverflow(page);
 });
