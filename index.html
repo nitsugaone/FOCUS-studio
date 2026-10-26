@@ -251,7 +251,8 @@
       border-color: rgba(155, 180, 255, .45);
       background: rgba(155, 180, 255, .1);
     }
-    .session-actions { display: flex; gap: 9px; margin-top: 4px; }
+    .session-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 4px; }
+    #extend-session[hidden] {display:none}
     .subtle-button {
       min-height: 32px;
       padding: 6px 11px;
@@ -818,7 +819,9 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           </div>
           <div class="session-actions">
             <button type="button" class="subtle-button" id="reset-timer">Reiniciar reloj</button>
+            <button type="button" class="subtle-button" id="extend-session" hidden title="Sumar tiempo sin reiniciar. Máximo 180 minutos; disponible antes de terminar.">+5 min</button>
           </div>
+          <p id="extension-status" class="daily-note" role="status"></p>
         </div>
           <div class="studio-controls" id="session-feedback" hidden>
             <label for="session-rating">¿Cuánto te ayudó esta sesión?</label>
@@ -1233,7 +1236,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         const {exit,effectiveFade}=sessionEnvelope(elapsedMs,durationMinutes,fadeOutSeconds);
         const now=context.currentTime;
         const remaining=durationMinutes?Math.max(0,durationMinutes*60-elapsedMs/1000):0;
-        const initial=smooth&&elapsedMs===0&&!silent?param.value:null;
+        const initial=smooth&&!silent&&(!durationMinutes||remaining-effectiveFade>0.06)?param.value:null;
         param.cancelScheduledValues(now);
         param.setValueAtTime(initial??(silent?0:exit),now);
         if(initial!==null)param.linearRampToValueAtTime(exit,now+0.06);
@@ -1818,7 +1821,37 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         return {text:last?'Repetir':next.phase==='rest'?'Descansar':'Siguiente',
           label:(last?'Repetir ciclo: ': 'Iniciar ')+(next.phase==='rest'?(studio.restSound==='silent'?'descanso en silencio':'descanso'):'ronda '+next.round)+' de '+cycleTools.duration(next)+' minutos'};
       }
+      function sessionExtension(plan,duration,elapsedMs) {
+        if(plan!=='single'||!Number.isInteger(duration)||duration<1||duration>=180||!Number.isFinite(elapsedMs)||elapsedMs<0||elapsedMs>=duration*60000)return null;
+        const added=Math.min(5,180-duration);
+        return {duration:duration+added,added};
+      }
+      function syncExtensionUI() {
+        const button=$('extend-session'),next=sessionExtension(cycleState.plan,targetDurationMinutes,accumulatedMs);
+        button.hidden=cycleState.plan!=='single'||targetDurationMinutes===0;
+        button.disabled=transitioning||!next;
+        button.textContent=next?'+'+next.added+' min':targetDurationMinutes===180?'Máximo 180 min':'+5 min';
+        button.setAttribute('aria-label',next?'Sumar '+next.added+' '+(next.added===1?'minuto':'minutos')+' a la sesión sin reiniciar':'La sesión no se puede prolongar');
+      }
+      function extendSession() {
+        if(transitioning)return;
+        advanceSessionClock();
+        const next=sessionExtension(cycleState.plan,targetDurationMinutes,accumulatedMs);
+        if(!next){renderTimer();syncExtensionUI();return;}
+        targetDurationMinutes=next.duration;
+        cycleState={...cycleState,singleDuration:next.duration};
+        $('custom-minutes').value=String(next.duration);
+        $('custom-minutes').setAttribute('aria-invalid','false');
+        $('custom-duration-status').textContent='';
+        modeLabelEl.textContent='Cuenta regresiva ('+next.duration+' min)';
+        if(playing)scheduleSessionClosing(ctx,nodes.closingGain.gain,accumulatedMs,targetDurationMinutes,studio.fadeOutSeconds,isSilentRest(),true);
+        applyScene();renderTimer();
+        const saved=saveSession(true);syncUI();
+        $('extension-status').textContent='Sumaste '+next.added+' '+(next.added===1?'minuto':'minutos')+'. Duración total: '+next.duration+' minutos.'+(saved===false?' No se pudo guardar el cambio en este dispositivo.':'');
+      }
+
       function syncCycleUI() {
+        syncExtensionUI();
         syncEntryUI();syncFadeUI();syncRestSoundUI();syncSceneLabels();
         const active=cycleState.plan!=='single';
         const locked=active||playing||transitioning;
@@ -1839,6 +1872,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
       }
       function resetCycle(plan,singleDuration=cycleState.singleDuration) {
         advanceSessionClock();syncFocusHistoryProgress(true);
+        $('extension-status').textContent='';
         cycleState=cycleTools.initial(plan,singleDuration);
         targetDurationMinutes=cycleTools.duration(cycleState);
         sessionRecordedMs=0;accumulatedMs=0;
@@ -1856,6 +1890,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
       }
       function initCycles() {
         if(cycleState.singleDuration>0)$('custom-minutes').value=cycleState.singleDuration;
+        $('extend-session').addEventListener('click',extendSession);
         $('session-plan').addEventListener('change',()=>{
           if(playing||transitioning){$('session-plan').value=cycleState.plan;return;}
           const value=$('session-plan').value;
@@ -2428,6 +2463,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           timerEl.textContent = formatSeconds(elapsedSecs);
         }
         $('mobile-timer').textContent=timerEl.textContent;
+        syncExtensionUI();
       }
 
       function advanceSessionClock() {
@@ -2509,6 +2545,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         if (targetDurationMinutes > 0 && accumulatedMs >= targetDurationMinutes * 60000) {
           accumulatedMs = 0;
           sessionRecordedMs = 0;
+          $('extension-status').textContent='';
         }
         syncUI();
         try {
@@ -2682,6 +2719,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         $('mobile-player').hidden=false;
       }
       $('reset-timer').addEventListener('click', () => {
+        $('extension-status').textContent='';
         advanceSessionClock();
         cycleState={...cycleState,completed:false};
         syncCycleUI();

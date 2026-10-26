@@ -50,3 +50,7 @@ const paused=new Function(`
  return {completed:cycleState.completed,saved,playing};
 `)();
 assert.deepEqual(paused,{completed:true,saved:true,playing:false},'A late multimedia pause preserves cycle completion');
+
+assert.deepEqual(commands(59000,6,5,false,true),[['cancel',100],['set',.2,100],['linear',1,100.06],['set',1,396],['linear',0,401]],'Extension replaces a nearly elapsed cutoff with a smooth recovery and a new deadline');
+assert.deepEqual(commands(55000,1,5,false,true),[['cancel',100],['set',1,100],['linear',0,105]],'Smoothing never crosses the start of an existing closing ramp');
+console.log('PASS: extended audio deadline restores smoothly without interfering with close ramps');
