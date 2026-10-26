@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 function verify(html, workletMode='none') {
 const script=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
 const elems=new Map(), memory=new Map(), checks=[];
-function element(id){if(!elems.has(id))elems.set(id,{hidden:html.includes('id="'+id+'" hidden'),value:({'vol-master':75,'vol-noise':70,'vol-drone':60,'vol-notes':55,evolution:35,brightness:50,'session-rating':3}[id]??''),checked:true,dataset:{},style:{setProperty(){}},classList:{toggle(){}},events:{},attributes:{},setAttribute(k,v){this.attributes[k]=v},addEventListener(k,fn){this.events[k]=fn},replaceChildren(){this.children=[]},append(child){(this.children??=[]).push(child)},add(){},click(){if(!this.disabled)return this.events.click?.()},remove(){},play(){return Promise.resolve()},pause(){}});return elems.get(id);}
+function element(id){if(!elems.has(id))elems.set(id,{hidden:html.includes('id="'+id+'" hidden'),value:({'vol-master':75,'vol-noise':70,'vol-drone':60,'vol-notes':55,evolution:35,brightness:50,'session-rating':3}[id]??''),checked:true,dataset:{},style:{setProperty(){}},classList:{toggle(){}},events:{},attributes:{},focus(){this.focused=true},setAttribute(k,v){this.attributes[k]=v},addEventListener(k,fn){this.events[k]=fn},replaceChildren(){this.children=[]},append(child){(this.children??=[]).push(child)},add(){},click(){if(!this.disabled)return this.events.click?.()},remove(){},play(){return Promise.resolve()},pause(){}});return elems.get(id);}
 const sources=[];let workletNode=null,moduleLoads=0;
 const continuous=workletMode==='success',offset=continuous?3:0;
 function param(){return {value:0,cancelScheduledValues(){},setTargetAtTime(v){if(!Number.isFinite(v))throw Error('Nonfinite audio parameter');this.value=v},setValueAtTime(v){this.value=v},linearRampToValueAtTime(v){this.value=v},exponentialRampToValueAtTime(v){this.value=v}};}
@@ -108,6 +108,11 @@ checks.push({check:'Dock timer matches main timer',pass:element('mobile-timer').
 checks.push({check:'Audio startup: two noise sources, two LFOs, three drones, crackles, two wind LFOs and two note oscillators',pass:sources.length===(continuous?9:12)});
 checks.push({check:'Mobile panels start collapsed',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===false)});
 const activeSources=sources.length;
+const beforeSearch=JSON.stringify([...memory]),searchTimer=element('timer').textContent;
+element('mix-search').value='no coincide';element('mix-search').events.input();
+checks.push({check:'Searching an empty library leaves audio and data unchanged',pass:JSON.stringify([...memory])===beforeSearch&&sources.length===activeSources&&element('timer').textContent===searchTimer&&element('saved-mixes').disabled===true});
+element('clear-mix-search').events.click();
+checks.push({check:'Clear search restores the empty query and input focus',pass:element('mix-search').value===''&&element('clear-mix-search').hidden===true&&element('mix-search').focused===true});
 element('fade-in').value='0';element('fade-in').events.input();
 checks.push({check:'Entrance changes are blocked during playback',pass:element('fade-in').disabled===true&&element('fade-in').value==='12'&&JSON.parse(memory.get('focus-studio-v3')).fadeInSeconds===12});
 element('fade-out').value='5';element('fade-out').events.input();

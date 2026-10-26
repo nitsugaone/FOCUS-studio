@@ -599,6 +599,10 @@ select,input {max-width:100%}
   .studio-controls button,.studio-controls select,.studio-controls input:not([type=checkbox]) {min-height:48px}
 }
 
+.mix-search-row {display:flex;gap:8px;align-items:center;min-width:0}
+#mix-search {flex:1;min-width:0;min-height:44px}
+#clear-mix-search {flex-shrink:0;min-height:44px}
+#clear-mix-search[hidden] {display:none}
 .favorite-mixes {display:flex;flex-wrap:wrap;gap:8px;width:100%}
 .favorite-mixes:empty {display:none}
 .daily-note {font-size:12px;color:var(--muted);margin:0;line-height:1.5}
@@ -937,6 +941,12 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
             <div class="settings-content">          <label for="preset-name">Nombre de tu mezcla</label>
           <input id="preset-name" maxlength="60" placeholder="Mi ambiente de lectura">
           <button id="save-mix" type="button" class="subtle-button">Guardar mezcla</button>
+          <label for="mix-search">Buscar mis mezclas</label>
+          <div class="mix-search-row">
+            <input id="mix-search" type="search" maxlength="60" placeholder="Nombre o palabras de la mezcla" autocomplete="off" aria-describedby="mix-search-status">
+            <button id="clear-mix-search" type="button" class="subtle-button" hidden>Limpiar</button>
+          </div>
+          <p id="mix-search-status" class="daily-note" role="status"></p>
           <label for="saved-mixes">Mis mezclas</label><select id="saved-mixes"><option value="">Elegí una mezcla</option></select>
           <button id="load-mix" type="button" class="subtle-button">Cargar</button>
           <button id="update-mix" type="button" class="subtle-button">Actualizar con estos ajustes</button>
@@ -1342,11 +1352,25 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         const value=$('saved-mixes').value;
         return value!=='' && savedMixes[Number(value)] ? Number(value) : -1;
       }
+      function mixSearchIndices(mixes,query='') {
+        if(!Array.isArray(mixes)||typeof query!=='string')return [];
+        const fold=value=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es');
+        const words=fold(query).trim().split(/\s+/).filter(Boolean);
+        return mixes.reduce((indices,mix,index)=>{
+          if(mix&&typeof mix.name==='string'){
+            const text=fold(mix.name);
+            if(words.every(word=>text.includes(word)))indices.push(index);
+          }
+          return indices;
+        },[]);
+      }
       function renderMixes(selected='') {
-        const select=$('saved-mixes'); select.replaceChildren(new Option('Elegí una mezcla',''));
-        const favorites=$('favorite-mixes'); favorites.replaceChildren();
-        savedMixes.forEach((mix,i)=>{
-          select.add(new Option((mix.favorite ? '★ ' : '')+mix.name,String(i)));
+        const select=$('saved-mixes');select.replaceChildren(new Option('Elegí una mezcla',''));
+        const favorites=$('favorite-mixes');favorites.replaceChildren();
+        const query=$('mix-search').value,indices=mixSearchIndices(savedMixes,query);
+        indices.forEach(i=>{
+          const mix=savedMixes[i];
+          select.add(new Option((mix.favorite?'★ ':'')+mix.name,String(i)));
           if(mix.favorite) {
             const button=document.createElement('button');
             button.type='button';button.className='subtle-button';
@@ -1357,7 +1381,10 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
             favorites.append(button);
           }
         });
-        select.value=selected;
+        select.value=indices.some(i=>String(i)===String(selected))?String(selected):'';
+        select.disabled=indices.length===0;
+        $('clear-mix-search').hidden=query.length===0;
+        $('mix-search-status').textContent=!savedMixes.length?'Todavía no guardaste mezclas.':!indices.length?'No hay mezclas que coincidan. Probá con otro nombre.':indices.length+' de '+savedMixes.length+' mezclas';
         syncMixActions();
       }
       function syncMixActions() {
@@ -1370,9 +1397,11 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         return {...studio,name,favorite,cyclePlan:cycleState.plan,duration:cycleState.plan==='single'?targetDurationMinutes:cycleTools.plans[cycleState.plan].focus,
           levels:Object.fromEntries(Object.keys(DEFAULTS).map(k=>[k,Number($('vol-'+k).value)]))};
       }
-      function commitMixes(next, selected='') {
+      function commitMixes(next, selected='', reveal=false) {
         if(!writeLocal('focus-mixes-v3',next))return false;
-        savedMixes=next;renderMixes(selected);return true;
+        savedMixes=next;
+        if(reveal)$('mix-search').value='';
+        renderMixes(selected);return true;
       }
       // Only crossing the breakpoint resets panels. Manual toggles within a
       // layout remain untouched, and playback nodes are never recreated.
@@ -1395,6 +1424,10 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         const mixes=readLocal('focus-mixes-v3',[]);
         savedMixes=Array.isArray(mixes) ? mixes.filter(m=>validStudio(m)&&typeof m.name==='string'&&m.levels&&Object.keys(DEFAULTS).every(k=>Number.isFinite(m.levels[k])&&m.levels[k]>=0&&m.levels[k]<=100)).slice(0,50) : [];
         syncStudio();renderMixes();
+        $('mix-search').addEventListener('input',()=>renderMixes($('saved-mixes').value));
+        $('clear-mix-search').addEventListener('click',()=>{
+          $('mix-search').value='';renderMixes($('saved-mixes').value);$('mix-search').focus();
+        });
         ['soundscape','evolution','brightness','melody','stereo-width','channel-balance','note-pace','fade-in','fade-out','preserve-mix','rest-sound'].forEach(id=>$(id).addEventListener('input',()=>{
           if(id==='fade-in') {
             const value=Number($('fade-in').value);
@@ -1444,7 +1477,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         $('save-mix').addEventListener('click',()=>{
           const name=$('preset-name').value.trim(); if(!name){$('studio-status').textContent='Escribí un nombre para tu mezcla.';return;}
           if(savedMixes.length>=50){$('studio-status').textContent='Podés guardar hasta 50 mezclas.';return;}
-          if(commitMixes([...savedMixes,currentMix(name)],String(savedMixes.length)))$('studio-status').textContent='Mezcla guardada.';
+          if(commitMixes([...savedMixes,currentMix(name)],String(savedMixes.length),true))$('studio-status').textContent='Mezcla guardada.';
         });
         $('load-mix').addEventListener('click',()=>{
           if($('saved-mixes').value==='')return;
@@ -1476,7 +1509,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         $('rename-mix').addEventListener('click',()=>{
           const i=selectedMixIndex(),name=$('preset-name').value.trim();if(i<0)return;
           if(!name){$('studio-status').textContent='Escribí el nuevo nombre.';return;}
-          if(commitMixes(savedMixes.map((mix,j)=>j===i?{...mix,name}:mix),String(i)))$('studio-status').textContent='Mezcla renombrada.';
+          if(commitMixes(savedMixes.map((mix,j)=>j===i?{...mix,name}:mix),String(i),true))$('studio-status').textContent='Mezcla renombrada.';
         });
         $('favorite-mix').addEventListener('click',()=>{
           const i=selectedMixIndex();if(i<0)return;
