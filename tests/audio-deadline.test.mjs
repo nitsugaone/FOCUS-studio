@@ -41,7 +41,7 @@ const paused=new Function(`
  let playing=true,transitioning=false,targetDurationMinutes=5,accumulatedMs=300000,noteTimer=null,suspendTimer=null,feedbackSession=null;
  let cycleState={plan:'25-5',phase:'rest',completed:false},saved=false;
  const elements=new Map(),$=id=>{if(!elements.has(id))elements.set(id,{pause(){}});return elements.get(id);};
- const nodes={},ctx=null,navigator={},window={setTimeout:()=>0};
+ const nodes={},ctx=null,navigator={},window={setTimeout:()=>0},engine={pause(){}};
  function stopSessionClock(){} function saveSession(){saved=cycleState.completed;} function ramp(){} function clearTimeout(){} function releaseWakeLock(){} function syncUI(){}
  ${extractFunctions(html,['pause'])}
  pause();

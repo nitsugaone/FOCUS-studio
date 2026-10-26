@@ -16,6 +16,7 @@ function run(options={}) {
   function advanceSessionClock(){clockReads++;if(options.advanceTo!==undefined)accumulatedMs=options.advanceTo;}
   function scheduleSessionClosing(...args){closing.push(args.slice(2));}
   function scheduleSessionEntry(){throw Error('Extension must not restart the entrance');}
+  function scheduleAudioClosing(smooth){scheduleSessionClosing(ctx,nodes.closingGain.gain,accumulatedMs,targetDurationMinutes,studio.fadeOutSeconds,isSilentRest(),smooth);}
   function isSilentRest(){return false;} function applyScene(){} function renderTimer(){renders++;} function syncUI(){}
   function saveSession(force){saved.push({force,duration:targetDurationMinutes,elapsed:accumulatedMs,cycle:{...cycleState}});return true;}
   ${extractFunctions(html,['sessionExtension','syncExtensionUI','extendSession'])}
