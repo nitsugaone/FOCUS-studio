@@ -256,3 +256,8 @@ El buscador filtra por nombre la lista de mezclas y los accesos a favoritas. Ign
 ## Duplicar una mezcla
 
 «Duplicar mezcla guardada» crea una variante de la mezcla seleccionada, conservando sus ajustes y volúmenes guardados. No toma los ajustes que estén sonando ni cambia la reproducción. Genera un nombre con «(copia)», «(copia 2)», etc., sin superar los 60 caracteres de los nombres y sin cortar caracteres Unicode. La copia se guarda sin marcar como favorita, queda seleccionada y se muestra aunque hubiera una búsqueda activa. Se puede renombrar o cargar en pausa para editar su sonido. Mantiene el límite de 50 mezclas y los formatos de copia de seguridad y enlaces existentes.
+
+
+## Deshacer la última eliminación
+
+Después de eliminar una mezcla aparece «Deshacer eliminación». Recupera sus ajustes, nombre, marca de favorita y posición, sin cargarla ni cambiar el audio o el reloj. También funciona mientras estás escuchando y aunque una búsqueda no tenga resultados. Se conserva solo la última eliminación en esta página: guardar, actualizar, renombrar, duplicar o cambiar favoritas deja atrás esa posibilidad; recargar también la descarta. Una operación que no se puede guardar no descarta la recuperación pendiente. La eliminación y la recuperación actualizan la biblioteca guardada; la posibilidad de deshacer no se incluye en las copias de seguridad ni cambia su formato.

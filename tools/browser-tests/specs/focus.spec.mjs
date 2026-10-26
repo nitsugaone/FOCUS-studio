@@ -3,8 +3,8 @@ import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
 test.beforeEach(async({page},info)=>{
- if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search')||info.title.startsWith('mix duplication'))await page.clock.install();
- if(info.title.startsWith('note timing')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search')||info.title.startsWith('mix duplication'))await page.addInitScript(()=>{
+ if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search')||info.title.startsWith('mix duplication')||info.title.startsWith('mix undo'))await page.clock.install();
+ if(info.title.startsWith('note timing')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search')||info.title.startsWith('mix duplication')||info.title.startsWith('mix undo'))await page.addInitScript(()=>{
   window.createdOscillators=0;
   const Context=window.AudioContext||window.webkitAudioContext;
   if(Context){const original=Context.prototype.createOscillator;Context.prototype.createOscillator=function(){window.createdOscillators++;return original.call(this);};}
@@ -1186,4 +1186,44 @@ test('mix duplication copies saved settings without changing playback and respec
  const full=await page.evaluate(()=>localStorage.getItem('focus-mixes-v3'));
  await page.locator('#duplicate-mix').click();await expect(page.locator('#studio-status')).toContainText('hasta 50 mezclas');
  expect(await page.evaluate(()=>localStorage.getItem('focus-mixes-v3'))).toBe(full);
+});
+
+test('mix undo restores filtered favorites without changing playback and expires after library edits or reload',async({page},info)=>{
+ await expand(page,'mix-settings');await expect(page.locator('#undo-delete-mix')).toBeHidden();
+ for(const [scene,name,favorite] of [['rain','Lluvia',false],['ocean','Lectura',true],['space','Trabajo',false]]) {
+  await page.locator('#soundscape').selectOption(scene);await page.locator('#preset-name').fill(name);await page.locator('#save-mix').click();
+  if(favorite)await page.locator('#favorite-mix').click();
+ }
+ const original=await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-mixes-v3')));
+ await page.locator('#soundscape').selectOption('wind');await expand(page,'sound-settings');
+ await page.locator('#vol-noise').evaluate(el=>{el.value='43';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');await page.clock.fastForward(60000);
+ const timer=await page.locator('#timer').textContent(),oscillators=await page.evaluate(()=>window.createdOscillators);
+ const levels=await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value));
+ await page.locator('#mix-search').fill('LECTURA');await page.locator('#saved-mixes').selectOption('1');await page.locator('#delete-mix').click();
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-mixes-v3')).map(mix=>mix.name))).toEqual(['Lluvia','Trabajo']);
+ await expect(page.locator('#undo-delete-mix')).toBeVisible();await expect(page.locator('#mix-undo-hint')).toContainText('recargar');
+ await page.locator('#mix-search').fill('no coincide');await expect(page.locator('#saved-mixes')).toBeDisabled();
+ await expect(page.locator('#undo-delete-mix')).toBeEnabled();await page.locator('#undo-delete-mix').click();
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-mixes-v3')))).toEqual(original);
+ await expect(page.locator('#mix-search')).toHaveValue('');await expect(page.locator('#saved-mixes')).toHaveValue('1');
+ await expect(page.locator('#preset-name')).toHaveValue('Lectura');await expect(page.locator('#favorite-mixes button')).toHaveText('★ Lectura');
+ await expect(page.locator('#soundscape')).toHaveValue('wind');await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await expect(page.locator('#timer')).toHaveText(timer);expect(await page.evaluate(()=>window.createdOscillators)).toBe(oscillators);
+ expect(await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value))).toEqual(levels);
+ await expect(page.locator('#undo-delete-mix')).toBeHidden();await page.locator('#toggle').click();
+ await page.locator('#delete-mix').click();await expect(page.locator('#undo-delete-mix')).toBeVisible();
+ await page.locator('#preset-name').fill('');await page.locator('#save-mix').click();await expect(page.locator('#undo-delete-mix')).toBeVisible();
+ await page.locator('#saved-mixes').selectOption('0');await page.locator('#preset-name').fill('Lluvia nueva');await page.locator('#rename-mix').click();
+ await expect(page.locator('#undo-delete-mix')).toBeHidden();
+ const edited=await page.evaluate(()=>localStorage.getItem('focus-mixes-v3'));
+ await page.locator('#undo-delete-mix').dispatchEvent('click');expect(await page.evaluate(()=>localStorage.getItem('focus-mixes-v3'))).toBe(edited);
+ await page.locator('#saved-mixes').selectOption('1');await page.locator('#delete-mix').click();await expect(page.locator('#undo-delete-mix')).toBeVisible();
+ await noOverflow(page);await page.screenshot({path:info.outputPath('mix-undo.png'),fullPage:true,animations:'disabled'});
+ await expand(page,'backup-panel');const promise=page.waitForEvent('download');await page.locator('#export-backup').click();
+ const backup=JSON.parse(await readFile(await (await promise).path(),'utf8'));
+ expect(backup.data.mixes.map(mix=>mix.name)).toEqual(['Lluvia nueva']);await expect(page.locator('#undo-delete-mix')).toBeVisible();
+ await page.reload();await expand(page,'mix-settings');await expect(page.locator('#undo-delete-mix')).toBeHidden();
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-mixes-v3')).map(mix=>mix.name))).toEqual(['Lluvia nueva']);
 });
