@@ -3,8 +3,8 @@ import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
 test.beforeEach(async({page},info)=>{
- if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search'))await page.clock.install();
- if(info.title.startsWith('note timing')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search'))await page.addInitScript(()=>{
+ if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search')||info.title.startsWith('mix duplication'))await page.clock.install();
+ if(info.title.startsWith('note timing')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search')||info.title.startsWith('mix duplication'))await page.addInitScript(()=>{
   window.createdOscillators=0;
   const Context=window.AudioContext||window.webkitAudioContext;
   if(Context){const original=Context.prototype.createOscillator;Context.prototype.createOscillator=function(){window.createdOscillators++;return original.call(this);};}
@@ -1109,7 +1109,7 @@ test('mix search preserves indices, protects data and keeps playback running',as
  await expect(page.locator('#soundscape')).toHaveValue('space');
  await page.locator('#mix-search').fill('zzzz');await expect(page.locator('#saved-mixes')).toBeDisabled();
  await expect(page.locator('#mix-search-status')).toContainText('No hay mezclas que coincidan');
- for(const id of ['load-mix','rename-mix','update-mix','delete-mix','favorite-mix'])await expect(page.locator('#'+id)).toBeDisabled();
+ for(const id of ['load-mix','rename-mix','update-mix','delete-mix','favorite-mix','duplicate-mix'])await expect(page.locator('#'+id)).toBeDisabled();
  expect(await page.evaluate(()=>localStorage.getItem('focus-mixes-v3'))).toBe(stored);
  await page.locator('#clear-mix-search').click();await expect(page.locator('#mix-search')).toBeFocused();
  await expect(page.locator('#mix-search-status')).toHaveText('3 de 3 mezclas');
@@ -1141,4 +1141,49 @@ test('mix search preserves indices, protects data and keeps playback running',as
  await page.reload();await expand(page,'mix-settings');await expect(page.locator('#mix-search')).toHaveValue('');
  await expect(page.locator('#mix-search-status')).toHaveText('3 de 3 mezclas');
  await page.locator('#favorite-mixes button').click();await expect(page.locator('#soundscape')).toHaveValue('space');
+});
+
+test('mix duplication copies saved settings without changing playback and respects the library limit',async({page},info)=>{
+ await expand(page,'mix-settings');await expect(page.locator('#duplicate-mix')).toBeDisabled();
+ await page.locator('#soundscape').selectOption('rain');await page.locator('#preset-name').fill('Base lluvia');await page.locator('#save-mix').click();
+ await page.locator('#soundscape').selectOption('ocean');await page.locator('#preset-name').fill('Lectura');await page.locator('#save-mix').click();await page.locator('#favorite-mix').click();
+ const original=await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-mixes-v3'))[1]);
+ await page.locator('#soundscape').selectOption('wind');await expand(page,'sound-settings');
+ await page.locator('#vol-noise').evaluate(el=>{el.value='41';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
+ await page.locator('#toggle').click();await expect(page.locator('#status-text')).toHaveText('Sonando');await page.clock.fastForward(30000);
+ const timer=await page.locator('#timer').textContent(),oscillators=await page.evaluate(()=>window.createdOscillators);
+ const levels=await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value));
+ await page.locator('#mix-search').fill('lectura');await page.locator('#duplicate-mix').click();
+ await expect(page.locator('#mix-search')).toHaveValue('');await expect(page.locator('#saved-mixes')).toHaveValue('2');
+ await expect(page.locator('#preset-name')).toHaveValue('Lectura (copia)');
+ let library=await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-mixes-v3')));
+ expect(library[1]).toEqual(original);expect(library[0].name).toBe('Base lluvia');expect(library[2]).toEqual({...original,name:'Lectura (copia)',favorite:false});
+ await expect(page.locator('#favorite-mixes button')).toHaveText('★ Lectura');
+ await expect(page.locator('#soundscape')).toHaveValue('wind');await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await expect(page.locator('#timer')).toHaveText(timer);expect(await page.evaluate(()=>window.createdOscillators)).toBe(oscillators);
+ expect(await page.evaluate(()=>['master','noise','drone','notes'].map(key=>document.getElementById('vol-'+key).value))).toEqual(levels);
+ await page.locator('#saved-mixes').selectOption('1');await page.locator('#duplicate-mix').click();
+ await expect(page.locator('#preset-name')).toHaveValue('Lectura (copia 2)');
+ await page.locator('#toggle').click();
+ await page.locator('#saved-mixes').selectOption('2');await page.locator('#preset-name').fill('Lectura suave');await page.locator('#rename-mix').click();
+ await page.locator('#vol-noise').evaluate(el=>{el.value='23';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.locator('#update-mix').click();
+ library=await page.evaluate(()=>JSON.parse(localStorage.getItem('focus-mixes-v3')));
+ expect(library[1]).toEqual(original);expect(library[0].name).toBe('Base lluvia');expect(library[2].name).toBe('Lectura suave');expect(library[2].levels.noise).toBe(23);expect(library[2].scene).toBe('wind');
+ await expand(page,'backup-panel');const promise=page.waitForEvent('download');await page.locator('#export-backup').click();
+ const backup=JSON.parse(await readFile(await (await promise).path(),'utf8'));
+ expect(backup.data.mixes).toHaveLength(4);expect(backup.data.mixes[2].name).toBe('Lectura suave');expect(backup.data.mixes[2].levels.noise).toBe(23);
+ await page.reload();await expand(page,'mix-settings');await page.locator('#saved-mixes').selectOption('2');await page.locator('#load-mix').click();
+ await expect(page.locator('#soundscape')).toHaveValue('wind');await expand(page,'sound-settings');await expect(page.locator('#vol-noise')).toHaveValue('23');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');await noOverflow(page);
+ await page.screenshot({path:info.outputPath('mix-copy.png'),fullPage:true,animations:'disabled'});
+ await page.addInitScript(()=>{
+  const mix={scene:'rain',evolution:35,brightness:50,melody:true,duration:25,favorite:false,levels:{master:40,noise:70,drone:20,notes:10}};
+  localStorage.setItem('focus-mixes-v3',JSON.stringify(Array.from({length:50},(_,index)=>({...mix,name:'Guardada '+index,levels:{...mix.levels}}))));
+ });
+ await page.reload();await expand(page,'mix-settings');await page.locator('#mix-search').fill('Guardada 49');await page.locator('#saved-mixes').selectOption('49');
+ const full=await page.evaluate(()=>localStorage.getItem('focus-mixes-v3'));
+ await page.locator('#duplicate-mix').click();await expect(page.locator('#studio-status')).toContainText('hasta 50 mezclas');
+ expect(await page.evaluate(()=>localStorage.getItem('focus-mixes-v3'))).toBe(full);
 });
