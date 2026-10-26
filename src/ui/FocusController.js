@@ -1,3 +1,9 @@
+import {validStudio,mixSearchIndices,createMixCopy} from '../storage/mixes.js';
+import {summarizeRatings} from '../storage/insights.js';
+import {createShareTools} from '../session/sharing.js';
+import {createResponsiveController} from './ResponsiveController.js';
+import {createHistoryView} from './HistoryView.js';
+import {SessionClock} from '../session/SessionClock.js';
 import {FocusAudioEngine} from '../audio/FocusAudioEngine.js';
 import {SCENES} from '../audio/scenes.js';
 import {entryEnvelope,sessionEnvelope,balanceLabel} from '../audio/dsp.js';
@@ -11,8 +17,6 @@ export function startFocusApp({
   URL=globalThis.URL,Blob=globalThis.Blob
 }={}) {
 
-
-      // Escala pentatónica menor de La extendida (A2 a E4) para mayor riqueza sin disonancia
       const DEFAULTS = { master: 75, noise: 70, drone: 60, notes: 55 };
       const PRESETS = {
         balanced: { master: 75, noise: 70, drone: 60, notes: 55 },
@@ -37,45 +41,15 @@ export function startFocusApp({
       let muted = false;
       let preMuteMaster = 75;
 
-
-      let elapsedTimer = null;
       let wakeLock = null;
 
       // Reloj de alta precisión basado en timestamps reales (inmune a background tab throttling)
-      let accumulatedMs = 0;
-      let lastTickTimestamp = 0;
-      let targetDurationMinutes = 0; // 0 = Modo libre
-
-
-
-
-
-      function createShareTools() {
-        const cycles=createCycleTools(),scenes=['rain','ocean','space','speech','fire','wind'];
-        const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
-        const number=value=>Number.isFinite(value)&&value>=0&&value<=100;
-        function normalize(value) {
-          if(!object(value)||value.v!==1||!scenes.includes(value.scene)||!number(value.evolution)||!number(value.brightness)||typeof value.melody!=='boolean'||(value.stereoWidth!==undefined&&!number(value.stereoWidth))||(value.balance!==undefined&&(!Number.isInteger(value.balance)||value.balance<-100||value.balance>100))||!(value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))||!(value.fadeInSeconds===undefined||[0,3,12,30].includes(value.fadeInSeconds))||!(value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds))||!(value.preserveMix===undefined||typeof value.preserveMix==='boolean')||!(value.restSound===undefined||['sound','silent'].includes(value.restSound))||!Object.prototype.hasOwnProperty.call(cycles.plans,value.cyclePlan)||!object(value.levels)||!['master','noise','drone','notes'].every(key=>number(value.levels[key])))throw Error('Enlace de mezcla inválido.');
-          if(value.cyclePlan==='single'?!cycles.validDuration(value.duration):cycles.plans[value.cyclePlan].focus!==value.duration)throw Error('Duración de mezcla inválida.');
-          return {v:1,scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,balance:value.balance??0,notePace:value.notePace??'normal',fadeOutSeconds:value.fadeOutSeconds??20,fadeInSeconds:value.fadeInSeconds??12,preserveMix:value.preserveMix??false,restSound:value.restSound??'sound',cyclePlan:value.cyclePlan,duration:value.duration,
-            levels:Object.fromEntries(['master','noise','drone','notes'].map(key=>[key,value.levels[key]]))};
-        }
-        function encode(mix) {return '#mix='+encodeURIComponent(JSON.stringify(normalize({...mix,v:1})));}
-        function decode(hash) {
-          if(typeof hash!=='string'||!hash.startsWith('#mix=')||hash.length>4096)throw Error('Enlace de mezcla inválido.');
-          return normalize(JSON.parse(decodeURIComponent(hash.slice(5))));
-        }
-        return {normalize,encode,decode};
-      }
+      const clock=new SessionClock({now:()=>Date.now(),setInterval:(fn,ms)=>window.setInterval(fn,ms),clearInterval});
 
       const cycleTools=createCycleTools();
       let cycleState=cycleTools.initial();
       const shareTools=createShareTools();
       let pendingSharedMix=null;
-
-
-
-
 
       const STUDIO_KEY = 'focus-studio-v3';
       let studio = {scene:'rain',evolution:35,brightness:50,melody:true,stereoWidth:100,balance:0,notePace:'normal',fadeOutSeconds:20,fadeInSeconds:12,preserveMix:false,restSound:'sound'};
@@ -89,19 +63,6 @@ export function startFocusApp({
         if(!saved)$('studio-status').textContent='No se pudo guardar en este dispositivo.';
         return saved;
       }
-      function validStudio(value) {
-        return value && SCENES[value.scene] && Number.isFinite(value.evolution) && value.evolution >= 0 && value.evolution <= 100
-          && Number.isFinite(value.brightness) && value.brightness >= 0 && value.brightness <= 100 && typeof value.melody === 'boolean'
-          && (value.stereoWidth===undefined||(Number.isFinite(value.stereoWidth)&&value.stereoWidth>=0&&value.stereoWidth<=100))
-          && (value.balance===undefined||(Number.isInteger(value.balance)&&value.balance>=-100&&value.balance<=100))
-          && (value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))
-          && (value.fadeInSeconds===undefined||[0,3,12,30].includes(value.fadeInSeconds))
-          && (value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds))
-          && (value.preserveMix===undefined||typeof value.preserveMix==='boolean')
-          && (value.restSound===undefined||['sound','silent'].includes(value.restSound));
-      }
-
-
 
       function syncEntryUI() {
         $('fade-in').value=String(studio.fadeInSeconds);
@@ -109,16 +70,12 @@ export function startFocusApp({
         $('fade-in-hint').textContent=(studio.fadeInSeconds?'Alcanza el volumen elegido en '+studio.fadeInSeconds+' segundos al iniciar el tramo.':'Sin entrada gradual adicional.')+(playing||transitioning?' Pausá para cambiarla.':' Se conserva al pausar y continuar.');
       }
 
-
-
       function syncFadeUI() {
         $('fade-out').value=String(studio.fadeOutSeconds);
-        $('fade-out').disabled=playing||transitioning||targetDurationMinutes===0;
-        const seconds=targetDurationMinutes?Math.min(studio.fadeOutSeconds,targetDurationMinutes*30):0;
-        $('fade-out-hint').textContent=!targetDurationMinutes?'Disponible en sesiones con duración y en ciclos. Se conserva tu elección.':'El volumen baja en los últimos '+seconds+' segundos del tramo.'+(seconds<studio.fadeOutSeconds?' El cierre se limita a la mitad de este tramo.':'')+(playing||transitioning?' Pausá para cambiarlo.':'');
+        $('fade-out').disabled=playing||transitioning||clock.durationMinutes===0;
+        const seconds=clock.durationMinutes?Math.min(studio.fadeOutSeconds,clock.durationMinutes*30):0;
+        $('fade-out-hint').textContent=!clock.durationMinutes?'Disponible en sesiones con duración y en ciclos. Se conserva tu elección.':'El volumen baja en los últimos '+seconds+' segundos del tramo.'+(seconds<studio.fadeOutSeconds?' El cierre se limita a la mitad de este tramo.':'')+(playing||transitioning?' Pausá para cambiarlo.':'');
       }
-
-
 
       function isSilentRest() {return isSilentRestState(cycleState,studio.restSound);}
       function syncSceneLabels() {
@@ -149,10 +106,9 @@ export function startFocusApp({
         syncSceneLabels();
       }
 
-
       function configureAudio() {
         engine.configure(studio,Object.fromEntries(Object.keys(DEFAULTS).map(id=>[id,Number($('vol-'+id).value)])),{
-          elapsedMs:accumulatedMs,durationMinutes:targetDurationMinutes,silent:isSilentRest()
+          elapsedMs:clock.elapsedMs,durationMinutes:clock.durationMinutes,silent:isSilentRest()
         });
       }
       function scheduleAudioClosing(smooth=false) {configureAudio();engine.scheduleClosing(smooth);}
@@ -160,10 +116,10 @@ export function startFocusApp({
       function applyScene(smooth=1.5) {
         syncStudio();configureAudio();engine.applyScene(smooth);
         if(!engine.initialized())return;
-        const progress=targetDurationMinutes?Math.min(1,accumulatedMs/(targetDurationMinutes*60000)):0;
+        const progress=clock.durationMinutes?Math.min(1,clock.elapsedMs/(clock.durationMinutes*60000)):0;
         // Audio automation owns the envelopes; the timer only updates their caption.
-        const {exit}=sessionEnvelope(accumulatedMs,targetDurationMinutes,studio.fadeOutSeconds);
-        const entry=entryEnvelope(accumulatedMs,studio.fadeInSeconds);
+        const {exit}=sessionEnvelope(clock.elapsedMs,clock.durationMinutes,studio.fadeOutSeconds);
+        const entry=entryEnvelope(clock.elapsedMs,studio.fadeInSeconds);
         $('session-phase').textContent=isSilentRest()?'Descanso en silencio':exit<1 ? 'Cierre gradual' : entry<1 ? 'Entrada suave' : cycleState.plan!=='single'&&cycleState.phase==='rest' ? 'Descanso sostenido' : progress>0 ? 'Concentración sostenida' : 'Sesión libre';
 
       }
@@ -172,18 +128,7 @@ export function startFocusApp({
         const value=$('saved-mixes').value;
         return value!=='' && savedMixes[Number(value)] ? Number(value) : -1;
       }
-      function mixSearchIndices(mixes,query='') {
-        if(!Array.isArray(mixes)||typeof query!=='string')return [];
-        const fold=value=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es');
-        const words=fold(query).trim().split(/\s+/).filter(Boolean);
-        return mixes.reduce((indices,mix,index)=>{
-          if(mix&&typeof mix.name==='string'){
-            const text=fold(mix.name);
-            if(words.every(word=>text.includes(word)))indices.push(index);
-          }
-          return indices;
-        },[]);
-      }
+
       function renderMixes(selected='') {
         const select=$('saved-mixes');select.replaceChildren(new Option('Elegí una mezcla',''));
         const favorites=$('favorite-mixes');favorites.replaceChildren();
@@ -226,25 +171,8 @@ export function startFocusApp({
         $('saved-mix-session').textContent=session+' · Maestro '+mix.levels.master+'% · Textura '+mix.levels.noise+'% · Drone '+mix.levels.drone+'% · Notas '+mix.levels.notes+'%';
       }
       function currentMix(name, favorite=false) {
-        return {...studio,name,favorite,cyclePlan:cycleState.plan,duration:cycleState.plan==='single'?targetDurationMinutes:cycleTools.plans[cycleState.plan].focus,
+        return {...studio,name,favorite,cyclePlan:cycleState.plan,duration:cycleState.plan==='single'?clock.durationMinutes:cycleTools.plans[cycleState.plan].focus,
           levels:Object.fromEntries(Object.keys(DEFAULTS).map(k=>[k,Number($('vol-'+k).value)]))};
-      }
-      function createMixCopy(mixes,index) {
-        if(!Array.isArray(mixes)||!Number.isInteger(index)||index<0||index>=mixes.length)throw Error('Elegí una mezcla para duplicar.');
-        if(mixes.length>=50)throw Error('Podés guardar hasta 50 mezclas.');
-        const source=mixes[index];
-        if(!source||typeof source.name!=='string'||!source.levels||typeof source.levels!=='object'||Array.isArray(source.levels))throw Error('La mezcla seleccionada no es válida.');
-        const key=name=>name.trim().normalize('NFC').toLocaleLowerCase('es');
-        const used=new Set(mixes.filter(mix=>mix&&typeof mix.name==='string').map(mix=>key(mix.name)));
-        const base=source.name.trim()||'Mezcla';
-        for(let number=1;number<=50;number++){
-          const suffix=number===1?' (copia)':' (copia '+number+')';
-          let stem='';
-          for(const char of base){if(stem.length+char.length>60-suffix.length)break;stem+=char;}
-          const name=stem.trimEnd()+suffix;
-          if(!used.has(key(name)))return {...source,name,favorite:false,levels:{...source.levels}};
-        }
-        throw Error('No se pudo elegir un nombre para la copia.');
       }
 
       function syncMixUndoUI() {
@@ -279,18 +207,7 @@ export function startFocusApp({
       }
       // Only crossing the breakpoint resets panels. Manual toggles within a
       // layout remain untouched, and playback nodes are never recreated.
-      function setupResponsivePanels() {
-        if (!('matchMedia' in window)) return;
-        const compact = window.matchMedia('(max-width: 900px)');
-        const updatePanels = () => {
-          ['sound-settings','mix-settings','history-card'].forEach(id => {
-            $(id).open = !compact.matches;
-          });
-        };
-        updatePanels();
-        if (compact.addEventListener) compact.addEventListener('change',updatePanels);
-        else if (compact.addListener) compact.addListener(updatePanels);
-      }
+      const setupResponsivePanels=createResponsiveController({window,$});
 
       function initStudio() {
         const loaded=readLocal(STUDIO_KEY,null);
@@ -310,7 +227,7 @@ export function startFocusApp({
           }
           if(id==='fade-out') {
             const value=Number($('fade-out').value);
-            if(playing||transitioning||!targetDurationMinutes||![5,20,60].includes(value)){syncFadeUI();return;}
+            if(playing||transitioning||!clock.durationMinutes||![5,20,60].includes(value)){syncFadeUI();return;}
             studio.fadeOutSeconds=value;
           }
           if(id==='rest-sound') {
@@ -409,32 +326,6 @@ export function startFocusApp({
         });
       }
 
-
-
-      function summarizeRatings(records, days=30, scene='all', now=Date.now()) {
-        const allowedScenes=Object.keys(SCENES);
-        const valid=(Array.isArray(records)?records:[]).slice(-200).filter(record=>{
-          if(!record || typeof record!=='object')return false;
-          const date=typeof record.date==='string'?Date.parse(record.date):NaN;
-          return Number.isFinite(date) && date<=now
-            && allowedScenes.includes(record.scene)
-            && Number.isInteger(record.rating) && record.rating>=1 && record.rating<=5
-            && Number.isFinite(record.minutes) && record.minutes>0 && record.minutes<=10080
-            && ['low','medium','high'].includes(record.distractions);
-        });
-        const period=[0,7,30].includes(days)?days:30;
-        const rows=valid.filter(record=>(!period || Date.parse(record.date)>=now-period*86400000) && (scene==='all'||record.scene===scene))
-          .sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
-        const groups=allowedScenes.map(id=>{
-          const entries=rows.filter(record=>record.scene===id);
-          return {scene:id,count:entries.length,average:entries.length ? entries.reduce((sum,row)=>sum+row.rating,0)/entries.length : 0,
-            lowDistractions:entries.filter(row=>row.distractions==='low').length};
-        }).filter(group=>group.count>0).sort((a,b)=>b.average-a.average||b.count-a.count);
-        const eligible=groups.filter(group=>group.count>=3);
-        const best=eligible.length>=2 && Math.round(eligible[0].average*10)>Math.round(eligible[1].average*10) ? eligible[0] : null;
-        return {rows,groups,best,count:rows.length,average:rows.length?rows.reduce((sum,row)=>sum+row.rating,0)/rows.length:0};
-      }
-
       function renderInsights() {
         const days=Number($('insights-period').value || 30),scene=$('insights-scene').value || 'all';
         const result=summarizeRatings(readLocal('focus-feedback-v3',[]),days,scene);
@@ -469,9 +360,6 @@ export function startFocusApp({
         ['insights-period','insights-scene'].forEach(id=>$(id).addEventListener('change',renderInsights));
         renderInsights();
       }
-
-
-
 
       const backupTools=storage;
       let pendingBackup=null,backupReadSequence=0;
@@ -589,7 +477,7 @@ export function startFocusApp({
           $('backup-status').textContent='Leyendo copia…';
           try {
             const text=await file.text();if(sequence!==backupReadSequence)return;
-            const parsed=JSON.parse(text);backupTools.validateBackup(parsed);pendingBackup=parsed;previewBackup();
+            const parsed=backupTools.parseBackup(text);pendingBackup=parsed;previewBackup();
           }catch(error){if(sequence===backupReadSequence){$('backup-status').textContent='No se pudo abrir la copia: '+error.message;syncBackupButtons();}}
         });
         $('backup-settings').addEventListener('change',previewBackup);
@@ -609,7 +497,7 @@ export function startFocusApp({
         });
         $('export-backup').addEventListener('click',()=>{
           try {
-            const content=JSON.stringify(backupTools.exportBackup(),null,2);
+            const content=backupTools.serializeBackup();
             const url=URL.createObjectURL(new Blob([content],{type:'application/json'}));
             const link=document.createElement('a');link.href=url;
             link.download='focus-copia-'+new Date().toISOString().slice(0,10)+'.json';
@@ -621,7 +509,6 @@ export function startFocusApp({
         syncBackupButtons();
       }
 
-
       function cycleAction() {
         if(cycleState.plan==='single'||!cycleState.completed)return {text:'Iniciar',label:isSilentRest()?'Iniciar descanso en silencio':'Iniciar paisaje sonoro'};
         const next=cycleTools.next(cycleState),last=next.round===1&&next.phase==='focus';
@@ -630,18 +517,18 @@ export function startFocusApp({
       }
 
       function syncExtensionUI() {
-        const button=$('extend-session'),next=sessionExtension(cycleState.plan,targetDurationMinutes,accumulatedMs);
-        button.hidden=cycleState.plan!=='single'||targetDurationMinutes===0;
+        const button=$('extend-session'),next=sessionExtension(cycleState.plan,clock.durationMinutes,clock.elapsedMs);
+        button.hidden=cycleState.plan!=='single'||clock.durationMinutes===0;
         button.disabled=transitioning||!next;
-        button.textContent=next?'+'+next.added+' min':targetDurationMinutes===180?'Máximo 180 min':'+5 min';
+        button.textContent=next?'+'+next.added+' min':clock.durationMinutes===180?'Máximo 180 min':'+5 min';
         button.setAttribute('aria-label',next?'Sumar '+next.added+' '+(next.added===1?'minuto':'minutos')+' a la sesión sin reiniciar':'La sesión no se puede prolongar');
       }
       function extendSession() {
         if(transitioning)return;
         advanceSessionClock();
-        const next=sessionExtension(cycleState.plan,targetDurationMinutes,accumulatedMs);
+        const next=sessionExtension(cycleState.plan,clock.durationMinutes,clock.elapsedMs);
         if(!next){renderTimer();syncExtensionUI();return;}
-        targetDurationMinutes=next.duration;
+        clock.durationMinutes=next.duration;
         cycleState={...cycleState,singleDuration:next.duration};
         $('custom-minutes').value=String(next.duration);
         $('custom-minutes').setAttribute('aria-invalid','false');
@@ -665,27 +552,27 @@ export function startFocusApp({
         $('session-plan').disabled=playing||transitioning;
         $('cycle-hint').hidden=!active;
         $('cycle-hint').textContent='Hay un descanso entre rondas. Cada tramo se detiene al terminar y el siguiente empieza al tocar el botón. '+(studio.restSound==='silent'?'Los descansos en silencio no suman tiempo de escucha.':'El tiempo de escucha incluye los descansos con sonido.');
-        document.querySelectorAll('.mode-chip').forEach(chip=>{chip.disabled=active;chip.setAttribute('aria-pressed',String(!active&&Number(chip.dataset.minutes)===targetDurationMinutes));});
+        document.querySelectorAll('.mode-chip').forEach(chip=>{chip.disabled=active;chip.setAttribute('aria-pressed',String(!active&&Number(chip.dataset.minutes)===clock.durationMinutes));});
         $('reset-timer').textContent=active?'Reiniciar tramo':'Reiniciar reloj';
         if(!active){$('cycle-status').textContent='';return;}
         const plan=cycleTools.plans[cycleState.plan],kind=cycleState.phase==='rest'?(isSilentRest()?'Descanso en silencio':'Descanso'):'Concentración';
         $('cycle-status').textContent=kind+' · Ronda '+cycleState.round+' de '+plan.rounds+
           (cycleState.completed?' · Tramo terminado':'');
-        modeLabelEl.textContent=kind+' ('+targetDurationMinutes+' min)';
+        modeLabelEl.textContent=kind+' ('+clock.durationMinutes+' min)';
       }
       function resetCycle(plan,singleDuration=cycleState.singleDuration) {
         advanceSessionClock();syncFocusHistoryProgress(true);
         $('extension-status').textContent='';
         cycleState=cycleTools.initial(plan,singleDuration);
-        targetDurationMinutes=cycleTools.duration(cycleState);
-        sessionRecordedMs=0;accumulatedMs=0;
+        clock.durationMinutes=cycleTools.duration(cycleState);
+        sessionRecordedMs=0;clock.elapsedMs=0;
         $('resume-status').textContent='';
-        modeLabelEl.textContent=targetDurationMinutes?'Cuenta regresiva ('+targetDurationMinutes+' min)':'Tiempo de sesión (Libre)';
+        modeLabelEl.textContent=clock.durationMinutes?'Cuenta regresiva ('+clock.durationMinutes+' min)':'Tiempo de sesión (Libre)';
         $('custom-duration-status').textContent='';
         $('custom-minutes').setAttribute('aria-invalid','false');
         if(plan==='single'&&singleDuration>0)$('custom-minutes').value=singleDuration;
         if(playing) {
-          lastTickTimestamp=Date.now();
+          clock.lastTimestamp=Date.now();
           scheduleAudioClosing(true);
           scheduleAudioEntry(true);
         }
@@ -698,7 +585,7 @@ export function startFocusApp({
           if(playing||transitioning){$('session-plan').value=cycleState.plan;return;}
           const value=$('session-plan').value;
           if(!Object.prototype.hasOwnProperty.call(cycleTools.plans,value))return;
-          resetCycle(value,cycleState.plan==='single'&&cycleTools.validDuration(targetDurationMinutes)?targetDurationMinutes:cycleState.singleDuration);
+          resetCycle(value,cycleState.plan==='single'&&cycleTools.validDuration(clock.durationMinutes)?clock.durationMinutes:cycleState.singleDuration);
         });
         syncCycleUI();
       }
@@ -711,7 +598,7 @@ export function startFocusApp({
       function saveSession(force=false) {
         if(!force && Date.now()-lastSessionSave<5000)return;
         lastSessionSave=Date.now();
-        return writeLocal(SESSION_KEY,{duration:targetDurationMinutes,elapsed:accumulatedMs,cycle:cycleState});
+        return writeLocal(SESSION_KEY,{duration:clock.durationMinutes,elapsed:clock.elapsedMs,cycle:cycleState});
       }
       function restoreSession() {
         const saved=readLocal(SESSION_KEY,null);
@@ -719,13 +606,13 @@ export function startFocusApp({
         const restored=saved.cycle?cycleTools.normalize(saved.cycle):cycleTools.initial('single',cycleTools.validDuration(saved.duration)?saved.duration:0);
         if(!restored || cycleTools.duration(restored)!==saved.duration)return;
         cycleState=restored;
-        targetDurationMinutes=saved.duration;
-        accumulatedMs=targetDurationMinutes ? Math.min(saved.elapsed,targetDurationMinutes*60000) : saved.elapsed;
-        if(cycleState.plan!=='single'&&accumulatedMs>=targetDurationMinutes*60000)cycleState.completed=true;
-        sessionRecordedMs=accumulatedMs; // Time from the previous visit is already in history.
-        document.querySelectorAll('.mode-chip').forEach(c=>c.setAttribute('aria-pressed',String(Number(c.dataset.minutes)===targetDurationMinutes)));
-        modeLabelEl.textContent=targetDurationMinutes ? 'Cuenta regresiva ('+targetDurationMinutes+' min)' : 'Tiempo de sesión (Libre)';
-        if(accumulatedMs>0 && (!targetDurationMinutes || accumulatedMs<targetDurationMinutes*60000)) {
+        clock.durationMinutes=saved.duration;
+        clock.elapsedMs=clock.durationMinutes ? Math.min(saved.elapsed,clock.durationMinutes*60000) : saved.elapsed;
+        if(cycleState.plan!=='single'&&clock.elapsedMs>=clock.durationMinutes*60000)cycleState=cycleTools.complete(cycleState);
+        sessionRecordedMs=clock.elapsedMs; // Time from the previous visit is already in history.
+        document.querySelectorAll('.mode-chip').forEach(c=>c.setAttribute('aria-pressed',String(Number(c.dataset.minutes)===clock.durationMinutes)));
+        modeLabelEl.textContent=clock.durationMinutes ? 'Cuenta regresiva ('+clock.durationMinutes+' min)' : 'Tiempo de sesión (Libre)';
+        if(clock.elapsedMs>0 && (!clock.durationMinutes || clock.elapsedMs<clock.durationMinutes*60000)) {
           $('resume-status').textContent='Sesión recuperada. Tocá Iniciar para continuar.';
         }
       }
@@ -782,10 +669,6 @@ export function startFocusApp({
         window.addEventListener('offline',()=>{$('offline-status').textContent='Sin conexión · si ya instalaste FOCUS, podés seguir escuchando.';});
       }
 
-      // MEJORA 1: Buffer Estéreo Real (2 canales independientes con crossfade circular)
-
-
-      // MEJORA 2: Impulso algorítmico estéreo para reverberación sedosa en notas pentatónicas
 
 
       // Prevención de apagado de pantalla en escritorio / móviles (Screen Wake Lock API)
@@ -839,29 +722,6 @@ export function startFocusApp({
         } catch (_) {}
       }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
       function formatSeconds(totalSecs) {
         const safe = Math.max(0, Math.floor(totalSecs));
         const hours = Math.floor(safe / 3600);
@@ -871,13 +731,13 @@ export function startFocusApp({
       }
 
       function renderTimer() {
-        const elapsedSecs = Math.floor(accumulatedMs / 1000);
-        if (targetDurationMinutes > 0) {
-          const targetSecs = targetDurationMinutes * 60;
+        const elapsedSecs = Math.floor(clock.elapsedMs / 1000);
+        if (clock.durationMinutes > 0) {
+          const targetSecs = clock.durationMinutes * 60;
           const remaining = Math.max(0, targetSecs - elapsedSecs);
           timerEl.textContent = formatSeconds(remaining);
           if (remaining === 0 && playing) {
-            if(cycleState.plan!=='single')cycleState.completed=true;
+            cycleState=cycleTools.complete(cycleState);
             pause(true); // Cierre suave automático al cumplir el objetivo
           }
         } else {
@@ -887,33 +747,16 @@ export function startFocusApp({
         syncExtensionUI();
       }
 
-      function advanceSessionClock() {
-        if(!playing||lastTickTimestamp<=0)return;
-        const now=Date.now();
-        accumulatedMs+=Math.max(0,now-lastTickTimestamp);
-        if(targetDurationMinutes>0)accumulatedMs=Math.min(accumulatedMs,targetDurationMinutes*60000);
-        lastTickTimestamp=now;
-      }
+      function advanceSessionClock() {clock.advance(playing);}
       function startSessionClock() {
-        clearInterval(elapsedTimer);
-        lastTickTimestamp = Date.now();
-        elapsedTimer = window.setInterval(() => {
-          if (!playing) return;
-          advanceSessionClock();
-          applyScene();
-          renderTimer();
-          syncFocusHistoryProgress();
-          saveSession();
-        }, 500);
+        clock.start(()=>{
+          if(!playing)return;
+          advanceSessionClock();applyScene();renderTimer();syncFocusHistoryProgress();saveSession();
+        });
       }
 
       function stopSessionClock() {
-        advanceSessionClock();
-        lastTickTimestamp = 0;
-        clearInterval(elapsedTimer);
-        elapsedTimer = null;
-        syncFocusHistoryProgress(true);
-        saveSession(true);
+        clock.stop(playing);syncFocusHistoryProgress(true);saveSession(true);
       }
 
       function syncUI() {
@@ -958,13 +801,13 @@ export function startFocusApp({
         if (playing || transitioning) return;
         if(cycleState.plan!=='single'&&cycleState.completed) {
           cycleState=cycleTools.next(cycleState);
-          targetDurationMinutes=cycleTools.duration(cycleState);
-          accumulatedMs=0;sessionRecordedMs=0;renderTimer();saveSession(true);
+          clock.durationMinutes=cycleTools.duration(cycleState);
+          clock.elapsedMs=0;sessionRecordedMs=0;renderTimer();saveSession(true);
         }
         transitioning = true;
         hideError();
-        if (targetDurationMinutes > 0 && accumulatedMs >= targetDurationMinutes * 60000) {
-          accumulatedMs = 0;
+        if (clock.durationMinutes > 0 && clock.elapsedMs >= clock.durationMinutes * 60000) {
+          clock.elapsedMs = 0;
           sessionRecordedMs = 0;
           $('extension-status').textContent='';
         }
@@ -1009,10 +852,10 @@ export function startFocusApp({
       function pause(slowFade = false) {
         if (!playing || transitioning) return;
         stopSessionClock();
-        const reachedEnd=targetDurationMinutes>0&&accumulatedMs>=targetDurationMinutes*60000;
-        if(reachedEnd&&cycleState.plan!=='single'){cycleState.completed=true;saveSession(true);}
+        const reachedEnd=clock.durationMinutes>0&&clock.elapsedMs>=clock.durationMinutes*60000;
+        if(reachedEnd&&cycleState.plan!=='single'){cycleState=cycleTools.complete(cycleState);saveSession(true);}
         if((slowFade||reachedEnd) && cycleState.phase==='focus') {
-          feedbackSession={date:new Date().toISOString(),...studio,minutes:Math.round(accumulatedMs/60000)};
+          feedbackSession={date:new Date().toISOString(),...studio,minutes:Math.round(clock.elapsedMs/60000)};
           $('session-feedback').hidden=false;
         }
         playing = false;
@@ -1046,9 +889,7 @@ export function startFocusApp({
       }
 
       function loadSettings() {
-        let saved = null;
-        try { saved = JSON.parse(storage.getItem('focus-audio-settings-v2') || 'null'); }
-        catch (_) { saved = null; }
+        const saved=storage.read('focus-audio-settings-v2',null);
         Object.keys(DEFAULTS).forEach((id) => {
           const value = saved && Number.isFinite(saved[id]) ? Math.max(0, Math.min(100, saved[id])) : DEFAULTS[id];
           $('vol-' + id).value = value;
@@ -1059,8 +900,7 @@ export function startFocusApp({
       function persistSettings() {
         const settings = {};
         Object.keys(DEFAULTS).forEach((id) => { settings[id] = Number($('vol-' + id).value); });
-        try { storage.setItem('focus-audio-settings-v2', JSON.stringify(settings)); return true; }
-        catch (_) {return false;}
+        return storage.write('focus-audio-settings-v2',settings);
       }
 
       function syncPresetState() {
@@ -1093,7 +933,7 @@ export function startFocusApp({
         chip.addEventListener('click', () => {
           if(cycleState.plan!=='single')return;
           resetCycle('single',Number(chip.dataset.minutes)||0);
-          if(playing)lastTickTimestamp=Date.now();
+          if(playing)clock.lastTimestamp=Date.now();
         });
       });
       function applyCustomDuration() {
@@ -1131,11 +971,11 @@ export function startFocusApp({
         syncCycleUI();
         syncFocusHistoryProgress(true);
         sessionRecordedMs = 0;
-        accumulatedMs = 0;
+        clock.elapsedMs = 0;
         saveSession(true);
         $('resume-status').textContent='';
         if (playing) {
-          lastTickTimestamp = Date.now();
+          clock.lastTimestamp = Date.now();
           scheduleAudioClosing(true);
           scheduleAudioEntry(true);
         }
@@ -1163,14 +1003,7 @@ export function startFocusApp({
       }
 
       function loadHistory() {
-        try {
-          const raw = storage.getItem(HISTORY_STORAGE_KEY);
-          if (raw) {
-            dailyHistory = JSON.parse(raw);
-          }
-        } catch (_) {
-          dailyHistory = null;
-        }
+        dailyHistory=storage.read(HISTORY_STORAGE_KEY,null);
         if (!dailyHistory || typeof dailyHistory !== 'object') {
           dailyHistory = getInitialHistory();
           persistHistory();
@@ -1183,9 +1016,7 @@ export function startFocusApp({
       }
 
       function persistHistory() {
-        try {
-          storage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(dailyHistory));
-        } catch (_) {}
+        storage.write(HISTORY_STORAGE_KEY,dailyHistory);
       }
 
       function addFocusSecondsToToday(seconds) {
@@ -1199,7 +1030,7 @@ export function startFocusApp({
       }
 
       function syncFocusHistoryProgress(flush = false) {
-        const currentMs = accumulatedMs;
+        const currentMs = clock.elapsedMs;
         if(isSilentRest()){sessionRecordedMs=currentMs;return;}
         const deltaMs = currentMs - sessionRecordedMs;
         if (deltaMs >= (flush ? 1000 : 5000)) {
@@ -1247,100 +1078,7 @@ export function startFocusApp({
         return streak;
       }
 
-      function renderHistoryChart() {
-        const svg = $('history-svg');
-        if (!svg) return;
-
-        const days = getLast7DaysData();
-        const totalMinutes = days.reduce((sum, d) => sum + d.minutes, 0);
-        const avgMinutes = Math.round(totalMinutes / days.length);
-        const streak = calculateStreak(days);
-        const todayMinutes = days[days.length - 1].minutes;
-
-        const elTotal = $('metric-total');
-        const elAvg = $('metric-avg');
-        const elToday = $('metric-today');
-        const elStreak = $('hist-streak-chip');
-
-        if (elTotal) elTotal.textContent = `${totalMinutes} min`;
-        if (elAvg) elAvg.textContent = `${avgMinutes} min`;
-        if (elToday) elToday.textContent = `${todayMinutes} min`;
-        if (elStreak) elStreak.textContent = `🔥 Racha: ${streak} ${streak === 1 ? 'día' : 'días'}`;
-
-        const svgW = 680;
-        const svgH = 180;
-        const padL = 46;
-        const padR = 20;
-        const padT = 24;
-        const padB = 42;
-        const plotW = svgW - padL - padR;
-        const plotH = svgH - padT - padB;
-
-        const maxRecorded = Math.max(...days.map(d => d.minutes), 0);
-        const gridMax = Math.max(60, Math.ceil((maxRecorded * 1.15) / 15) * 15);
-        const gridSteps = [
-          { val: Math.round(gridMax * 0.33), y: padT + plotH - (gridMax * 0.33 / gridMax) * plotH },
-          { val: Math.round(gridMax * 0.66), y: padT + plotH - (gridMax * 0.66 / gridMax) * plotH },
-          { val: gridMax,                    y: padT + plotH - (gridMax / gridMax) * plotH }
-        ];
-
-        let content = `
-          <defs>
-            <linearGradient id="barGradPrev" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#9bb4ff" stop-opacity="0.95"/>
-              <stop offset="100%" stop-color="#5573ca" stop-opacity="0.8"/>
-            </linearGradient>
-            <linearGradient id="barGradToday" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#8ce5c5" stop-opacity="1"/>
-              <stop offset="100%" stop-color="#46a386" stop-opacity="0.85"/>
-            </linearGradient>
-            <filter id="glowToday" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#8ce5c5" flood-opacity="0.45"/>
-            </filter>
-          </defs>
-        `;
-
-        gridSteps.forEach(step => {
-          content += `
-            <line x1="${padL}" y1="${step.y.toFixed(1)}" x2="${svgW - padR}" y2="${step.y.toFixed(1)}" stroke="rgba(161, 178, 219, 0.12)" stroke-dasharray="3 3"/>
-            <text x="${padL - 8}" y="${(step.y + 3.5).toFixed(1)}" font-size="9" fill="#717c96" text-anchor="end" font-variant-numeric="tabular-nums">${step.val}m</text>
-          `;
-        });
-
-        content += `<line x1="${padL}" y1="${padT + plotH}" x2="${svgW - padR}" y2="${padT + plotH}" stroke="rgba(161, 178, 219, 0.22)"/>`;
-
-        const slotW = plotW / days.length;
-        const barW = Math.min(42, slotW * 0.58);
-
-        days.forEach((d, i) => {
-          const cx = padL + i * slotW + slotW / 2;
-          const barX = cx - barW / 2;
-          const trackY = padT;
-          const trackH = plotH;
-
-          content += `<rect x="${barX.toFixed(1)}" y="${trackY}" width="${barW}" height="${trackH}" rx="7" fill="rgba(155, 180, 255, 0.035)"/>`;
-
-          if (d.minutes > 0) {
-            const barH = Math.max(5, (d.minutes / gridMax) * plotH);
-            const barY = padT + plotH - barH;
-            const gradId = d.isToday ? 'url(#barGradToday)' : 'url(#barGradPrev)';
-            const filterAttr = d.isToday ? 'filter="url(#glowToday)"' : '';
-            content += `<rect x="${barX.toFixed(1)}" y="${barY.toFixed(1)}" width="${barW}" height="${barH.toFixed(1)}" rx="6" fill="${gradId}" ${filterAttr}/>`;
-
-            const labelY = Math.max(padT - 7, barY - 6);
-            content += `<text x="${cx.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="10" font-weight="700" fill="${d.isToday ? '#c7f5e4' : '#c0d0ff'}" text-anchor="middle" font-variant-numeric="tabular-nums">${d.minutes}m</text>`;
-          } else {
-            content += `<text x="${cx.toFixed(1)}" y="${padT + plotH - 6}" font-size="10" fill="#58637c" text-anchor="middle">0m</text>`;
-          }
-
-          const dayColor = d.isToday ? '#8ce5c5' : '#8e98b0';
-          const dayWeight = d.isToday ? '750' : '550';
-          content += `<text x="${cx.toFixed(1)}" y="${(padT + plotH + 16).toFixed(1)}" font-size="11" font-weight="${dayWeight}" fill="${dayColor}" text-anchor="middle">${d.dayLabel}</text>`;
-          content += `<text x="${cx.toFixed(1)}" y="${(padT + plotH + 29).toFixed(1)}" font-size="9" fill="${d.isToday ? '#8ce5c5' : '#59657f'}" text-anchor="middle">${d.dayNum}</text>`;
-        });
-
-        svg.innerHTML = content;
-      }
+      const renderHistoryChart=createHistoryView({$,getLast7DaysData,calculateStreak});
 
       const btnSimulated = $('btn-add-simulated');
       if (btnSimulated) {
@@ -1360,7 +1098,6 @@ export function startFocusApp({
           renderHistoryChart();
         });
       }
-
 
       let focusView=false;
       function setFocusView(enabled) {
@@ -1433,9 +1170,9 @@ export function startFocusApp({
         const modeParam = Number(urlParams.get('duration') || urlParams.get('mode'));
         if (modeParam > 0 && cycleTools.validDuration(modeParam)) {
           cycleState=cycleTools.initial('single',modeParam);
-          targetDurationMinutes = modeParam;
+          clock.durationMinutes = modeParam;
           $('custom-minutes').value=modeParam;
-          accumulatedMs=0;sessionRecordedMs=0;
+          clock.elapsedMs=0;sessionRecordedMs=0;
           $('resume-status').textContent='';
           document.querySelectorAll('.mode-chip').forEach((c) => {
             c.setAttribute('aria-pressed', String(Number(c.dataset.minutes) === modeParam));

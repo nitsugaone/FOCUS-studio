@@ -20,7 +20,10 @@
           if(valid.phase==='focus'&&valid.round===plan.rounds)return initial(valid.plan,valid.singleDuration);
           return {...valid,phase:valid.phase==='focus'?'rest':'focus',round:valid.phase==='rest'?valid.round+1:valid.round,completed:false};
         }
-        return {plans,initial,normalize,duration,next,validDuration};
+        function complete(state) {
+          return state.plan==='single'?state:{...state,completed:true};
+        }
+        return {plans,initial,normalize,duration,next,complete,validDuration};
       }
       function isSilentRestState(state,restSound) {
         return Boolean(state&&['25-5','50-10'].includes(state.plan)&&state.phase==='rest'&&restSound==='silent');

@@ -17,7 +17,6 @@ export class FocusAudioEngine {
         param.setTargetAtTime(value, ctx.currentTime, timeConstant);
       };
 
-
       function applyScene(smooth=1.5) {
         if (!ctx || !nodes.textureGain) return;
         nodes.stereoField?.setWidth(studio.stereoWidth);
@@ -117,8 +116,6 @@ export class FocusAudioEngine {
         // MediaStreamAudioDestinationNode para supervivencia del audio con pantalla apagada en móviles
         nodes.streamDest = ctx.createMediaStreamDestination();
         nodes.comp.connect(nodes.streamDest);
-
-
 
         // CAPA 1: Ruido marrón estéreo con doble modulación orgánica
 

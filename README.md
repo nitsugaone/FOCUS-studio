@@ -21,7 +21,7 @@ Aplicación web progresiva (PWA) de alto rendimiento para síntesis acústica pr
 
 ### Validación
 
-Ejecutar `node tests/studio.test.mjs` desde la raíz. Comprueba inicio del grafo simulado, cuatro ambientes, afinaciones, persistencia, protección de la sesión activa y ausencia de historial ficticio. No verifica salida acústica ni compatibilidad real del navegador.
+Ejecutar `node --test tests/*.test.mjs` desde la raíz. Comprueba el arranque modular, el grafo simulado, señales, afinaciones, sesiones, persistencia y copias de seguridad. Las pruebas de navegador en `tools/browser-tests` incluyen seis perfiles y renderizado Web Audio; las pruebas automatizadas no sustituyen una evaluación de escucha en dispositivos reales.
 
 Antes de integrar: seguir [la guía de escucha y móviles](docs/VALIDACION-V3.md). La calidad percibida, el volumen equivalente entre ambientes y la continuidad al bloquear el teléfono requieren pruebas reales.
 
@@ -78,7 +78,13 @@ El grafo de audio se instancia de forma perezosa (*lazy*) tras la primera intera
 El proyecto está diseñado bajo una arquitectura modular y ligera, lista para servirse como sitio estático o empaquetarse en contenedores híbridos:
 
 ```
-├── index.html        # Aplicación principal (HTML5, CSS3, DSP Engine)
+├── index.html        # Interfaz HTML/CSS y punto de entrada ES6
+├── src/
+│   ├── main.js       # Arranque
+│   ├── audio/        # FocusAudioEngine, DSP y escenas
+│   ├── storage/      # StorageService, copias y reglas de datos
+│   ├── session/      # Ciclos, reloj y formato de enlaces
+│   └── ui/           # Controlador y vistas del DOM
 ├── manifest.json     # Manifiesto PWA compatible con PWABuilder (icons, screenshots, categories)
 ├── sw.js             # Service Worker con estrategia Cache-First (pre-cache de iconos y screenshots)
 ├── icons/            # Iconos PNG requeridos para tiendas e instalación PWA
@@ -271,3 +277,10 @@ Al crear un enlace, «Compartir enlace…» abre el menú del sistema cuando el 
 ## Vista previa de mezclas guardadas
 
 Seleccionar una mezcla muestra un resumen de los datos guardados: nombre, ambiente, melodía, duración o ciclo, tipo de descanso y niveles de maestro, textura, drone y notas. El resumen se actualiza al guardar cambios, duplicar o deshacer una eliminación, y desaparece si no hay selección o la búsqueda la oculta. Permite revisar una mezcla mientras suena otra, sin cambiar el audio, el reloj ni el almacenamiento. Para aplicarla se sigue usando «Cargar» en pausa. Las mezclas antiguas sin duración o plan se muestran como sesión libre, igual que al cargarlas.
+
+
+## Arquitectura modular
+
+El HTML raíz conserva la interfaz y carga `src/main.js` como módulo ES6. El motor de audio, la persistencia y las reglas/reloj de sesión están separados de los controladores del DOM. No se agregaron dependencias ni se modificaron formatos de mezclas o copias. La PWA precarga el grafo completo de módulos.
+
+Consultar [la arquitectura y los contratos de módulos](docs/ARCHITECTURE.md). Ejecutar todas las pruebas de lógica y señal con `node --test tests/*.test.mjs`; las pruebas de navegador se ejecutan con `npm test` dentro de `tools/browser-tests`.

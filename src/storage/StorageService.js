@@ -9,6 +9,8 @@ export class StorageService {
   read(key,fallback) { try { return JSON.parse(this.getItem(key))??fallback; } catch { return fallback; } }
   write(key,value) { try { this.setItem(key,JSON.stringify(value)); return true; } catch { return false; } }
   exportBackup() { return this.backups.exportBackup(); }
+  parseBackup(text) { const file=JSON.parse(text); this.validateBackup(file); return file; }
+  serializeBackup() { return JSON.stringify(this.exportBackup(),null,2); }
   validateBackup(file) { return this.backups.validateBackup(file); }
   planImport(file,includeSettings=false) { return this.backups.planImport(file,includeSettings); }
   applyImport(file,includeSettings=false) { return this.backups.applyImport(file,includeSettings); }

@@ -9,19 +9,20 @@ for(const args of [['single',0,0],['single',180,0],['single',181,0],['single',1,
 function run(options={}) {
  return new Function('options',`
   let cycleState={plan:options.plan??'single',round:1,phase:'focus',completed:false,singleDuration:options.duration??17};
-  let targetDurationMinutes=options.duration??17,accumulatedMs=options.elapsed??60000,sessionRecordedMs=55000,playing=options.playing??true,transitioning=options.transitioning??false;
+  const clock={durationMinutes:options.duration??17,elapsedMs:options.elapsed??60000};
+  let sessionRecordedMs=55000,playing=options.playing??true,transitioning=options.transitioning??false;
   const studio={fadeOutSeconds:20},ctx={currentTime:100},nodes={closingGain:{gain:{}}},modeLabelEl={},elements=new Map(),saved=[],closing=[];
   let clockReads=0,renders=0;
   const $=id=>{if(!elements.has(id))elements.set(id,{attributes:{},setAttribute(key,value){this.attributes[key]=value;}});return elements.get(id);};
-  function advanceSessionClock(){clockReads++;if(options.advanceTo!==undefined)accumulatedMs=options.advanceTo;}
+  function advanceSessionClock(){clockReads++;if(options.advanceTo!==undefined)clock.elapsedMs=options.advanceTo;}
   function scheduleSessionClosing(...args){closing.push(args.slice(2));}
   function scheduleSessionEntry(){throw Error('Extension must not restart the entrance');}
-  function scheduleAudioClosing(smooth){scheduleSessionClosing(ctx,nodes.closingGain.gain,accumulatedMs,targetDurationMinutes,studio.fadeOutSeconds,isSilentRest(),smooth);}
+  function scheduleAudioClosing(smooth){scheduleSessionClosing(ctx,nodes.closingGain.gain,clock.elapsedMs,clock.durationMinutes,studio.fadeOutSeconds,isSilentRest(),smooth);}
   function isSilentRest(){return false;} function applyScene(){} function renderTimer(){renders++;} function syncUI(){}
-  function saveSession(force){saved.push({force,duration:targetDurationMinutes,elapsed:accumulatedMs,cycle:{...cycleState}});return true;}
+  function saveSession(force){saved.push({force,duration:clock.durationMinutes,elapsed:clock.elapsedMs,cycle:{...cycleState}});return true;}
   ${extractFunctions(html,['sessionExtension','syncExtensionUI','extendSession'])}
   extendSession();
-  return {duration:targetDurationMinutes,elapsed:accumulatedMs,recorded:sessionRecordedMs,cycle:cycleState,playing,saved,closing,clockReads,renders,status:$('extension-status').textContent};
+  return {duration:clock.durationMinutes,elapsed:clock.elapsedMs,recorded:sessionRecordedMs,cycle:cycleState,playing,saved,closing,clockReads,renders,status:$('extension-status').textContent};
  `)(options);
 }
 const active=run();
