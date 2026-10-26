@@ -484,6 +484,8 @@
 .studio-controls select,.studio-controls input:not([type=range]):not([type=checkbox]) {width:100%;padding:10px;border:1px solid var(--line-strong);border-radius:10px;background:var(--panel-strong)}
 .studio-controls input[type=range]{width:100%;accent-color:var(--accent)}
 .studio-controls p,.studio-controls small{margin:0;color:var(--muted);font-size:12px;line-height:1.6}
+.saved-mix-preview {min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px;overflow-wrap:anywhere}
+.saved-mix-preview strong {display:block;font-size:12px;margin-bottom:4px}
 .studio-controls [hidden]{display:none}
 #session-feedback{display:grid;gap:10px}
 
@@ -948,6 +950,12 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           </div>
           <p id="mix-search-status" class="daily-note" role="status"></p>
           <label for="saved-mixes">Mis mezclas</label><select id="saved-mixes"><option value="">Elegí una mezcla</option></select>
+          <div id="saved-mix-preview" class="saved-mix-preview" role="status" aria-live="polite" aria-atomic="true" hidden>
+            <strong>Resumen guardado</strong>
+            <p id="saved-mix-sound" class="daily-note"></p>
+            <p id="saved-mix-session" class="daily-note"></p>
+            <p class="daily-note">Tocá Cargar en pausa para usar estos ajustes.</p>
+          </div>
           <button id="load-mix" type="button" class="subtle-button">Cargar</button>
           <button id="update-mix" type="button" class="subtle-button">Actualizar con estos ajustes</button>
           <button id="duplicate-mix" type="button" class="subtle-button" title="Copia la mezcla guardada; conserva la original y no cambia el sonido actual.">Duplicar mezcla guardada</button>
@@ -1397,6 +1405,18 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         ['update-mix','duplicate-mix','rename-mix','favorite-mix','delete-mix','load-mix'].forEach(id=>$(id).disabled=index<0);
         $('favorite-mix').textContent=mix?.favorite ? 'Quitar de favoritas' : 'Marcar favorita';
         $('favorite-mix').setAttribute('aria-pressed',String(Boolean(mix?.favorite)));
+        syncSavedMixPreview(mix);
+      }
+      function syncSavedMixPreview(mix) {
+        $('saved-mix-preview').hidden=!mix;
+        $('saved-mix-sound').textContent='';
+        $('saved-mix-session').textContent='';
+        if(!mix)return;
+        const plan=Object.prototype.hasOwnProperty.call(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single';
+        const duration=cycleTools.validDuration(mix.duration)?mix.duration:0;
+        const session=plan==='single'?(duration?duration+' minutos':'Sesión libre'):'Ciclo '+plan.replace('-','/')+' min · Descansos '+(mix.restSound==='silent'?'en silencio':'con sonido');
+        $('saved-mix-sound').textContent=mix.name+' · '+SCENES[mix.scene].label+' · '+(mix.melody?'Melodía activada':'Sin melodía');
+        $('saved-mix-session').textContent=session+' · Maestro '+mix.levels.master+'% · Textura '+mix.levels.noise+'% · Drone '+mix.levels.drone+'% · Notas '+mix.levels.notes+'%';
       }
       function currentMix(name, favorite=false) {
         return {...studio,name,favorite,cyclePlan:cycleState.plan,duration:cycleState.plan==='single'?targetDurationMinutes:cycleTools.plans[cycleState.plan].focus,

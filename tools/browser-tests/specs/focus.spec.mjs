@@ -3,8 +3,8 @@ import {readFile} from 'node:fs/promises';
 
 const errors=new WeakMap();
 test.beforeEach(async({page},info)=>{
- if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search')||info.title.startsWith('mix duplication')||info.title.startsWith('mix undo')||info.title.startsWith('native sharing'))await page.clock.install();
- if(info.title.startsWith('note timing')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search')||info.title.startsWith('mix duplication')||info.title.startsWith('mix undo')||info.title.startsWith('native sharing'))await page.addInitScript(()=>{
+ if(info.title.startsWith('guided cycles')||info.title.startsWith('focus view')||info.title.startsWith('custom duration')||info.title.startsWith('stereo width')||info.title.startsWith('note timing')||info.title.startsWith('fade session')||info.title.startsWith('keep mix')||info.title.startsWith('silent rest')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search')||info.title.startsWith('mix duplication')||info.title.startsWith('mix undo')||info.title.startsWith('native sharing')||info.title.startsWith('mix preview'))await page.clock.install();
+ if(info.title.startsWith('note timing')||info.title.startsWith('channel balance')||info.title.startsWith('session entry')||info.title.startsWith('session extension')||info.title.startsWith('mix search')||info.title.startsWith('mix duplication')||info.title.startsWith('mix undo')||info.title.startsWith('native sharing')||info.title.startsWith('mix preview'))await page.addInitScript(()=>{
   window.createdOscillators=0;
   const Context=window.AudioContext||window.webkitAudioContext;
   if(Context){const original=Context.prototype.createOscillator;Context.prototype.createOscillator=function(){window.createdOscillators++;return original.call(this);};}
@@ -19,7 +19,7 @@ test.beforeEach(async({page},info)=>{
   }
  });
  if(info.title.startsWith('audio deadline')||info.title.startsWith('audio extension'))await page.addInitScript(()=>{window.setInterval=()=>0;});
- if(info.title.startsWith('native sharing'))await page.addInitScript(()=>{
+ if(info.title.startsWith('native sharing')||info.title.startsWith('mix preview'))await page.addInitScript(()=>{
   window.shareCalls=[];
   Object.defineProperty(navigator,'share',{configurable:true,value:data=>{window.shareCalls.push(data);return new Promise((resolve,reject)=>{window.finishShare=resolve;window.failShare=name=>reject(new DOMException('Share result',name));});}});
  });
@@ -1275,4 +1275,53 @@ test('share fallback keeps copying available when native sharing and clipboard a
  await page.locator('#copy-share-link').click();await expect(page.locator('#share-link-status')).toContainText('copiarlo manualmente');
  expect(await page.locator('#share-link').evaluate(el=>el.selectionEnd-el.selectionStart)).toBe(link.length);
  await expect(page.locator('#status-text')).toHaveText('En pausa');await noOverflow(page);
+});
+
+
+test('mix preview shows stored settings through search and undo without changing active audio',async({page},info)=>{
+ await expand(page,'mix-settings');await expect(page.locator('#saved-mix-preview')).toBeHidden();
+ await page.locator('#soundscape').selectOption('rain');await page.locator('[data-minutes="25"]').click();
+ await expand(page,'sound-settings');await page.locator('#vol-noise').evaluate(el=>{el.value='17';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.locator('#preset-name').fill('Lectura lluvia');await page.locator('#save-mix').click();
+ await expect(page.locator('#saved-mix-sound')).toContainText('Lectura lluvia · Lluvia');
+ await expect(page.locator('#saved-mix-session')).toContainText('25 minutos');
+ await expect(page.locator('#saved-mix-session')).toContainText('Textura 17%');
+ await page.locator('#soundscape').selectOption('ocean');await page.locator('#session-plan').selectOption('25-5');
+ await page.locator('#rest-sound').selectOption('silent');
+ await page.locator('#preset-name').fill('Lectura ciclos');await page.locator('#save-mix').click();
+ await expect(page.locator('#saved-mix-session')).toContainText('Ciclo 25/5 min · Descansos en silencio');
+ await page.locator('#session-plan').selectOption('single');await page.locator('#soundscape').selectOption('wind');
+ await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));await page.locator('#toggle').click();
+ await expect(page.locator('#status-text')).toHaveText('Sonando');await page.clock.fastForward(60000);
+ const timer=await page.locator('#timer').textContent(),sources=await page.evaluate(()=>window.createdOscillators);
+ const stored=await page.evaluate(()=>localStorage.getItem('focus-mixes-v3'));
+ await page.locator('#saved-mixes').selectOption('0');
+ await expect(page.locator('#saved-mix-sound')).toContainText('Lectura lluvia · Lluvia');
+ await expect(page.locator('#saved-mix-session')).toContainText('Textura 17%');
+ await page.locator('#mix-search').fill('ciclos');await expect(page.locator('#saved-mix-preview')).toBeHidden();
+ await expect(page.locator('#saved-mix-sound')).toHaveText('');
+ await page.locator('#saved-mixes').selectOption('1');await expect(page.locator('#saved-mix-session')).toContainText('Descansos en silencio');
+ await page.locator('#delete-mix').click();await expect(page.locator('#saved-mix-preview')).toBeHidden();
+ await page.locator('#undo-delete-mix').click();await expect(page.locator('#saved-mix-sound')).toContainText('Lectura ciclos');
+ await expect(page.locator('#soundscape')).toHaveValue('wind');await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await expect(page.locator('#timer')).toHaveText(timer);expect(await page.evaluate(()=>window.createdOscillators)).toBe(sources);
+ expect(await page.evaluate(()=>localStorage.getItem('focus-mixes-v3'))).toBe(stored);
+ await noOverflow(page);await page.screenshot({path:info.outputPath('saved-mix-preview.png'),fullPage:true,animations:'disabled'});
+ await page.locator('#toggle').click();await page.locator('#update-mix').click();
+ await expect(page.locator('#saved-mix-sound')).toContainText('Viento entre hojas');await expect(page.locator('#saved-mix-session')).toContainText('25 minutos');
+ await page.reload();await expand(page,'mix-settings');await expect(page.locator('#saved-mix-preview')).toBeHidden();
+ await page.locator('#saved-mixes').selectOption('1');await expect(page.locator('#saved-mix-sound')).toContainText('Viento entre hojas');
+});
+
+test('legacy mix preview matches loading defaults and renders names as plain text',async({page})=>{
+ await page.addInitScript(()=>{
+  localStorage.setItem('focus-mixes-v3',JSON.stringify([{name:'<img src=x onerror=alert(1)> 🌧️'.repeat(2),scene:'rain',evolution:35,brightness:50,melody:false,levels:{master:42,noise:23,drone:0,notes:0}}]));
+ });
+ await page.reload();await expand(page,'mix-settings');await page.locator('#saved-mixes').selectOption('0');
+ await expect(page.locator('#saved-mix-sound')).toContainText('<img src=x onerror=alert(1)>');
+ await expect(page.locator('#saved-mix-sound')).toContainText('Sin melodía');await expect(page.locator('#saved-mix-sound img')).toHaveCount(0);
+ await expect(page.locator('#saved-mix-session')).toHaveText('Sesión libre · Maestro 42% · Textura 23% · Drone 0% · Notas 0%');
+ await noOverflow(page);await page.locator('#load-mix').click();await expect(page.locator('#session-plan')).toHaveValue('single');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await page.locator('#saved-mixes').selectOption('');await expect(page.locator('#saved-mix-preview')).toBeHidden();
 });
