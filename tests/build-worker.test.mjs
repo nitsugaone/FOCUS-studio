@@ -14,6 +14,7 @@ try {
  await writeFile(join(directory,'sw.js'),'// public template copy');
  const plugin=focusOfflinePlugin();
  assert.equal(plugin.apply,'build');
+ assert.equal(plugin.transformIndexHtml.handler('<link rel="manifest" href="/FOCUS-studio/assets/manifest-abc.json">'),'<link rel="manifest" href="./manifest.json">');
  await plugin.writeBundle({dir:directory});
  const source=await readFile(join(directory,'sw.js'),'utf8');
  const events={};let cached=[];
