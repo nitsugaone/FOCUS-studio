@@ -37,3 +37,12 @@ clock.durationMinutes=0;clock.start(()=>clock.advance());now+=3000;callback();as
 now-=1000;callback();assert.equal(clock.elapsedMs,63000,'Backward clock does not subtract time');
 clock.stop();
 console.log('PASS: ES module bootstrap, audio isolation, lazy initialization, storage failures and injected clock lifecycle');
+
+const receivers=[];
+const boundClock=new SessionClock({
+ now:function(){receivers.push(this);return 1000;},
+ setInterval:function(){receivers.push(this);return 9;},
+ clearInterval:function(){receivers.push(this);}
+});
+boundClock.start(()=>{});boundClock.stop();
+assert.ok(receivers.every(receiver=>receiver===undefined),'Injected timer functions are called without a foreign receiver');

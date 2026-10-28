@@ -1,7 +1,7 @@
 // Wall-clock time is independent of rendering, storage and audio nodes.
 export class SessionClock {
  constructor({now=()=>Date.now(),setInterval=globalThis.setInterval,clearInterval=globalThis.clearInterval}={}) {
-  this.now=now;this.setInterval=setInterval;this.clearInterval=clearInterval;
+  this.now=()=>now();this.setInterval=(...args)=>setInterval(...args);this.clearInterval=(...args)=>clearInterval(...args);
   this.elapsedMs=0;this.lastTimestamp=0;this.durationMinutes=0;this.timer=null;
  }
  advance(active=true) {
