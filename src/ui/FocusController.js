@@ -1,4 +1,4 @@
-import {createPlaybackPauseController} from './PlaybackPauseController.js';
+import {createPlaybackController} from './PlaybackController.js';
 import {ListeningProgress} from '../session/ListeningProgress.js';
 import {createSessionExtensionController} from './SessionExtensionController.js';
 import {createMixLibraryController} from './MixLibraryController.js';
@@ -50,6 +50,7 @@ export function startFocusApp({
       // Reloj de alta precisión basado en timestamps reales (inmune a background tab throttling)
       const clock=new SessionClock({now:()=>Date.now(),setInterval:(fn,ms)=>window.setInterval(fn,ms),clearInterval});
 
+      const listeningProgress=new ListeningProgress();
       const cycleTools=createCycleTools();
       let cycleState=cycleTools.initial();
       const shareTools=createShareTools();
@@ -755,64 +756,14 @@ export function startFocusApp({
         errorEl.dataset.visible = 'false';
       }
 
-      async function play() {
-        if (playing || transitioning) return;
-        if(cycleState.plan!=='single'&&cycleState.completed) {
-          cycleState=cycleTools.next(cycleState);
-          clock.durationMinutes=cycleTools.duration(cycleState);
-          clock.elapsedMs=0;listeningProgress.checkpoint();renderTimer();saveSession(true);
-        }
-        transitioning = true;
-        hideError();
-        if (clock.durationMinutes > 0 && clock.elapsedMs >= clock.durationMinutes * 60000) {
-          clock.elapsedMs = 0;
-          listeningProgress.checkpoint();
-          $('extension-status').textContent='';
-        }
-        syncUI();
-        try {
-          const wasInitialized=engine.initialized();
-          configureAudio();await engine.resume();
-          if(!wasInitialized) {
-            const background=$('bg-audio');
-            if(background)background.srcObject=engine.stream();
-            setupMediaSession();
-          }
-          playing = true;
-          $('resume-status').textContent='';
-          $('session-feedback').hidden=true;
-          $('feedback-status').textContent='';
-          applyScene(0.05);
-          engine.start();
-          startSessionClock();
-
-          // Sincronizar elemento de audio enlazado al stream para background playback
-          const bgAudio = $('bg-audio');
-          if (bgAudio) {
-            bgAudio.play().catch(() => {});
-          }
-
-          if ('mediaSession' in navigator) {
-            navigator.mediaSession.playbackState = 'playing';
-          }
-
-          requestWakeLock();
-        } catch (error) {
-          playing = false;
-          stopSessionClock();
-          showError(error && error.message ? error.message : 'No se pudo iniciar el audio.');
-        } finally {
-          transitioning = false;
-          syncUI();
-        }
-      }
-
-      const {pause}=createPlaybackPauseController({
-        clock,getPlaybackState:()=>({playing,transitioning}),setPlaying:value=>{playing=value;},
+      const {play,pause}=createPlaybackController({
+        clock,cycleTools,listeningProgress,
+        getPlaybackState:()=>({playing,transitioning}),setPlaying:value=>{playing=value;},
+        setTransitioning:value=>{transitioning=value;},
         getCycleState:()=>cycleState,setCycleState:value=>{cycleState=value;},
-        completeCycle:state=>cycleTools.complete(state),getStudio:()=>studio,
-        setFeedbackSession:value=>{feedbackSession=value;},$,engine,navigator,
-        stopSessionClock,saveSession,releaseWakeLock,syncUI
+        getStudio:()=>studio,setFeedbackSession:value=>{feedbackSession=value;},$,engine,navigator,
+        configureAudio,applyScene,renderTimer,saveSession,setupMediaSession,
+        startSessionClock,stopSessionClock,requestWakeLock,releaseWakeLock,hideError,showError,syncUI
       });
 
       function updateRange(id, save = true) {
@@ -925,7 +876,6 @@ export function startFocusApp({
       // SECCIÓN DE DATOS: HISTORIAL DE HÁBITOS DE FOCO (SVG NATIVO)
       // ==========================================
       const HISTORY_STORAGE_KEY = 'focus-daily-history-v1';
-      const listeningProgress=new ListeningProgress();
       let dailyHistory = null;
 
       function getTodayKey() {

@@ -1,6 +1,6 @@
 import {scheduleSessionClosing as schedule} from '../src/audio/dsp.js';
 import {SessionClock} from '../src/session/SessionClock.js';
-import {createPlaybackPauseController} from '../src/ui/PlaybackPauseController.js';
+import {createPlaybackController} from '../src/ui/PlaybackController.js';
 import assert from 'node:assert/strict';
 
 function commands(elapsed,duration,fade,silent=false,smooth=false) {
@@ -47,10 +47,10 @@ function pauseScenario(options={}) {
   return elements.get(id);
  };
  const navigator=options.noMedia?{}:{mediaSession:{playbackState:'playing'}};
- const controller=createPlaybackPauseController({
+ const controller=createPlaybackController({
   clock,getPlaybackState:()=>({playing,transitioning}),setPlaying:value=>{playing=value;calls.push('playing:'+value);},
   getCycleState:()=>cycleState,setCycleState:value=>{cycleState=value;},
-  completeCycle:state=>{calls.push('complete');return {...state,completed:true};},
+  cycleTools:{complete:state=>{calls.push('complete');return {...state,completed:true};}},
   getStudio:()=>studio,setFeedbackSession:value=>{feedbackSession=value;},$,navigator,
   engine:{pause(slowFade){calls.push('audio:'+slowFade);}},
   stopSessionClock(){calls.push('clock');if(options.stopAt!==undefined)clock.elapsedMs=options.stopAt;},
