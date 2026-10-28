@@ -89,8 +89,16 @@ La prueba de descansos importa la clase de producción, conserva las aserciones 
 
 ## Coordinación de pausa
 
-`src/ui/PlaybackPauseController.js` coordina la pausa mediante adaptadores explícitos de estado, reloj, motor de audio, persistencia, interfaz, Media Session y Wake Lock. `FocusController` conserva el registro de eventos y el arranque. Los accesores leen el estado y los ajustes actuales; el motor sigue sin dependencias del DOM.
+`src/ui/PlaybackController.js` coordina la pausa mediante adaptadores explícitos de estado, reloj, motor de audio, persistencia, interfaz, Media Session y Wake Lock. `FocusController` conserva el registro de eventos y el arranque. Los accesores leen el estado y los ajustes actuales; el motor sigue sin dependencias del DOM.
 
 Se conserva el orden: detener el reloj y registrar el progreso, comprobar el final y persistir el ciclo completado, preparar la valoración del tramo de foco cuando corresponde, marcar la pausa, pausar el motor y el audio auxiliar, actualizar Media Session, liberar Wake Lock y sincronizar la interfaz. Una pausa repetida o durante una transición no ejecuta efectos.
 
 La prueba de cierre de audio importa ahora la fábrica real y conserva todas sus aserciones anteriores. También comprueba el orden, la finalización tras un callback tardío, pausas repetidas, transiciones, valoración y navegadores sin Media Session o audio auxiliar. Ninguna prueba unitaria reconstruye ya funciones de UI desde texto; el helper de fuente se conserva para la comprobación estática de compatibilidad de ciclos y las pruebas de renderizado Web Audio en navegador. Ambos workers precargan el nuevo módulo con caché fuente v3.31.
+
+## Inicio y reanudación de reproducción
+
+`PlaybackController` reúne `play()` y `pause(slowFade = false)` con los mismos adaptadores de estado y recursos. Sustituye al módulo dedicado solo a pausa. `FocusController` registra los mismos eventos y conserva configuración, renderizado, persistencia y servicios de navegador. `FocusAudioEngine` sigue siendo el propietario del grafo sin acceso al DOM.
+
+El arranque conserva la exclusión durante reproducción o transición, el avance manual al siguiente tramo, reinicio de una sesión vencida y orden de configuración/reanudación del motor. El stream y Media Session se preparan solo al inicializar el motor; al reanudar se conservan progreso y fuentes. Si falla el inicio, se detiene el reloj, se muestra el error existente y siempre se libera la marca de transición y sincroniza la interfaz. El rechazo del audio auxiliar continúa siendo tolerado.
+
+Las pruebas importan el controlador real y cubren inicio, reanudación, guardas durante una promesa pendiente, siguiente tramo, sesión vencida, recursos multimedia opcionales y fallos de reanudación o inicio. Las aserciones anteriores de pausa y cierre se conservan. Ambos workers sustituyen la ruta antigua por el módulo compartido con caché fuente v3.32.
