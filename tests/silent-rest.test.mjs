@@ -1,8 +1,9 @@
+import {isSilentRestState as silent} from '../src/session/cycles.js';
 import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
-import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
+
 const html=await readApplicationSource();
-const silent=new Function(extractFunctions(html,['isSilentRestState'])+'return isSilentRestState;')();
+
 for(const plan of ['25-5','50-10']){
  assert.equal(silent({plan,phase:'rest'},'silent'),true);
  assert.equal(silent({plan,phase:'focus'},'silent'),false);

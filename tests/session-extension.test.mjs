@@ -1,13 +1,14 @@
+import {sessionExtension as extension} from '../src/session/cycles.js';
 import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
-import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
+
 const html=await readApplicationSource();
-const extension=new Function(extractFunctions(html,["sessionExtension"])+'return sessionExtension;')();
+
 for(const duration of [1,17,60,175])assert.deepEqual(extension('single',duration,0),{duration:duration+5,added:5});
 for(const duration of [176,177,178,179])assert.deepEqual(extension('single',duration,59000),{duration:180,added:180-duration});
 for(const args of [['single',0,0],['single',180,0],['single',181,0],['single',1,60000],['single',1,60001],['single',1,-1],['single',1,NaN],['single',1.5,0],['single','17',0],['25-5',25,0],['50-10',50,0]])assert.equal(extension(...args),null);
 function run(options={}) {
- return new Function('options',`
+ return new Function('options','sessionExtension',`
   let cycleState={plan:options.plan??'single',round:1,phase:'focus',completed:false,singleDuration:options.duration??17};
   const clock={durationMinutes:options.duration??17,elapsedMs:options.elapsed??60000};
   let sessionRecordedMs=55000,playing=options.playing??true,transitioning=options.transitioning??false;
@@ -20,10 +21,10 @@ function run(options={}) {
   function scheduleAudioClosing(smooth){scheduleSessionClosing(ctx,nodes.closingGain.gain,clock.elapsedMs,clock.durationMinutes,studio.fadeOutSeconds,isSilentRest(),smooth);}
   function isSilentRest(){return false;} function applyScene(){} function renderTimer(){renders++;} function syncUI(){}
   function saveSession(force){saved.push({force,duration:clock.durationMinutes,elapsed:clock.elapsedMs,cycle:{...cycleState}});return true;}
-  ${extractFunctions(html,['sessionExtension','syncExtensionUI','extendSession'])}
+  ${extractFunctions(html,['syncExtensionUI','extendSession'])}
   extendSession();
   return {duration:clock.durationMinutes,elapsed:clock.elapsedMs,recorded:sessionRecordedMs,cycle:cycleState,playing,saved,closing,clockReads,renders,status:$('extension-status').textContent};
- `)(options);
+ `)(options,extension);
 }
 const active=run();
 assert.equal(active.duration,22);assert.equal(active.elapsed,60000);assert.equal(active.recorded,55000);assert.equal(active.playing,true);assert.equal(active.cycle.singleDuration,22);

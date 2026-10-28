@@ -1,8 +1,6 @@
-import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
-import {readFile} from 'node:fs/promises';
+import {mixSearchIndices as search} from '../src/storage/mixes.js';
 import assert from 'node:assert/strict';
-const html=await readApplicationSource();
-const search=new Function(extractFunctions(html,["mixSearchIndices"])+'return mixSearchIndices;')();
+
 const mixes=Object.freeze([
  Object.freeze({name:'Lluvia suave',favorite:false}),
  Object.freeze({name:'Café de lectura',favorite:true}),

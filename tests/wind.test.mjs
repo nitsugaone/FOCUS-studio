@@ -1,8 +1,6 @@
-import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
-import {readFile} from 'node:fs/promises';
+import {windCoefficients as coefficients,createWindGust as create} from '../src/audio/dsp.js';
 import assert from 'node:assert/strict';
-const html=await readApplicationSource();
-const {coefficients,create}=new Function(extractFunctions(html,["windCoefficients","createWindGust"])+'return {coefficients:windCoefficients,create:createWindGust};')();
+
 for(const evolution of [0,1,35,100]) {
  const values=[],c=coefficients(evolution);
  const envelope=second=>c.base+c.slow*Math.sin(second/9)+c.slower*Math.sin(second/23);

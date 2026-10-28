@@ -1,8 +1,6 @@
-import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
-import {readFile} from 'node:fs/promises';
+import {sessionEnvelope as envelope} from '../src/audio/dsp.js';
 import assert from 'node:assert/strict';
-const html=await readApplicationSource();
-const envelope=new Function(extractFunctions(html,["sessionEnvelope","scheduleSessionClosing"])+'return sessionEnvelope;')();
+
 for(const duration of [1,5,25,50,180])for(const elapsed of [0,1000,12000,30000,duration*60000-1000,duration*60000,duration*60000+1000]){
  const result=envelope(elapsed,duration,20);
  assert.equal(result.entry,Math.min(1,.4+elapsed/20000));

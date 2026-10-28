@@ -1,8 +1,6 @@
-import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
-import {readFile} from 'node:fs/promises';
+import {noteDelaySeconds as delay} from '../src/audio/dsp.js';
 import assert from 'node:assert/strict';
-const html=await readApplicationSource();
-const delay=new Function(extractFunctions(html,["noteDelaySeconds"])+'return noteDelaySeconds;')();
+
 for(const interval of [8,12,18,25]){
  assert.equal(delay(interval,0,'normal',0),interval);
  assert.equal(delay(interval,0,'sparse',0),interval*2);

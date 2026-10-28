@@ -1,8 +1,6 @@
-import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
-import {readFile} from 'node:fs/promises';
+import {entryEnvelope as envelope,scheduleSessionEntry as schedule} from '../src/audio/dsp.js';
 import assert from 'node:assert/strict';
-const html=await readApplicationSource();
-const {envelope,schedule}=new Function(extractFunctions(html,["entryEnvelope","scheduleSessionEntry"])+'return {envelope:entryEnvelope,schedule:scheduleSessionEntry};')();
+
 for(let elapsed=0;elapsed<=12000;elapsed+=125)assert.equal(envelope(elapsed),Math.min(1,.4+elapsed/20000),'Original curve remains unchanged');
 for(const seconds of [0,3,12,30]){
  let previous=0;

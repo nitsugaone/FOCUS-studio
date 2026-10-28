@@ -1,8 +1,6 @@
-import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
-import {readFile} from 'node:fs/promises';
+import {createBackupTools as createTools} from '../src/storage/backups.js';
 import assert from 'node:assert/strict';
-const html=await readApplicationSource();
-const createTools=new Function(extractFunctions(html,["createCycleTools","createBackupTools"])+'return createBackupTools;')();
+
 class MemoryStorage {
  constructor(){this.values=new Map();this.failKey=null;}
  getItem(key){return this.values.get(key)??null;}
