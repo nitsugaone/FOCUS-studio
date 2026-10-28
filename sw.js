@@ -1,7 +1,21 @@
-const CACHE_NAME = 'focus-audio-v3.26';
+const CACHE_NAME = 'focus-audio-v3.27';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
+  './src/session/cycles.js',
+  './src/storage/backups.js',
+  './src/storage/StorageService.js',
+  './src/ui/FocusController.js',
+  './src/main.js',
+  './src/ui/HistoryView.js',
+  './src/ui/ResponsiveController.js',
+  './src/session/sharing.js',
+  './src/storage/insights.js',
+  './src/storage/mixes.js',
+  './src/session/SessionClock.js',
+  './src/audio/FocusAudioEngine.js',
+  './src/audio/scenes.js',
+  './src/audio/dsp.js',
   './audio/noise-processor.js',
   './manifest.json',
   './icons/icon-192.png',

@@ -1,10 +1,9 @@
+import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
-const start=html.indexOf('      function createCycleTools()'),end=html.indexOf('      const cycleTools=createCycleTools()',start);
-assert.ok(start>=0&&end>start);
+const html=await readApplicationSource();
 assert.ok(!html.includes('Object.hasOwn('),'Startup must support browsers without Object.hasOwn');
-const tools=new Function(html.slice(start,end)+'return createCycleTools();')();
+const tools=new Function(extractFunctions(html,["createCycleTools"])+'return createCycleTools();')();
 let state=tools.initial('25-5',45);
 assert.equal(tools.duration(state),25);
 assert.deepEqual(tools.next(state),state,'An unfinished phase never advances');

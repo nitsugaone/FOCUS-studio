@@ -1,9 +1,8 @@
+import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
-const start=html.indexOf('      function windCoefficients(evolution)'),end=html.indexOf('      function applyScene(',start);
-assert.ok(start>=0&&end>start);
-const {coefficients,create}=new Function(html.slice(start,end)+'return {coefficients:windCoefficients,create:createWindGust};')();
+const html=await readApplicationSource();
+const {coefficients,create}=new Function(extractFunctions(html,["windCoefficients","createWindGust"])+'return {coefficients:windCoefficients,create:createWindGust};')();
 for(const evolution of [0,1,35,100]) {
  const values=[],c=coefficients(evolution);
  const envelope=second=>c.base+c.slow*Math.sin(second/9)+c.slower*Math.sin(second/23);

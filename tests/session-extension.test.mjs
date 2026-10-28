@@ -1,28 +1,28 @@
+import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
-const start=html.indexOf('      function sessionExtension('),end=html.indexOf('      function syncExtensionUI()',start);
-assert.ok(start>=0&&end>start);
-const extension=new Function(html.slice(start,end)+'return sessionExtension;')();
+const html=await readApplicationSource();
+const extension=new Function(extractFunctions(html,["sessionExtension"])+'return sessionExtension;')();
 for(const duration of [1,17,60,175])assert.deepEqual(extension('single',duration,0),{duration:duration+5,added:5});
 for(const duration of [176,177,178,179])assert.deepEqual(extension('single',duration,59000),{duration:180,added:180-duration});
 for(const args of [['single',0,0],['single',180,0],['single',181,0],['single',1,60000],['single',1,60001],['single',1,-1],['single',1,NaN],['single',1.5,0],['single','17',0],['25-5',25,0],['50-10',50,0]])assert.equal(extension(...args),null);
-const finish=html.indexOf('      function syncCycleUI()',start);
 function run(options={}) {
  return new Function('options',`
   let cycleState={plan:options.plan??'single',round:1,phase:'focus',completed:false,singleDuration:options.duration??17};
-  let targetDurationMinutes=options.duration??17,accumulatedMs=options.elapsed??60000,sessionRecordedMs=55000,playing=options.playing??true,transitioning=options.transitioning??false;
+  const clock={durationMinutes:options.duration??17,elapsedMs:options.elapsed??60000};
+  let sessionRecordedMs=55000,playing=options.playing??true,transitioning=options.transitioning??false;
   const studio={fadeOutSeconds:20},ctx={currentTime:100},nodes={closingGain:{gain:{}}},modeLabelEl={},elements=new Map(),saved=[],closing=[];
   let clockReads=0,renders=0;
   const $=id=>{if(!elements.has(id))elements.set(id,{attributes:{},setAttribute(key,value){this.attributes[key]=value;}});return elements.get(id);};
-  function advanceSessionClock(){clockReads++;if(options.advanceTo!==undefined)accumulatedMs=options.advanceTo;}
+  function advanceSessionClock(){clockReads++;if(options.advanceTo!==undefined)clock.elapsedMs=options.advanceTo;}
   function scheduleSessionClosing(...args){closing.push(args.slice(2));}
   function scheduleSessionEntry(){throw Error('Extension must not restart the entrance');}
+  function scheduleAudioClosing(smooth){scheduleSessionClosing(ctx,nodes.closingGain.gain,clock.elapsedMs,clock.durationMinutes,studio.fadeOutSeconds,isSilentRest(),smooth);}
   function isSilentRest(){return false;} function applyScene(){} function renderTimer(){renders++;} function syncUI(){}
-  function saveSession(force){saved.push({force,duration:targetDurationMinutes,elapsed:accumulatedMs,cycle:{...cycleState}});return true;}
-  ${html.slice(start,finish)}
+  function saveSession(force){saved.push({force,duration:clock.durationMinutes,elapsed:clock.elapsedMs,cycle:{...cycleState}});return true;}
+  ${extractFunctions(html,['sessionExtension','syncExtensionUI','extendSession'])}
   extendSession();
-  return {duration:targetDurationMinutes,elapsed:accumulatedMs,recorded:sessionRecordedMs,cycle:cycleState,playing,saved,closing,clockReads,renders,status:$('extension-status').textContent};
+  return {duration:clock.durationMinutes,elapsed:clock.elapsedMs,recorded:sessionRecordedMs,cycle:cycleState,playing,saved,closing,clockReads,renders,status:$('extension-status').textContent};
  `)(options);
 }
 const active=run();

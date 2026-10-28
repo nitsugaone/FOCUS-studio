@@ -1,10 +1,8 @@
+import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
-const start=html.indexOf('      function createBackupTools(storage)'),end=html.indexOf('      const backupTools=createBackupTools',start);
-assert.ok(start>=0 && end>start);
-const cycleStart=html.indexOf('      function createCycleTools()'),cycleEnd=html.indexOf('      const cycleTools=createCycleTools()',cycleStart);
-const createTools=new Function(html.slice(cycleStart,cycleEnd)+html.slice(start,end)+'return createBackupTools;')();
+const html=await readApplicationSource();
+const createTools=new Function(extractFunctions(html,["createCycleTools","createBackupTools"])+'return createBackupTools;')();
 class MemoryStorage {
  constructor(){this.values=new Map();this.failKey=null;}
  getItem(key){return this.values.get(key)??null;}

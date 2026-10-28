@@ -1,9 +1,8 @@
+import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
-const start=html.indexOf('      function createMixCopy('),end=html.indexOf('      function commitMixes(',start);
-assert.ok(start>=0&&end>start);
-const copy=new Function(html.slice(start,end)+'return createMixCopy;')();
+const html=await readApplicationSource();
+const copy=new Function(extractFunctions(html,["createMixCopy"])+'return createMixCopy;')();
 const source=Object.freeze({name:'Lectura',favorite:true,scene:'ocean',evolution:35,brightness:50,melody:false,stereoWidth:65,balance:-20,notePace:'sparse',fadeOutSeconds:60,fadeInSeconds:30,preserveMix:true,restSound:'silent',cyclePlan:'single',duration:37,levels:Object.freeze({master:40,noise:75,drone:20,notes:0})});
 const mixes=Object.freeze([source]),before=JSON.stringify(mixes),first=copy(mixes,0);
 assert.equal(first.name,'Lectura (copia)');assert.equal(first.favorite,false);
