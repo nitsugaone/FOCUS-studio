@@ -78,3 +78,11 @@ La prueba de recuperación importa la misma fábrica usada por la aplicación y 
 La extensión avanza el reloj antes de validar, conserva el tiempo transcurrido y el historial, y reprograma únicamente el cierre de audio cuando hay reproducción. Mantiene el límite de 180 minutos y la exclusión de sesiones libres, ciclos, tramos terminados y transiciones. El fallo de guardado conserva el cambio en memoria y el mensaje existente.
 
 La prueba importa el controlador de producción, conserva todas las aserciones anteriores y añade comprobaciones del contrato visual y del fallo de guardado. No reconstruye cuerpos de funciones ni lee código fuente. Ambos workers precargan el módulo; la caché fuente pasa a v3.29. No cambian el HTML, los eventos ni los escenarios de navegador.
+
+## Contabilización del tiempo de escucha
+
+`src/session/ListeningProgress.js` mantiene la marca del tiempo ya contabilizado. `advance(elapsedMs, {silent, flush})` devuelve los segundos nuevos: acumula por bloques de al menos cinco segundos durante la reproducción o de uno al cerrar, conservando la fracción pendiente. Un descanso en silencio actualiza la marca sin devolver segundos, por lo que ese tiempo no se añade al reanudar el sonido.
+
+`checkpoint(elapsedMs = 0)` conserva el punto ya registrado al restaurar una sesión o reinicia la contabilización al iniciar otro tramo. El módulo no conoce DOM, almacenamiento ni Web Audio. `FocusController` conserva la coordinación de guardado y renderizado del historial y los mismos puntos de cierre, restauración y reinicio.
+
+La prueba de descansos importa la clase de producción, conserva las aserciones anteriores y comprueba umbrales, fracciones, llamadas repetidas, restauración, reinicio y exclusión del silencio. Ambos workers precargan el módulo con caché fuente v3.30. No cambian las claves o el formato del historial, la asignación por día ni su redondeo.
