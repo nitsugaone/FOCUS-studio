@@ -1,3 +1,4 @@
+import {ListeningProgress} from '../session/ListeningProgress.js';
 import {createSessionExtensionController} from './SessionExtensionController.js';
 import {createMixLibraryController} from './MixLibraryController.js';
 import {validStudio,mixSearchIndices,createMixCopy} from '../storage/mixes.js';
@@ -521,7 +522,7 @@ export function startFocusApp({
         $('extension-status').textContent='';
         cycleState=cycleTools.initial(plan,singleDuration);
         clock.durationMinutes=cycleTools.duration(cycleState);
-        sessionRecordedMs=0;clock.elapsedMs=0;
+        listeningProgress.checkpoint();clock.elapsedMs=0;
         $('resume-status').textContent='';
         modeLabelEl.textContent=clock.durationMinutes?'Cuenta regresiva ('+clock.durationMinutes+' min)':'Tiempo de sesión (Libre)';
         $('custom-duration-status').textContent='';
@@ -565,7 +566,7 @@ export function startFocusApp({
         clock.durationMinutes=saved.duration;
         clock.elapsedMs=clock.durationMinutes ? Math.min(saved.elapsed,clock.durationMinutes*60000) : saved.elapsed;
         if(cycleState.plan!=='single'&&clock.elapsedMs>=clock.durationMinutes*60000)cycleState=cycleTools.complete(cycleState);
-        sessionRecordedMs=clock.elapsedMs; // Time from the previous visit is already in history.
+        listeningProgress.checkpoint(clock.elapsedMs); // Time from the previous visit is already in history.
         document.querySelectorAll('.mode-chip').forEach(c=>c.setAttribute('aria-pressed',String(Number(c.dataset.minutes)===clock.durationMinutes)));
         modeLabelEl.textContent=clock.durationMinutes ? 'Cuenta regresiva ('+clock.durationMinutes+' min)' : 'Tiempo de sesión (Libre)';
         if(clock.elapsedMs>0 && (!clock.durationMinutes || clock.elapsedMs<clock.durationMinutes*60000)) {
@@ -758,13 +759,13 @@ export function startFocusApp({
         if(cycleState.plan!=='single'&&cycleState.completed) {
           cycleState=cycleTools.next(cycleState);
           clock.durationMinutes=cycleTools.duration(cycleState);
-          clock.elapsedMs=0;sessionRecordedMs=0;renderTimer();saveSession(true);
+          clock.elapsedMs=0;listeningProgress.checkpoint();renderTimer();saveSession(true);
         }
         transitioning = true;
         hideError();
         if (clock.durationMinutes > 0 && clock.elapsedMs >= clock.durationMinutes * 60000) {
           clock.elapsedMs = 0;
-          sessionRecordedMs = 0;
+          listeningProgress.checkpoint();
           $('extension-status').textContent='';
         }
         syncUI();
@@ -926,7 +927,7 @@ export function startFocusApp({
         cycleState={...cycleState,completed:false};
         syncCycleUI();
         syncFocusHistoryProgress(true);
-        sessionRecordedMs = 0;
+        listeningProgress.checkpoint();
         clock.elapsedMs = 0;
         saveSession(true);
         $('resume-status').textContent='';
@@ -943,7 +944,7 @@ export function startFocusApp({
       // SECCIÓN DE DATOS: HISTORIAL DE HÁBITOS DE FOCO (SVG NATIVO)
       // ==========================================
       const HISTORY_STORAGE_KEY = 'focus-daily-history-v1';
-      let sessionRecordedMs = 0;
+      const listeningProgress=new ListeningProgress();
       let dailyHistory = null;
 
       function getTodayKey() {
@@ -986,15 +987,8 @@ export function startFocusApp({
       }
 
       function syncFocusHistoryProgress(flush = false) {
-        const currentMs = clock.elapsedMs;
-        if(isSilentRest()){sessionRecordedMs=currentMs;return;}
-        const deltaMs = currentMs - sessionRecordedMs;
-        if (deltaMs >= (flush ? 1000 : 5000)) {
-          const deltaSecs = Math.floor(deltaMs / 1000);
-          sessionRecordedMs += deltaSecs * 1000;
-          addFocusSecondsToToday(deltaSecs);
-          renderHistoryChart();
-        }
+        const seconds=listeningProgress.advance(clock.elapsedMs,{silent:isSilentRest(),flush});
+        if(seconds){addFocusSecondsToToday(seconds);renderHistoryChart();}
       }
 
       function getLast7DaysData() {
@@ -1128,7 +1122,7 @@ export function startFocusApp({
           cycleState=cycleTools.initial('single',modeParam);
           clock.durationMinutes = modeParam;
           $('custom-minutes').value=modeParam;
-          clock.elapsedMs=0;sessionRecordedMs=0;
+          clock.elapsedMs=0;listeningProgress.checkpoint();
           $('resume-status').textContent='';
           document.querySelectorAll('.mode-chip').forEach((c) => {
             c.setAttribute('aria-pressed', String(Number(c.dataset.minutes) === modeParam));
