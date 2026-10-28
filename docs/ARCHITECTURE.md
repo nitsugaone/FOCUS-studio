@@ -86,3 +86,11 @@ La prueba importa el controlador de producción, conserva todas las aserciones a
 `checkpoint(elapsedMs = 0)` conserva el punto ya registrado al restaurar una sesión o reinicia la contabilización al iniciar otro tramo. El módulo no conoce DOM, almacenamiento ni Web Audio. `FocusController` conserva la coordinación de guardado y renderizado del historial y los mismos puntos de cierre, restauración y reinicio.
 
 La prueba de descansos importa la clase de producción, conserva las aserciones anteriores y comprueba umbrales, fracciones, llamadas repetidas, restauración, reinicio y exclusión del silencio. Ambos workers precargan el módulo con caché fuente v3.30. No cambian las claves o el formato del historial, la asignación por día ni su redondeo.
+
+## Coordinación de pausa
+
+`src/ui/PlaybackPauseController.js` coordina la pausa mediante adaptadores explícitos de estado, reloj, motor de audio, persistencia, interfaz, Media Session y Wake Lock. `FocusController` conserva el registro de eventos y el arranque. Los accesores leen el estado y los ajustes actuales; el motor sigue sin dependencias del DOM.
+
+Se conserva el orden: detener el reloj y registrar el progreso, comprobar el final y persistir el ciclo completado, preparar la valoración del tramo de foco cuando corresponde, marcar la pausa, pausar el motor y el audio auxiliar, actualizar Media Session, liberar Wake Lock y sincronizar la interfaz. Una pausa repetida o durante una transición no ejecuta efectos.
+
+La prueba de cierre de audio importa ahora la fábrica real y conserva todas sus aserciones anteriores. También comprueba el orden, la finalización tras un callback tardío, pausas repetidas, transiciones, valoración y navegadores sin Media Session o audio auxiliar. Ninguna prueba unitaria reconstruye ya funciones de UI desde texto; el helper de fuente se conserva para la comprobación estática de compatibilidad de ciclos y las pruebas de renderizado Web Audio en navegador. Ambos workers precargan el nuevo módulo con caché fuente v3.31.
