@@ -62,3 +62,11 @@ Las pruebas unitarias de funciones puras de DSP, ciclos, enlaces, mezclas, copia
 En esta etapa, 13 archivos eliminan la extracción textual de funciones; otros tres importan su parte pura y conservan el entorno simulado de interfaz para el comportamiento restante. La prueba de ciclos mantiene una comprobación estática de compatibilidad con navegadores sin `Object.hasOwn`. El AudioWorklet conserva el entorno simulado de `registerProcessor`.
 
 `tests/support/application-source.mjs` sigue reservado para los casos que necesitan estado interno del controlador y para transportar funciones a las pruebas de renderizado Web Audio del navegador. Esos casos y los 210 escenarios de navegador se mantienen; esta migración no expone nuevas APIs del producto para facilitar las pruebas.
+
+## Controlador de biblioteca de mezclas
+
+`src/ui/MixLibraryController.js` coordina guardar cambios, eliminar y recuperar la última eliminación. Recibe el estado de la biblioteca, el acceso a elementos, la función de persistencia, el renderizado y la selección como dependencias explícitas. `FocusController` conserva el arranque, la carga y validación de datos, los eventos y la aplicación de ajustes al audio.
+
+El controlador escribe antes de cambiar el estado. Una escritura fallida conserva las mezclas y la recuperación pendiente; una edición guardada descarta la recuperación anterior. La eliminación conserva una copia de los niveles y la recuperación mantiene posición y metadatos. La búsqueda y los mensajes conservan su comportamiento.
+
+La prueba de recuperación importa la misma fábrica usada por la aplicación y proporciona su estado y adaptadores de UI/almacenamiento. Conserva las aserciones existentes sin leer archivos fuente ni reconstruir funciones. El módulo forma parte de la precarga de ambos workers; la caché fuente pasa a v3.28.

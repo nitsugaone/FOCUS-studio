@@ -1,23 +1,20 @@
-import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
-import {readFile} from 'node:fs/promises';
+import {createMixLibraryController} from '../src/ui/MixLibraryController.js';
 import assert from 'node:assert/strict';
-const html=await readApplicationSource();
 function library(input) {
- return new Function('input',`
-  let savedMixes=input,mixDeletionUndo=null,selection='',fail=false,writes=0,disk=JSON.stringify(input);
-  const elements=new Map(),$=id=>{if(!elements.has(id))elements.set(id,{value:'',hidden:false,disabled:false});return elements.get(id);};
-  function selectedMixIndex(){return selection!==''&&savedMixes[Number(selection)]?Number(selection):-1;}
-  function writeLocal(key,value){if(fail)return false;writes++;disk=JSON.stringify(value);return true;}
-  function renderMixes(selected=''){selection=String(selected);syncMixUndoUI();}
-  ${extractFunctions(html,["syncMixUndoUI","commitMixes","deleteSelectedMix","undoMixDeletion"])}
-  syncMixUndoUI();
-  return {
-   select(index){selection=index<0?'':String(index);},
-   remove:deleteSelectedMix,undo:undoMixDeletion,commit:commitMixes,
-   fail(value){fail=value;},query(value){$('mix-search').value=value;},
-   state(){return {mixes:savedMixes,pending:mixDeletionUndo,selection,writes,disk,query:$('mix-search').value,button:$('undo-delete-mix'),name:$('preset-name').value};}
-  };
- `)(input);
+ let selection='',fail=false,writes=0,disk=JSON.stringify(input);
+ const model={mixes:input,deletionUndo:null};
+ const elements=new Map(),$=id=>{if(!elements.has(id))elements.set(id,{value:'',hidden:false,disabled:false});return elements.get(id);};
+ function selectedMixIndex(){return selection!==''&&model.mixes[Number(selection)]?Number(selection):-1;}
+ function writeLocal(key,value){if(fail)return false;writes++;disk=JSON.stringify(value);return true;}
+ function renderMixes(selected=''){selection=String(selected);controller.syncMixUndoUI();}
+ const controller=createMixLibraryController({state:model,$,writeLocal,renderMixes,selectedMixIndex});
+ controller.syncMixUndoUI();
+ return {
+  select(index){selection=index<0?'':String(index);},
+  remove:controller.deleteSelectedMix,undo:controller.undoMixDeletion,commit:controller.commitMixes,
+  fail(value){fail=value;},query(value){$('mix-search').value=value;},
+  state(){return {mixes:model.mixes,pending:model.deletionUndo,selection,writes,disk,query:$('mix-search').value,button:$('undo-delete-mix'),name:$('preset-name').value};}
+ };
 }
 const records=Object.freeze(['Lluvia','Lectura','Trabajo'].map((name,index)=>Object.freeze({name,favorite:index===1,scene:'rain',duration:25,levels:Object.freeze({master:75,noise:70+index,drone:20,notes:10})})));
 const app=library(records);
