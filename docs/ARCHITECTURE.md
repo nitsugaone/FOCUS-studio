@@ -70,3 +70,11 @@ En esta etapa, 13 archivos eliminan la extracción textual de funciones; otros t
 El controlador escribe antes de cambiar el estado. Una escritura fallida conserva las mezclas y la recuperación pendiente; una edición guardada descarta la recuperación anterior. La eliminación conserva una copia de los niveles y la recuperación mantiene posición y metadatos. La búsqueda y los mensajes conservan su comportamiento.
 
 La prueba de recuperación importa la misma fábrica usada por la aplicación y proporciona su estado y adaptadores de UI/almacenamiento. Conserva las aserciones existentes sin leer archivos fuente ni reconstruir funciones. El módulo forma parte de la precarga de ambos workers; la caché fuente pasa a v3.28.
+
+## Controlador de extensión de sesiones
+
+`src/ui/SessionExtensionController.js` coordina la acción existente de prolongar una sesión y su disponibilidad visual. Importa la regla pura de `src/session/cycles.js`; recibe el reloj, accesores al estado actual y callbacks de audio, persistencia y renderizado. Los accesores evitan conservar una copia obsoleta cuando el controlador principal reemplaza el estado de un ciclo.
+
+La extensión avanza el reloj antes de validar, conserva el tiempo transcurrido y el historial, y reprograma únicamente el cierre de audio cuando hay reproducción. Mantiene el límite de 180 minutos y la exclusión de sesiones libres, ciclos, tramos terminados y transiciones. El fallo de guardado conserva el cambio en memoria y el mensaje existente.
+
+La prueba importa el controlador de producción, conserva todas las aserciones anteriores y añade comprobaciones del contrato visual y del fallo de guardado. No reconstruye cuerpos de funciones ni lee código fuente. Ambos workers precargan el módulo; la caché fuente pasa a v3.29. No cambian el HTML, los eventos ni los escenarios de navegador.
