@@ -35,7 +35,7 @@ Las pruebas de navegador conservan casos, selectores y acciones. Las pruebas que
 
 Ejecutar:
 - `node --test tests/*.test.mjs`
-- En `tools/browser-tests`: `npm install --ignore-scripts --package-lock=false --no-audit --no-fund` y `npm test`.
+- En `tools/browser-tests`: `npm ci --ignore-scripts --no-audit --no-fund` y `npm test`.
 
 El scaffold React/TypeScript previo se conserva fuera del punto de entrada de Pages; no forma parte del arranque modular de esta aplicación.
 
@@ -48,3 +48,9 @@ El despliegue sin empaquetar conserva las rutas fuente en ambos workers del repo
 La CI ejecuta `npm run build -- --base=/FOCUS-studio/` con las dependencias de la aplicación y valida el resultado real mediante `node scripts/validate-build.mjs`. Comprueba el bundle, la ubicación pública del manifest, sus recursos y accesos de inicio y las URLs precargadas por el worker. El hook HTML de Vite conserva el manifest en la raíz pública para que sus rutas relativas sigan siendo válidas.
 
 El artefacto `focus-production-build` se descarga en un job de navegador independiente. Los mismos 210 casos se ejecutan sin cambios contra los módulos fuente y contra `dist/`, incluidos el uso offline y la reproducción. El servidor de pruebas elige `dist/` cuando `FOCUS_TEST_TARGET=build` y mantiene el montaje `/FOCUS-studio/`. Los reportes de ambas variantes se guardan por separado.
+
+## Instalaciones con dependencias bloqueadas
+
+El proyecto conserva `package-lock.json` en la raíz y otro en `tools/browser-tests/`, porque son instalaciones npm independientes. Ambos registran versiones resueltas, URLs e integridad de los paquetes. La CI instala con `npm ci --ignore-scripts --no-audit --no-fund`; el build y las pruebas usan esas resoluciones.
+
+Para preparar el build local, ejecutar `npm ci --ignore-scripts --no-audit --no-fund` en la raíz. Para las pruebas de navegador, ejecutar el mismo comando en `tools/browser-tests/`. Las actualizaciones intencionales de dependencias deben incluir el manifest y su lockfile correspondiente y superar las validaciones de lógica, build, offline y ambas distribuciones.
