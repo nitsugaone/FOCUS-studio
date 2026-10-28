@@ -1,3 +1,4 @@
+import {createSessionExtensionController} from './SessionExtensionController.js';
 import {createMixLibraryController} from './MixLibraryController.js';
 import {validStudio,mixSearchIndices,createMixCopy} from '../storage/mixes.js';
 import {summarizeRatings} from '../storage/insights.js';
@@ -9,7 +10,7 @@ import {FocusAudioEngine} from '../audio/FocusAudioEngine.js';
 import {SCENES} from '../audio/scenes.js';
 import {entryEnvelope,sessionEnvelope,balanceLabel} from '../audio/dsp.js';
 import {StorageService} from '../storage/StorageService.js';
-import {createCycleTools,isSilentRestState,sessionExtension} from '../session/cycles.js';
+import {createCycleTools,isSilentRestState} from '../session/cycles.js';
 
 export function startFocusApp({
   window=globalThis.window,document=globalThis.document,navigator=globalThis.navigator,
@@ -489,29 +490,11 @@ export function startFocusApp({
           label:(last?'Repetir ciclo: ': 'Iniciar ')+(next.phase==='rest'?(studio.restSound==='silent'?'descanso en silencio':'descanso'):'ronda '+next.round)+' de '+cycleTools.duration(next)+' minutos'};
       }
 
-      function syncExtensionUI() {
-        const button=$('extend-session'),next=sessionExtension(cycleState.plan,clock.durationMinutes,clock.elapsedMs);
-        button.hidden=cycleState.plan!=='single'||clock.durationMinutes===0;
-        button.disabled=transitioning||!next;
-        button.textContent=next?'+'+next.added+' min':clock.durationMinutes===180?'Máximo 180 min':'+5 min';
-        button.setAttribute('aria-label',next?'Sumar '+next.added+' '+(next.added===1?'minuto':'minutos')+' a la sesión sin reiniciar':'La sesión no se puede prolongar');
-      }
-      function extendSession() {
-        if(transitioning)return;
-        advanceSessionClock();
-        const next=sessionExtension(cycleState.plan,clock.durationMinutes,clock.elapsedMs);
-        if(!next){renderTimer();syncExtensionUI();return;}
-        clock.durationMinutes=next.duration;
-        cycleState={...cycleState,singleDuration:next.duration};
-        $('custom-minutes').value=String(next.duration);
-        $('custom-minutes').setAttribute('aria-invalid','false');
-        $('custom-duration-status').textContent='';
-        modeLabelEl.textContent='Cuenta regresiva ('+next.duration+' min)';
-        if(playing)scheduleAudioClosing(true);
-        applyScene();renderTimer();
-        const saved=saveSession(true);syncUI();
-        $('extension-status').textContent='Sumaste '+next.added+' '+(next.added===1?'minuto':'minutos')+'. Duración total: '+next.duration+' minutos.'+(saved===false?' No se pudo guardar el cambio en este dispositivo.':'');
-      }
+      const {syncExtensionUI,extendSession}=createSessionExtensionController({
+        clock,getCycleState:()=>cycleState,setCycleState:value=>{cycleState=value;},
+        isPlaying:()=>playing,isTransitioning:()=>transitioning,$,modeLabelEl,
+        advanceSessionClock,scheduleAudioClosing,applyScene,renderTimer,saveSession,syncUI
+      });
 
       function syncCycleUI() {
         syncExtensionUI();
