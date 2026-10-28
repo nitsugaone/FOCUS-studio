@@ -1,9 +1,10 @@
+import {scheduleSessionClosing as schedule} from '../src/audio/dsp.js';
 import {SessionClock} from '../src/session/SessionClock.js';
 import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
-import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
+
 const html=await readApplicationSource();
-const schedule=new Function(extractFunctions(html,["sessionEnvelope","scheduleSessionClosing"])+'return scheduleSessionClosing;')();
+
 function commands(elapsed,duration,fade,silent=false,smooth=false) {
  const events=[],param={value:.2,cancelScheduledValues(time){events.push(['cancel',time]);},setValueAtTime(value,time){events.push(['set',value,time]);},linearRampToValueAtTime(value,time){events.push(['linear',value,time]);}};
  schedule({currentTime:100},param,elapsed,duration,fade,silent,smooth);return events;

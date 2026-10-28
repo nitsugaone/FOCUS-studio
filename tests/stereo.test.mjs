@@ -1,8 +1,8 @@
-import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
-import {readFile} from 'node:fs/promises';
+import {stereoCoefficients,createStereoField} from '../src/audio/dsp.js';
 import assert from 'node:assert/strict';
-const html=await readApplicationSource();
-const tools=new Function(extractFunctions(html,["stereoCoefficients","createStereoField"])+'return {stereoCoefficients,createStereoField};')();
+
+const tools={stereoCoefficients,createStereoField};
+
 assert.deepEqual(tools.stereoCoefficients(100),{direct:1,cross:0});
 assert.deepEqual(tools.stereoCoefficients(0),{direct:.5,cross:.5});
 assert.deepEqual(tools.stereoCoefficients(50),{direct:.75,cross:.25});

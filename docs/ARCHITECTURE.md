@@ -54,3 +54,11 @@ El artefacto `focus-production-build` se descarga en un job de navegador indepen
 El proyecto conserva `package-lock.json` en la raíz y otro en `tools/browser-tests/`, porque son instalaciones npm independientes. Ambos registran versiones resueltas, URLs e integridad de los paquetes. La CI instala con `npm ci --ignore-scripts --no-audit --no-fund`; el build y las pruebas usan esas resoluciones.
 
 Para preparar el build local, ejecutar `npm ci --ignore-scripts --no-audit --no-fund` en la raíz. Para las pruebas de navegador, ejecutar el mismo comando en `tools/browser-tests/`. Las actualizaciones intencionales de dependencias deben incluir el manifest y su lockfile correspondiente y superar las validaciones de lógica, build, offline y ambas distribuciones.
+
+## Pruebas de contratos ES6
+
+Las pruebas unitarias de funciones puras de DSP, ciclos, enlaces, mezclas, copias e informes importan las exportaciones de producción. Así comprueban el contrato real del módulo y sus dependencias sin buscar cuerpos de funciones por nombre o indentación. Se conservan las mismas aserciones de comportamiento.
+
+En esta etapa, 13 archivos eliminan la extracción textual de funciones; otros tres importan su parte pura y conservan el entorno simulado de interfaz para el comportamiento restante. La prueba de ciclos mantiene una comprobación estática de compatibilidad con navegadores sin `Object.hasOwn`. El AudioWorklet conserva el entorno simulado de `registerProcessor`.
+
+`tests/support/application-source.mjs` sigue reservado para los casos que necesitan estado interno del controlador y para transportar funciones a las pruebas de renderizado Web Audio del navegador. Esos casos y los 210 escenarios de navegador se mantienen; esta migración no expone nuevas APIs del producto para facilitar las pruebas.

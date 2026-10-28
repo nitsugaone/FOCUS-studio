@@ -1,9 +1,11 @@
-import {readApplicationSource,extractFunctions} from './support/application-source.mjs';
-import {readFile} from 'node:fs/promises';
+import {createCycleTools} from '../src/session/cycles.js';
+import {readApplicationSource} from './support/application-source.mjs';
 import assert from 'node:assert/strict';
+
+const tools=createCycleTools();
 const html=await readApplicationSource();
 assert.ok(!html.includes('Object.hasOwn('),'Startup must support browsers without Object.hasOwn');
-const tools=new Function(extractFunctions(html,["createCycleTools"])+'return createCycleTools();')();
+
 let state=tools.initial('25-5',45);
 assert.equal(tools.duration(state),25);
 assert.deepEqual(tools.next(state),state,'An unfinished phase never advances');
