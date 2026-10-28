@@ -42,3 +42,9 @@ El scaffold React/TypeScript previo se conserva fuera del punto de entrada de Pa
 ## Build Vite
 
 El despliegue sin empaquetar conserva las rutas fuente en ambos workers del repositorio. Para `vite build`, el plugin `scripts/build-offline-worker.mjs` reemplaza el worker de salida después de emitir los archivos: precarga el bundle y recursos realmente presentes en el directorio de salida, sin mapas de fuentes ni rutas `src/` inexistentes. La versión de caché se deriva del contenido emitido. La prueba del hook usa un directorio temporal y comprueba que todas las rutas precargadas existen.
+
+## Validación del build completo
+
+La CI ejecuta `npm run build -- --base=/FOCUS-studio/` con las dependencias de la aplicación y valida el resultado real mediante `node scripts/validate-build.mjs`. Comprueba el bundle, la ubicación pública del manifest, sus recursos y accesos de inicio y las URLs precargadas por el worker. El hook HTML de Vite conserva el manifest en la raíz pública para que sus rutas relativas sigan siendo válidas.
+
+El artefacto `focus-production-build` se descarga en un job de navegador independiente. Los mismos 210 casos se ejecutan sin cambios contra los módulos fuente y contra `dist/`, incluidos el uso offline y la reproducción. El servidor de pruebas elige `dist/` cuando `FOCUS_TEST_TARGET=build` y mantiene el montaje `/FOCUS-studio/`. Los reportes de ambas variantes se guardan por separado.
