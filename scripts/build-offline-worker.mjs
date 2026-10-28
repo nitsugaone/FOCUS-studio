@@ -31,6 +31,14 @@ export async function buildOfflineWorker(outputDirectory,workerPath=new URL('../
 export function focusOfflinePlugin() {
  return {
   name:'focus-offline-output',apply:'build',enforce:'post',
+  transformIndexHtml: {
+   order:'post',
+   handler(html) {
+    // Keep URLs inside the manifest relative to the application root.
+    return html.replace(/<link\b[^>]*\brel=["']manifest["'][^>]*>/gi,
+     tag=>tag.replace(/\bhref=(["'])[^"']*\1/i,'href="./manifest.json"'));
+   }
+  },
   async writeBundle(options) {
    if(!options.dir)throw Error('Offline build requires an output directory');
    await buildOfflineWorker(options.dir);

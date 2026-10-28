@@ -20,6 +20,8 @@ for(const match of html.matchAll(/<link\b[^>]*\bhref="([^"]+)"/g))await emitted(
 
 const manifestURL=new URL(html.match(/<link\b[^>]*rel="manifest"[^>]*href="([^"]+)"/)?.[1]??'manifest.json',base);
 const manifest=JSON.parse(await emitted(manifestURL));
+await emitted(new URL(manifest.start_url??'./',manifestURL));
+for(const shortcut of manifest.shortcuts??[])await emitted(new URL(shortcut.url,manifestURL));
 for(const item of [...(manifest.icons??[]),...(manifest.screenshots??[])])await emitted(new URL(item.src,manifestURL));
 
 const worker=await emitted(new URL('sw.js',base)),events={};let assets;
