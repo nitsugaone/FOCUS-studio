@@ -1,3 +1,4 @@
+import {createMixLibraryController} from './MixLibraryController.js';
 import {validStudio,mixSearchIndices,createMixCopy} from '../storage/mixes.js';
 import {summarizeRatings} from '../storage/insights.js';
 import {createShareTools} from '../session/sharing.js';
@@ -53,8 +54,7 @@ export function startFocusApp({
 
       const STUDIO_KEY = 'focus-studio-v3';
       let studio = {scene:'rain',evolution:35,brightness:50,melody:true,stereoWidth:100,balance:0,notePace:'normal',fadeOutSeconds:20,fadeInSeconds:12,preserveMix:false,restSound:'sound'};
-      let savedMixes = [];
-      let mixDeletionUndo = null;
+      const mixState={mixes:[],deletionUndo:null};
       let feedbackSession = null;
       const storage=new StorageService(localStorage);
       function readLocal(key,fallback) { return storage.read(key,fallback); }
@@ -126,15 +126,15 @@ export function startFocusApp({
 
       function selectedMixIndex() {
         const value=$('saved-mixes').value;
-        return value!=='' && savedMixes[Number(value)] ? Number(value) : -1;
+        return value!=='' && mixState.mixes[Number(value)] ? Number(value) : -1;
       }
 
       function renderMixes(selected='') {
         const select=$('saved-mixes');select.replaceChildren(new Option('Elegí una mezcla',''));
         const favorites=$('favorite-mixes');favorites.replaceChildren();
-        const query=$('mix-search').value,indices=mixSearchIndices(savedMixes,query);
+        const query=$('mix-search').value,indices=mixSearchIndices(mixState.mixes,query);
         indices.forEach(i=>{
-          const mix=savedMixes[i];
+          const mix=mixState.mixes[i];
           select.add(new Option((mix.favorite?'★ ':'')+mix.name,String(i)));
           if(mix.favorite) {
             const button=document.createElement('button');
@@ -149,11 +149,11 @@ export function startFocusApp({
         select.value=indices.some(i=>String(i)===String(selected))?String(selected):'';
         select.disabled=indices.length===0;
         $('clear-mix-search').hidden=query.length===0;
-        $('mix-search-status').textContent=!savedMixes.length?'Todavía no guardaste mezclas.':!indices.length?'No hay mezclas que coincidan. Probá con otro nombre.':indices.length+' de '+savedMixes.length+' mezclas';
+        $('mix-search-status').textContent=!mixState.mixes.length?'Todavía no guardaste mezclas.':!indices.length?'No hay mezclas que coincidan. Probá con otro nombre.':indices.length+' de '+mixState.mixes.length+' mezclas';
         syncMixActions();syncMixUndoUI();
       }
       function syncMixActions() {
-        const index=selectedMixIndex(), mix=savedMixes[index];
+        const index=selectedMixIndex(), mix=mixState.mixes[index];
         ['update-mix','duplicate-mix','rename-mix','favorite-mix','delete-mix','load-mix'].forEach(id=>$(id).disabled=index<0);
         $('favorite-mix').textContent=mix?.favorite ? 'Quitar de favoritas' : 'Marcar favorita';
         $('favorite-mix').setAttribute('aria-pressed',String(Boolean(mix?.favorite)));
@@ -175,36 +175,9 @@ export function startFocusApp({
           levels:Object.fromEntries(Object.keys(DEFAULTS).map(k=>[k,Number($('vol-'+k).value)]))};
       }
 
-      function syncMixUndoUI() {
-        const available=mixDeletionUndo!==null;
-        $('undo-delete-mix').hidden=!available;
-        $('undo-delete-mix').disabled=!available;
-        $('mix-undo-hint').hidden=!available;
-      }
-      function commitMixes(next, selected='', reveal=false) {
-        if(!writeLocal('focus-mixes-v3',next))return false;
-        savedMixes=next;mixDeletionUndo=null;
-        if(reveal)$('mix-search').value='';
-        renderMixes(selected);return true;
-      }
-      function deleteSelectedMix() {
-        const index=selectedMixIndex();if(index<0)return;
-        const mix=savedMixes[index],removed={index,mix:{...mix,levels:{...mix.levels}}};
-        if(commitMixes(savedMixes.filter((_,i)=>i!==index))){
-          mixDeletionUndo=removed;syncMixUndoUI();
-          $('studio-status').textContent='Mezcla eliminada.';
-        }
-      }
-      function undoMixDeletion() {
-        if(!mixDeletionUndo)return;
-        if(savedMixes.length>=50){$('studio-status').textContent='No hay espacio para recuperar la mezcla.';return;}
-        const {mix}=mixDeletionUndo,index=Math.min(mixDeletionUndo.index,savedMixes.length);
-        const next=[...savedMixes.slice(0,index),mix,...savedMixes.slice(index)];
-        if(commitMixes(next,String(index),true)){
-          $('preset-name').value=mix.name;
-          $('studio-status').textContent='Mezcla recuperada. Cargala en pausa para usarla.';
-        }
-      }
+      const {syncMixUndoUI,commitMixes,deleteSelectedMix,undoMixDeletion}=createMixLibraryController({
+        state:mixState,$,writeLocal,renderMixes,selectedMixIndex
+      });
       // Only crossing the breakpoint resets panels. Manual toggles within a
       // layout remain untouched, and playback nodes are never recreated.
       const setupResponsivePanels=createResponsiveController({window,$});
@@ -213,7 +186,7 @@ export function startFocusApp({
         const loaded=readLocal(STUDIO_KEY,null);
         if(validStudio(loaded)) studio={scene:loaded.scene,evolution:loaded.evolution,brightness:loaded.brightness,melody:loaded.melody,stereoWidth:loaded.stereoWidth??100,balance:loaded.balance??0,notePace:loaded.notePace??'normal',fadeOutSeconds:loaded.fadeOutSeconds??20,fadeInSeconds:loaded.fadeInSeconds??12,preserveMix:loaded.preserveMix??false,restSound:loaded.restSound??'sound'};
         const mixes=readLocal('focus-mixes-v3',[]);
-        savedMixes=Array.isArray(mixes) ? mixes.filter(m=>validStudio(m)&&typeof m.name==='string'&&m.levels&&Object.keys(DEFAULTS).every(k=>Number.isFinite(m.levels[k])&&m.levels[k]>=0&&m.levels[k]<=100)).slice(0,50) : [];
+        mixState.mixes=Array.isArray(mixes) ? mixes.filter(m=>validStudio(m)&&typeof m.name==='string'&&m.levels&&Object.keys(DEFAULTS).every(k=>Number.isFinite(m.levels[k])&&m.levels[k]>=0&&m.levels[k]<=100)).slice(0,50) : [];
         syncStudio();renderMixes();
         $('mix-search').addEventListener('input',()=>renderMixes($('saved-mixes').value));
         $('clear-mix-search').addEventListener('click',()=>{
@@ -267,12 +240,12 @@ export function startFocusApp({
         });
         $('save-mix').addEventListener('click',()=>{
           const name=$('preset-name').value.trim(); if(!name){$('studio-status').textContent='Escribí un nombre para tu mezcla.';return;}
-          if(savedMixes.length>=50){$('studio-status').textContent='Podés guardar hasta 50 mezclas.';return;}
-          if(commitMixes([...savedMixes,currentMix(name)],String(savedMixes.length),true))$('studio-status').textContent='Mezcla guardada.';
+          if(mixState.mixes.length>=50){$('studio-status').textContent='Podés guardar hasta 50 mezclas.';return;}
+          if(commitMixes([...mixState.mixes,currentMix(name)],String(mixState.mixes.length),true))$('studio-status').textContent='Mezcla guardada.';
         });
         $('load-mix').addEventListener('click',()=>{
           if($('saved-mixes').value==='')return;
-          const mix=savedMixes[Number($('saved-mixes').value)];if(!mix)return;
+          const mix=mixState.mixes[Number($('saved-mixes').value)];if(!mix)return;
           if(playing||transitioning){$('studio-status').textContent=transitioning?'Esperá a que termine el inicio del audio para cargar una mezcla.':'Pausá la sesión antes de cargar una mezcla.';return;}
           studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,balance:mix.balance??0,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20,fadeInSeconds:mix.fadeInSeconds??12,preserveMix:mix.preserveMix??false,restSound:mix.restSound??'sound'};
           Object.keys(DEFAULTS).forEach(k=>{$('vol-'+k).value=mix.levels[k];updateRange(k,false);});
@@ -286,19 +259,19 @@ export function startFocusApp({
 
         $('saved-mixes').addEventListener('change',()=>{
           syncMixActions();
-          const mix=savedMixes[selectedMixIndex()];
+          const mix=mixState.mixes[selectedMixIndex()];
           if(mix)$('preset-name').value=mix.name;
         });
         $('update-mix').addEventListener('click',()=>{
           const i=selectedMixIndex();if(i<0)return;
-          const next=savedMixes.map((mix,j)=>j===i?currentMix(mix.name,mix.favorite===true):mix);
+          const next=mixState.mixes.map((mix,j)=>j===i?currentMix(mix.name,mix.favorite===true):mix);
           if(commitMixes(next,String(i)))$('studio-status').textContent='Ajustes de la mezcla actualizados.';
         });
         $('duplicate-mix').addEventListener('click',()=>{
           const index=selectedMixIndex();if(index<0)return;
           try {
-            const copy=createMixCopy(savedMixes,index);
-            if(commitMixes([...savedMixes,copy],String(savedMixes.length),true)){
+            const copy=createMixCopy(mixState.mixes,index);
+            if(commitMixes([...mixState.mixes,copy],String(mixState.mixes.length),true)){
               $('preset-name').value=copy.name;
               $('studio-status').textContent='Copia guardada. Cargala en pausa para editar su sonido.';
             }
@@ -307,11 +280,11 @@ export function startFocusApp({
         $('rename-mix').addEventListener('click',()=>{
           const i=selectedMixIndex(),name=$('preset-name').value.trim();if(i<0)return;
           if(!name){$('studio-status').textContent='Escribí el nuevo nombre.';return;}
-          if(commitMixes(savedMixes.map((mix,j)=>j===i?{...mix,name}:mix),String(i),true))$('studio-status').textContent='Mezcla renombrada.';
+          if(commitMixes(mixState.mixes.map((mix,j)=>j===i?{...mix,name}:mix),String(i),true))$('studio-status').textContent='Mezcla renombrada.';
         });
         $('favorite-mix').addEventListener('click',()=>{
           const i=selectedMixIndex();if(i<0)return;
-          commitMixes(savedMixes.map((mix,j)=>j===i?{...mix,favorite:mix.favorite!==true}:mix),String(i));
+          commitMixes(mixState.mixes.map((mix,j)=>j===i?{...mix,favorite:mix.favorite!==true}:mix),String(i));
         });
         $('save-feedback').addEventListener('click',()=>{
           if(!feedbackSession)return;
