@@ -34,7 +34,7 @@ jobs:
         with:
           node-version: '24'
       - name: Install application build dependencies
-        run: npm install --ignore-scripts --package-lock=false --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Build the production application for its deployed subpath
         run: npm run build -- --base=/FOCUS-studio/
       - name: Validate emitted bundle and offline assets
@@ -73,7 +73,7 @@ jobs:
           name: focus-production-build
           path: dist/
       - name: Install pinned browser test dependency
-        run: npm install --ignore-scripts --package-lock=false --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Run browser checks
         run: npm test
       - name: Save browser report and screenshots
