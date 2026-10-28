@@ -1,3 +1,4 @@
+import {createPlaybackPauseController} from './PlaybackPauseController.js';
 import {ListeningProgress} from '../session/ListeningProgress.js';
 import {createSessionExtensionController} from './SessionExtensionController.js';
 import {createMixLibraryController} from './MixLibraryController.js';
@@ -806,33 +807,13 @@ export function startFocusApp({
         }
       }
 
-      function pause(slowFade = false) {
-        if (!playing || transitioning) return;
-        stopSessionClock();
-        const reachedEnd=clock.durationMinutes>0&&clock.elapsedMs>=clock.durationMinutes*60000;
-        if(reachedEnd&&cycleState.plan!=='single'){cycleState=cycleTools.complete(cycleState);saveSession(true);}
-        if((slowFade||reachedEnd) && cycleState.phase==='focus') {
-          feedbackSession={date:new Date().toISOString(),...studio,minutes:Math.round(clock.elapsedMs/60000)};
-          $('session-feedback').hidden=false;
-        }
-        playing = false;
-        engine.pause(slowFade);
-
-        // Pausar elemento de audio auxiliar y wake lock
-        const bgAudio = $('bg-audio');
-        if (bgAudio) {
-          bgAudio.pause();
-        }
-
-        if ('mediaSession' in navigator) {
-          navigator.mediaSession.playbackState = 'paused';
-        }
-
-        releaseWakeLock();
-
-        syncUI();
-
-      }
+      const {pause}=createPlaybackPauseController({
+        clock,getPlaybackState:()=>({playing,transitioning}),setPlaying:value=>{playing=value;},
+        getCycleState:()=>cycleState,setCycleState:value=>{cycleState=value;},
+        completeCycle:state=>cycleTools.complete(state),getStudio:()=>studio,
+        setFeedbackSession:value=>{feedbackSession=value;},$,engine,navigator,
+        stopSessionClock,saveSession,releaseWakeLock,syncUI
+      });
 
       function updateRange(id, save = true) {
         const input = $('vol-' + id);
