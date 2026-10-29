@@ -142,3 +142,11 @@ La cobertura existente de cálculo, aplicación simulada y navegador comprueba e
 Se conservan selección, límite de 1 MB, vista previa, cancelación, opción existente de ajustes, importación/recuperación solo en pausa y descarga JSON con liberación diferida de su URL. La secuencia descarta lecturas antiguas tras otra selección o una cancelación. `FocusController` conserva el indicador que evita guardar el estado anterior durante la salida de página tras restaurar: el callback de recarga se invoca solo después de aplicar o recuperar la copia.
 
 Las pruebas de aplicación existentes siguen comprobando datos inválidos, vista previa, importación en pausa, progreso restaurado durante `pagehide`, recuperación y exportación. La prueba del controlador importa los módulos reales para verificar lecturas asíncronas superpuestas, cancelación y errores sin aplicar datos obsoletos. Ambos workers precargan el nuevo módulo con caché fuente v3.37; se mantienen HTML, eventos, formatos y dependencias.
+
+## Enlaces de mezclas compartidas
+
+`src/ui/SharedMixController.js` posee la mezcla recibida pendiente y coordina vista previa, creación/copia del enlace, menú nativo, aplicación o descarte y limpieza del hash. Recibe ventana, navegador, elementos, estado vigente y callbacks de la aplicación. La codificación y validación continúan en `src/session/sharing.js` con el mismo formato y lista de campos.
+
+`FocusController` conserva la aplicación de ajustes al estudio, niveles y sesión. El callback devuelve los mismos resultados de persistencia; después se oculta la vista previa, se limpia la valoración y se muestran los mensajes existentes, conservando el orden. Recibir o descartar un enlace no aplica ajustes; aplicarlo sigue requiriendo pausa. Compartir utiliza únicamente el enlace generado y el mismo título.
+
+La cobertura existente comprueba la apertura de enlaces de ajustes y compatibilidad, uso del menú nativo, promesa pendiente sin duplicar solicitudes, cancelación/error y copia manual cuando faltan APIs. Se ejecuta completa sin modificar pruebas ni selectores. Ambos workers precargan el módulo con caché fuente v3.38; no cambian controles, datos compartidos ni dependencias.
