@@ -134,3 +134,11 @@ Las pruebas importan el controlador real con adaptadores de eventos y promesas. 
 `FocusController` conserva el guardado de valoraciones, la importación/restauración y el arranque; invoca el mismo renderizado cuando corresponde. Se mantienen la clave `focus-feedback-v3`, todos los selectores, eventos, textos, fechas locales y el uso de `textContent` para los datos mostrados.
 
 La cobertura existente de cálculo, aplicación simulada y navegador comprueba el período predeterminado, todo el historial, filtro por ambiente y filas de grupos/registros. Se conserva sin cambios y se ejecuta completa contra módulos fuente y build. Ambos workers precargan el módulo con caché fuente v3.36; no cambian el HTML, los controles ni las dependencias.
+
+## Interfaz de copias de seguridad
+
+`src/ui/BackupController.js` posee la copia pendiente y la secuencia de lecturas de archivo. Recibe adaptadores de documento, ventana, elementos, almacenamiento, descarga y estado actual de reproducción. Valida y aplica mediante `StorageService`; las reglas de transacción, combinación y recuperación permanecen en `src/storage/backups.js`.
+
+Se conservan selección, límite de 1 MB, vista previa, cancelación, opción existente de ajustes, importación/recuperación solo en pausa y descarga JSON con liberación diferida de su URL. La secuencia descarta lecturas antiguas tras otra selección o una cancelación. `FocusController` conserva el indicador que evita guardar el estado anterior durante la salida de página tras restaurar: el callback de recarga se invoca solo después de aplicar o recuperar la copia.
+
+Las pruebas de aplicación existentes siguen comprobando datos inválidos, vista previa, importación en pausa, progreso restaurado durante `pagehide`, recuperación y exportación. La prueba del controlador importa los módulos reales para verificar lecturas asíncronas superpuestas, cancelación y errores sin aplicar datos obsoletos. Ambos workers precargan el nuevo módulo con caché fuente v3.37; se mantienen HTML, eventos, formatos y dependencias.
