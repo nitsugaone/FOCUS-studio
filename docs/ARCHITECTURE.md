@@ -110,3 +110,11 @@ Las pruebas importan el controlador real y cubren inicio, reanudación, guardas 
 `FocusController` conserva los mismos eventos de historial, el cálculo de segundos mediante `ListeningProgress` y la coordinación con `HistoryView`. La clave `focus-daily-history-v1`, el formato por fecha, el redondeo a décimas por actualización y el redondeo del gráfico a minutos permanecen intactos. El tiempo se asigna al día vigente al registrar, como antes; una escritura fallida conserva los datos en memoria y no cambia el tratamiento existente de errores.
 
 Las pruebas importan el módulo real con almacenamiento y fecha controlados. Cubren carga ausente o inválida, redondeo, cambio de día/año, semana con febrero bisiesto, rachas, reinicio y fallos de lectura/escritura. Ambos workers precargan el módulo con caché fuente v3.33. El HTML y los escenarios de navegador se conservan.
+
+## Servicios de reproducción del navegador
+
+`src/ui/BrowserPlaybackServices.js` posee el Wake Lock y prepara los metadatos y acciones de Media Session. Recibe el navegador, el estado actual de reproducción y los callbacks `play`/`pause`; el constructor de metadatos se obtiene de forma diferida y puede inyectarse en pruebas. No construye nodos ni accede al DOM o al almacenamiento.
+
+`FocusController` conserva los eventos de visibilidad y salida de página, y entrega los mismos servicios a `PlaybackController`. Se mantienen solicitud de bloqueo durante reproducción, limpieza al liberar o recibir el evento `release`, tolerancia a rechazos y navegadores sin estas APIs. Los metadatos y handlers `play`, `pause` y `stop` permanecen idénticos.
+
+Las pruebas importan el servicio real y simulan adquisición, liberación externa o explícita, reacquisición, fallos y soporte opcional. También comprueban metadatos y despacho de las acciones multimedia. Son verificaciones automatizadas de coordinación; no sustituyen pruebas de pantalla bloqueada en dispositivos reales. Ambos workers precargan el módulo con caché fuente v3.34.

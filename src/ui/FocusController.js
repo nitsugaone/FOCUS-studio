@@ -1,3 +1,4 @@
+import {createBrowserPlaybackServices} from './BrowserPlaybackServices.js';
 import {createDailyHistory} from '../storage/DailyHistory.js';
 import {createPlaybackController} from './PlaybackController.js';
 import {ListeningProgress} from '../session/ListeningProgress.js';
@@ -46,7 +47,6 @@ export function startFocusApp({
       let muted = false;
       let preMuteMaster = 75;
 
-      let wakeLock = null;
 
       // Reloj de alta precisión basado en timestamps reales (inmune a background tab throttling)
       const clock=new SessionClock({now:()=>Date.now(),setInterval:(fn,ms)=>window.setInterval(fn,ms),clearInterval});
@@ -632,55 +632,9 @@ export function startFocusApp({
 
 
       // Prevención de apagado de pantalla en escritorio / móviles (Screen Wake Lock API)
-      async function requestWakeLock() {
-        if ('wakeLock' in navigator && playing && !wakeLock) {
-          try {
-            wakeLock = await navigator.wakeLock.request('screen');
-            wakeLock.addEventListener('release', () => {
-              wakeLock = null;
-            });
-          } catch (_) {
-            wakeLock = null;
-          }
-        }
-      }
-
-      async function releaseWakeLock() {
-        if (wakeLock) {
-          try {
-            await wakeLock.release();
-          } catch (_) {}
-          wakeLock = null;
-        }
-      }
-
-      // Configuración de MediaSession para controles en pantalla de bloqueo y auriculares
-      function setupMediaSession() {
-        if (!('mediaSession' in navigator)) return;
-        try {
-          navigator.mediaSession.metadata = new MediaMetadata({
-            title: 'Focus — Paisaje Sonoro',
-            artist: 'Síntesis Binaural',
-            album: 'Motor Procedural',
-            artwork: [
-              {
-                src: './icons/icon-192.png',
-                sizes: '192x192',
-                type: 'image/png'
-              },
-              {
-                src: './icons/icon-512.png',
-                sizes: '512x512',
-                type: 'image/png'
-              }
-            ]
-          });
-
-          navigator.mediaSession.setActionHandler('play', () => { play(); });
-          navigator.mediaSession.setActionHandler('pause', () => { pause(); });
-          navigator.mediaSession.setActionHandler('stop', () => { pause(); });
-        } catch (_) {}
-      }
+      const {requestWakeLock,releaseWakeLock,setupMediaSession}=createBrowserPlaybackServices({
+        navigator,isPlaying:()=>playing,play:()=>play(),pause:()=>pause()
+      });
 
       function formatSeconds(totalSecs) {
         const safe = Math.max(0, Math.floor(totalSecs));
