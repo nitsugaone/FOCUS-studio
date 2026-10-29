@@ -166,3 +166,11 @@ La prueba del módulo usa almacenamiento real con adaptador en memoria y tiempo 
 Las reglas permanecen en `src/session/cycles.js`; `FocusController` conserva el reinicio y la coordinación de reloj, historial, envolventes y guardado. La sincronización de entrada/cierre, descanso y escena mantiene su orden. El selector continúa bloqueado durante reproducción/transición, las rondas avanzan con la misma acción manual y los descansos en silencio mantienen sus etiquetas.
 
 La cobertura existente de ciclos y navegador comprueba planes 25/5 y 50/10, sesiones simples, cambio de ronda, pausas, restauración y descansos silenciosos. Se conserva sin cambios y se ejecuta completa. Ambos workers precargan el módulo con caché fuente v3.40; se mantienen selectores, textos, eventos y atributos accesibles.
+
+## Vista de biblioteca de mezclas
+
+`src/ui/MixLibraryView.js` coordina selector, accesos de favoritas, estado de acciones y vista previa de la mezcla guardada. Recibe documento, constructor de opciones, acceso a elementos, estado compartido de biblioteca y reglas de ciclos. La búsqueda usa la misma función pura de `src/storage/mixes.js` y conserva los índices originales de las mezclas.
+
+`MixLibraryController` mantiene persistencia, eliminación y recuperación; `FocusController` conserva eventos de edición/carga y aplicación de audio. La vista avisa de la sincronización de recuperación mediante un callback diferido: ambas fábricas se construyen antes del primer renderizado. El estado compartido permite ver la biblioteca actual cuando el controlador reemplaza su lista.
+
+Se conservan selección entre filtros, favorita que carga mediante el botón existente, vista previa informativa, textos y atributos accesibles. Los datos mostrados continúan usando texto. La cobertura existente de búsqueda, selección, favoritas, edición, eliminación/recuperación y vista previa se ejecuta sin cambios. Ambos workers precargan el módulo con caché fuente v3.41.
