@@ -118,3 +118,11 @@ Las pruebas importan el módulo real con almacenamiento y fecha controlados. Cub
 `FocusController` conserva los eventos de visibilidad y salida de página, y entrega los mismos servicios a `PlaybackController`. Se mantienen solicitud de bloqueo durante reproducción, limpieza al liberar o recibir el evento `release`, tolerancia a rechazos y navegadores sin estas APIs. Los metadatos y handlers `play`, `pause` y `stop` permanecen idénticos.
 
 Las pruebas importan el servicio real y simulan adquisición, liberación externa o explícita, reacquisición, fallos y soporte opcional. También comprueban metadatos y despacho de las acciones multimedia. Son verificaciones automatizadas de coordinación; no sustituyen pruebas de pantalla bloqueada en dispositivos reales. Ambos workers precargan el módulo con caché fuente v3.34.
+
+## Instalación y actualización PWA
+
+`src/ui/PwaController.js` posee el aviso de instalación pendiente, el worker en espera y la marca de recarga solicitada. Recibe ventana, navegador, acceso a los elementos, estado actual de reproducción y guardado de sesión. `FocusController` conserva el arranque y sincroniza el mismo botón al cambiar la reproducción.
+
+Los eventos y mensajes se conservan: instalación manual con `beforeinstallprompt`, registro del worker al cargar o recuperar conexión, disponibilidad offline y descubrimiento de actualizaciones. El controlador solo envía `SKIP_WAITING` tras la acción existente del usuario en pausa y guarda antes la sesión; `controllerchange` solo recarga después de esa solicitud. No se modifican las reglas de activación del worker.
+
+Las pruebas importan el controlador real con adaptadores de eventos y promesas. Comprueban ausencia de recarga automática, bloqueo de actualización durante reproducción/transición, guardado previo a activación, descubrimiento de un worker instalado, instalación pendiente y sus fallos, conexión y soporte opcional. Ambos workers precargan el módulo con caché fuente v3.35.
