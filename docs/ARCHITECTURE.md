@@ -158,3 +158,11 @@ La cobertura existente comprueba la apertura de enlaces de ajustes y compatibili
 `FocusController` entrega la instantánea y conserva el mensaje de fallo de escritura. Al recuperar, aplica la duración, progreso y ciclo devueltos, marca el tiempo ya contabilizado y actualiza la misma interfaz sin iniciar audio. Se conservan compatibilidad con sesiones antiguas sin ciclo, rechazo de datos inválidos o superiores a siete días, límite al final de un tramo y finalización de un ciclo agotado sin avanzar automáticamente.
 
 La prueba del módulo usa almacenamiento real con adaptador en memoria y tiempo controlado. Verifica cadencia y guardado forzado/fallido, compatibilidad, validación, sesiones libres y tramos completados. Las pruebas anteriores de reloj, pausa, restauración y navegador se conservan. Ambos workers precargan el módulo con caché fuente v3.39.
+
+## Vista y eventos de ciclos
+
+`src/ui/CycleController.js` coordina las etiquetas de iniciar/descansar/siguiente/repetir, estado de ronda, disponibilidad de los controles y eventos existentes del selector de plan y extensión. Recibe documento, elementos, reloj, reglas de ciclo, accesores al estado actual y callbacks de sincronización/reinicio. No construye nodos de audio ni persiste datos.
+
+Las reglas permanecen en `src/session/cycles.js`; `FocusController` conserva el reinicio y la coordinación de reloj, historial, envolventes y guardado. La sincronización de entrada/cierre, descanso y escena mantiene su orden. El selector continúa bloqueado durante reproducción/transición, las rondas avanzan con la misma acción manual y los descansos en silencio mantienen sus etiquetas.
+
+La cobertura existente de ciclos y navegador comprueba planes 25/5 y 50/10, sesiones simples, cambio de ronda, pausas, restauración y descansos silenciosos. Se conserva sin cambios y se ejecuta completa. Ambos workers precargan el módulo con caché fuente v3.40; se mantienen selectores, textos, eventos y atributos accesibles.
