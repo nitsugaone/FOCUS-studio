@@ -126,3 +126,11 @@ Las pruebas importan el servicio real y simulan adquisición, liberación extern
 Los eventos y mensajes se conservan: instalación manual con `beforeinstallprompt`, registro del worker al cargar o recuperar conexión, disponibilidad offline y descubrimiento de actualizaciones. El controlador solo envía `SKIP_WAITING` tras la acción existente del usuario en pausa y guarda antes la sesión; `controllerchange` solo recarga después de esa solicitud. No se modifican las reglas de activación del worker.
 
 Las pruebas importan el controlador real con adaptadores de eventos y promesas. Comprueban ausencia de recarga automática, bloqueo de actualización durante reproducción/transición, guardado previo a activación, descubrimiento de un worker instalado, instalación pendiente y sus fallos, conexión y soporte opcional. Ambos workers precargan el módulo con caché fuente v3.35.
+
+## Vista de valoraciones e informes
+
+`src/ui/InsightsController.js` coordina la lectura de valoraciones mediante `StorageService`, los selectores existentes de período/ambiente y el renderizado del resumen, comparación, tabla y diez registros recientes. Recibe documento, acceso a elementos y servicio de almacenamiento. Las reglas de validación, agrupación y comparación permanecen en `src/storage/insights.js`.
+
+`FocusController` conserva el guardado de valoraciones, la importación/restauración y el arranque; invoca el mismo renderizado cuando corresponde. Se mantienen la clave `focus-feedback-v3`, todos los selectores, eventos, textos, fechas locales y el uso de `textContent` para los datos mostrados.
+
+La cobertura existente de cálculo, aplicación simulada y navegador comprueba el período predeterminado, todo el historial, filtro por ambiente y filas de grupos/registros. Se conserva sin cambios y se ejecuta completa contra módulos fuente y build. Ambos workers precargan el módulo con caché fuente v3.36; no cambian el HTML, los controles ni las dependencias.
