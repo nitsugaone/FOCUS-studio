@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focus-audio-v3.36';
+const CACHE_NAME = 'focus-audio-v3.37';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const ASSETS_TO_CACHE = [
   './src/ui/BrowserPlaybackServices.js',
   './src/ui/PwaController.js',
   './src/ui/InsightsController.js',
+  './src/ui/BackupController.js',
   './src/ui/SessionExtensionController.js',
   './src/ui/MixLibraryController.js',
   './src/main.js',
