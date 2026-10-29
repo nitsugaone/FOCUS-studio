@@ -102,3 +102,11 @@ La prueba de cierre de audio importa ahora la fábrica real y conserva todas sus
 El arranque conserva la exclusión durante reproducción o transición, el avance manual al siguiente tramo, reinicio de una sesión vencida y orden de configuración/reanudación del motor. El stream y Media Session se preparan solo al inicializar el motor; al reanudar se conservan progreso y fuentes. Si falla el inicio, se detiene el reloj, se muestra el error existente y siempre se libera la marca de transición y sincroniza la interfaz. El rechazo del audio auxiliar continúa siendo tolerado.
 
 Las pruebas importan el controlador real y cubren inicio, reanudación, guardas durante una promesa pendiente, siguiente tramo, sesión vencida, recursos multimedia opcionales y fallos de reanudación o inicio. Las aserciones anteriores de pausa y cierre se conservan. Ambos workers sustituyen la ruta antigua por el módulo compartido con caché fuente v3.32.
+
+## Datos del historial diario
+
+`src/storage/DailyHistory.js` conserva la carga, acumulación, reinicio, últimos siete días y cálculo de racha. Recibe `StorageService` y una función opcional `currentDate` para obtener fechas locales. No accede al DOM, al motor de audio ni a `localStorage` directamente.
+
+`FocusController` conserva los mismos eventos de historial, el cálculo de segundos mediante `ListeningProgress` y la coordinación con `HistoryView`. La clave `focus-daily-history-v1`, el formato por fecha, el redondeo a décimas por actualización y el redondeo del gráfico a minutos permanecen intactos. El tiempo se asigna al día vigente al registrar, como antes; una escritura fallida conserva los datos en memoria y no cambia el tratamiento existente de errores.
+
+Las pruebas importan el módulo real con almacenamiento y fecha controlados. Cubren carga ausente o inválida, redondeo, cambio de día/año, semana con febrero bisiesto, rachas, reinicio y fallos de lectura/escritura. Ambos workers precargan el módulo con caché fuente v3.33. El HTML y los escenarios de navegador se conservan.
