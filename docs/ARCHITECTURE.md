@@ -150,3 +150,11 @@ Las pruebas de aplicación existentes siguen comprobando datos inválidos, vista
 `FocusController` conserva la aplicación de ajustes al estudio, niveles y sesión. El callback devuelve los mismos resultados de persistencia; después se oculta la vista previa, se limpia la valoración y se muestran los mensajes existentes, conservando el orden. Recibir o descartar un enlace no aplica ajustes; aplicarlo sigue requiriendo pausa. Compartir utiliza únicamente el enlace generado y el mismo título.
 
 La cobertura existente comprueba la apertura de enlaces de ajustes y compatibilidad, uso del menú nativo, promesa pendiente sin duplicar solicitudes, cancelación/error y copia manual cuando faltan APIs. Se ejecuta completa sin modificar pruebas ni selectores. Ambos workers precargan el módulo con caché fuente v3.38; no cambian controles, datos compartidos ni dependencias.
+
+## Persistencia de sesiones
+
+`src/session/SessionPersistence.js` conserva la clave `focus-session-v1`, intervalo de guardado de cinco segundos, guardados forzados y normalización de sesiones recuperadas. Recibe `StorageService`, las reglas de ciclos y una función de tiempo inyectable. No modifica el reloj ni accede al DOM o al motor de audio.
+
+`FocusController` entrega la instantánea y conserva el mensaje de fallo de escritura. Al recuperar, aplica la duración, progreso y ciclo devueltos, marca el tiempo ya contabilizado y actualiza la misma interfaz sin iniciar audio. Se conservan compatibilidad con sesiones antiguas sin ciclo, rechazo de datos inválidos o superiores a siete días, límite al final de un tramo y finalización de un ciclo agotado sin avanzar automáticamente.
+
+La prueba del módulo usa almacenamiento real con adaptador en memoria y tiempo controlado. Verifica cadencia y guardado forzado/fallido, compatibilidad, validación, sesiones libres y tramos completados. Las pruebas anteriores de reloj, pausa, restauración y navegador se conservan. Ambos workers precargan el módulo con caché fuente v3.39.

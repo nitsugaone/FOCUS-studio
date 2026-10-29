@@ -1,3 +1,4 @@
+import {SessionPersistence} from '../session/SessionPersistence.js';
 import {createSharedMixController} from './SharedMixController.js';
 import {createBackupController} from './BackupController.js';
 import {createInsightsController} from './InsightsController.js';
@@ -389,22 +390,18 @@ export function startFocusApp({
         syncCycleUI();
       }
 
-      const SESSION_KEY='focus-session-v1';
-      let lastSessionSave=0;
+      const sessionPersistence=new SessionPersistence({storage,cycleTools});
       function saveSession(force=false) {
-        if(!force && Date.now()-lastSessionSave<5000)return;
-        lastSessionSave=Date.now();
-        return writeLocal(SESSION_KEY,{duration:clock.durationMinutes,elapsed:clock.elapsedMs,cycle:cycleState});
+        const saved=sessionPersistence.save({duration:clock.durationMinutes,elapsed:clock.elapsedMs,cycle:cycleState},force);
+        if(saved===false)$('studio-status').textContent='No se pudo guardar en este dispositivo.';
+        return saved;
       }
       function restoreSession() {
-        const saved=readLocal(SESSION_KEY,null);
-        if(!saved || !Number.isFinite(saved.elapsed) || saved.elapsed<0 || saved.elapsed>7*86400000)return;
-        const restored=saved.cycle?cycleTools.normalize(saved.cycle):cycleTools.initial('single',cycleTools.validDuration(saved.duration)?saved.duration:0);
-        if(!restored || cycleTools.duration(restored)!==saved.duration)return;
-        cycleState=restored;
+        const saved=sessionPersistence.restore();
+        if(!saved)return;
+        cycleState=saved.cycle;
         clock.durationMinutes=saved.duration;
-        clock.elapsedMs=clock.durationMinutes ? Math.min(saved.elapsed,clock.durationMinutes*60000) : saved.elapsed;
-        if(cycleState.plan!=='single'&&clock.elapsedMs>=clock.durationMinutes*60000)cycleState=cycleTools.complete(cycleState);
+        clock.elapsedMs=saved.elapsed;
         listeningProgress.checkpoint(clock.elapsedMs); // Time from the previous visit is already in history.
         document.querySelectorAll('.mode-chip').forEach(c=>c.setAttribute('aria-pressed',String(Number(c.dataset.minutes)===clock.durationMinutes)));
         modeLabelEl.textContent=clock.durationMinutes ? 'Cuenta regresiva ('+clock.durationMinutes+' min)' : 'Tiempo de sesión (Libre)';
