@@ -1,3 +1,4 @@
+import {createMixLibraryView} from './MixLibraryView.js';
 import {createCycleController} from './CycleController.js';
 import {SessionPersistence} from '../session/SessionPersistence.js';
 import {createSharedMixController} from './SharedMixController.js';
@@ -10,7 +11,7 @@ import {createPlaybackController} from './PlaybackController.js';
 import {ListeningProgress} from '../session/ListeningProgress.js';
 import {createSessionExtensionController} from './SessionExtensionController.js';
 import {createMixLibraryController} from './MixLibraryController.js';
-import {validStudio,mixSearchIndices,createMixCopy} from '../storage/mixes.js';
+import {validStudio,createMixCopy} from '../storage/mixes.js';
 import {createResponsiveController} from './ResponsiveController.js';
 import {createHistoryView} from './HistoryView.js';
 import {SessionClock} from '../session/SessionClock.js';
@@ -131,52 +132,10 @@ export function startFocusApp({
 
       }
 
-      function selectedMixIndex() {
-        const value=$('saved-mixes').value;
-        return value!=='' && mixState.mixes[Number(value)] ? Number(value) : -1;
-      }
+      const {selectedMixIndex,renderMixes,syncMixActions}=createMixLibraryView({
+        document,Option,$,state:mixState,cycleTools,syncMixUndoUI:()=>syncMixUndoUI()
+      });
 
-      function renderMixes(selected='') {
-        const select=$('saved-mixes');select.replaceChildren(new Option('Elegí una mezcla',''));
-        const favorites=$('favorite-mixes');favorites.replaceChildren();
-        const query=$('mix-search').value,indices=mixSearchIndices(mixState.mixes,query);
-        indices.forEach(i=>{
-          const mix=mixState.mixes[i];
-          select.add(new Option((mix.favorite?'★ ':'')+mix.name,String(i)));
-          if(mix.favorite) {
-            const button=document.createElement('button');
-            button.type='button';button.className='subtle-button';
-            button.textContent='★ '+mix.name;
-            button.addEventListener('click',()=>{
-              select.value=String(i);syncMixActions();$('preset-name').value=mix.name;$('load-mix').click();
-            });
-            favorites.append(button);
-          }
-        });
-        select.value=indices.some(i=>String(i)===String(selected))?String(selected):'';
-        select.disabled=indices.length===0;
-        $('clear-mix-search').hidden=query.length===0;
-        $('mix-search-status').textContent=!mixState.mixes.length?'Todavía no guardaste mezclas.':!indices.length?'No hay mezclas que coincidan. Probá con otro nombre.':indices.length+' de '+mixState.mixes.length+' mezclas';
-        syncMixActions();syncMixUndoUI();
-      }
-      function syncMixActions() {
-        const index=selectedMixIndex(), mix=mixState.mixes[index];
-        ['update-mix','duplicate-mix','rename-mix','favorite-mix','delete-mix','load-mix'].forEach(id=>$(id).disabled=index<0);
-        $('favorite-mix').textContent=mix?.favorite ? 'Quitar de favoritas' : 'Marcar favorita';
-        $('favorite-mix').setAttribute('aria-pressed',String(Boolean(mix?.favorite)));
-        syncSavedMixPreview(mix);
-      }
-      function syncSavedMixPreview(mix) {
-        $('saved-mix-preview').hidden=!mix;
-        $('saved-mix-sound').textContent='';
-        $('saved-mix-session').textContent='';
-        if(!mix)return;
-        const plan=Object.prototype.hasOwnProperty.call(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single';
-        const duration=cycleTools.validDuration(mix.duration)?mix.duration:0;
-        const session=plan==='single'?(duration?duration+' minutos':'Sesión libre'):'Ciclo '+plan.replace('-','/')+' min · Descansos '+(mix.restSound==='silent'?'en silencio':'con sonido');
-        $('saved-mix-sound').textContent=mix.name+' · '+SCENES[mix.scene].label+' · '+(mix.melody?'Melodía activada':'Sin melodía');
-        $('saved-mix-session').textContent=session+' · Maestro '+mix.levels.master+'% · Textura '+mix.levels.noise+'% · Drone '+mix.levels.drone+'% · Notas '+mix.levels.notes+'%';
-      }
       function currentMix(name, favorite=false) {
         return {...studio,name,favorite,cyclePlan:cycleState.plan,duration:cycleState.plan==='single'?clock.durationMinutes:cycleTools.plans[cycleState.plan].focus,
           levels:Object.fromEntries(Object.keys(DEFAULTS).map(k=>[k,Number($('vol-'+k).value)]))};
