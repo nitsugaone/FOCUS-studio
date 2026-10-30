@@ -1,8 +1,15 @@
 import {SCENES} from '../audio/scenes.js';
 import {summarizeRatings} from '../storage/insights.js';
 
-// Existing insights view and filter events, with explicit DOM/storage adapters.
-export function createInsightsController({document,$,storage}) {
+// Session feedback, existing insights view and filter events with explicit adapters.
+export function createInsightsController({document,$,storage,writeLocal}) {
+  let feedbackSession=null;
+
+  function setFeedbackSession(value) {feedbackSession=value;}
+  function clearFeedback() {
+    $('session-feedback').hidden=true;feedbackSession=null;$('feedback-status').textContent='';
+  }
+
   function renderInsights() {
     const days=Number($('insights-period').value || 30),scene=$('insights-scene').value || 'all';
     const result=summarizeRatings(storage.read('focus-feedback-v3',[]),days,scene);
@@ -37,5 +44,18 @@ export function createInsightsController({document,$,storage}) {
     ['insights-period','insights-scene'].forEach(id=>$(id).addEventListener('change',renderInsights));
     renderInsights();
   }
-  return {renderInsights,initInsights};
+  function initFeedback() {
+    $('save-feedback').addEventListener('click',()=>{
+      if(!feedbackSession)return;
+      const old=storage.read('focus-feedback-v3',[]);
+      const ratings=Array.isArray(old)?old:[];
+      ratings.push({...feedbackSession,rating:Number($('session-rating').value),distractions:$('session-distraction').value});
+      if(writeLocal('focus-feedback-v3',ratings.slice(-200))) {
+        $('session-feedback').hidden=true;feedbackSession=null;
+        $('feedback-status').textContent='Valoración guardada en este dispositivo.';
+        renderInsights();
+      }
+    });
+  }
+  return {renderInsights,initInsights,setFeedbackSession,clearFeedback,initFeedback};
 }

@@ -63,7 +63,6 @@ export function startFocusApp({
       const STUDIO_KEY = 'focus-studio-v3';
       let studio = {scene:'rain',evolution:35,brightness:50,melody:true,stereoWidth:100,balance:0,notePace:'normal',fadeOutSeconds:20,fadeInSeconds:12,preserveMix:false,restSound:'sound'};
       const mixState={mixes:[],deletionUndo:null};
-      let feedbackSession = null;
       const storage=new StorageService(localStorage);
       function readLocal(key,fallback) { return storage.read(key,fallback); }
       function writeLocal(key,value) {
@@ -134,20 +133,10 @@ export function startFocusApp({
         });
         initStudioControls();
         initMixActions();
-        $('save-feedback').addEventListener('click',()=>{
-          if(!feedbackSession)return;
-          const old=readLocal('focus-feedback-v3',[]);
-          const ratings=Array.isArray(old)?old:[];
-          ratings.push({...feedbackSession,rating:Number($('session-rating').value),distractions:$('session-distraction').value});
-          if(writeLocal('focus-feedback-v3',ratings.slice(-200))) {
-            $('session-feedback').hidden=true;feedbackSession=null;
-            $('feedback-status').textContent='Valoración guardada en este dispositivo.';
-            renderInsights();
-          }
-        });
+        initFeedback();
       }
 
-      const {renderInsights,initInsights}=createInsightsController({document,$,storage});
+      const {initInsights,setFeedbackSession,clearFeedback,initFeedback}=createInsightsController({document,$,storage,writeLocal});
 
       let reloadingAfterRestore=false;
 
@@ -161,7 +150,7 @@ export function startFocusApp({
       }
       const {syncSharedMixButton,initSharedMix}=createSharedMixController({
         window,navigator,$,getPlaybackState:()=>({playing,transitioning}),currentMix,applySharedMix,
-        clearFeedback:()=>{$('session-feedback').hidden=true;feedbackSession=null;$('feedback-status').textContent='';}
+        clearFeedback
       });
 
       const {syncBackupButtons,initBackups}=createBackupController({
@@ -309,7 +298,7 @@ export function startFocusApp({
         getPlaybackState:()=>({playing,transitioning}),setPlaying:value=>{playing=value;},
         setTransitioning:value=>{transitioning=value;},
         getCycleState:()=>cycleState,setCycleState:value=>{cycleState=value;},
-        getStudio:()=>studio,setFeedbackSession:value=>{feedbackSession=value;},$,engine,navigator,
+        getStudio:()=>studio,setFeedbackSession,$,engine,navigator,
         configureAudio,applyScene,renderTimer,saveSession,setupMediaSession,
         startSessionClock,stopSessionClock,requestWakeLock,releaseWakeLock,hideError,showError,syncUI
       });

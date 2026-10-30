@@ -190,3 +190,11 @@ Las APIs previas de eliminación/recuperación se mantienen; `initMixActions` a�
 `FocusController` conserva la propiedad del estado, la carga inicial y las instantáneas de configuración que entrega a `FocusAudioEngine`. El nuevo módulo no construye nodos Web Audio. Se conservan las guardas de entrada/cierre/descanso, el registro de historial antes de cambiar silencio, valores de ambiente cuando corresponde y reinicio de notas en los mismos cambios durante reproducción.
 
 Los controles, selectores, eventos, textos y atributos accesibles permanecen iguales. Las pruebas existentes de estudio y navegador cubren ajustes, balance, ritmo, envolventes, preservación y descansos silenciosos; se ejecutan sin modificar casos. Ambos workers precargan el módulo con caché fuente v3.43.
+
+## Estado y guardado de valoraciones
+
+`InsightsController` posee también la instantánea de sesión pendiente de valorar y registra el evento existente de guardado mediante `initFeedback`. `PlaybackController` entrega la misma instantánea al pausar; la aplicación de una mezcla compartida invoca la misma limpieza a través del método explícito `clearFeedback`.
+
+El guardado conserva lectura de `focus-feedback-v3`, datos de rating/distracciones y los últimos 200 registros. La escritura usa el callback de persistencia de la aplicación para conservar el mensaje de error. Solo un guardado exitoso descarta la instantánea, oculta el panel, muestra la confirmación y actualiza el informe. El registro del evento permanece en el mismo punto del arranque.
+
+Las APIs previas de renderizado e inicialización se mantienen. La prueba de navegador existente de valoración y los casos de informe, pausa y enlaces se ejecutan completos sin modificaciones. No se agregan controles ni cambia el formato. Ambos workers conservan los módulos y pasan a caché fuente v3.44.
