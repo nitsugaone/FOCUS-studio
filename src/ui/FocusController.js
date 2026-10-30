@@ -163,7 +163,7 @@ export function startFocusApp({
         advanceSessionClock,scheduleAudioClosing,applyScene,renderTimer,saveSession,syncUI
       });
 
-      const {cycleAction,syncCycleUI,initCycles}=createCycleController({
+      const {cycleAction,syncCycleUI,initCycles,initDurationControls}=createCycleController({
         document,$,clock,cycleTools,getCycleState:()=>cycleState,getPlaybackState:()=>({playing,transitioning}),
         getRestSound:()=>studio.restSound,isSilentRest,modeLabelEl,extendSession,resetCycle,
         syncSessionControls:()=>{syncExtensionUI();syncEntryUI();syncFadeUI();syncRestSoundUI();syncSceneLabels();}
@@ -304,29 +304,7 @@ export function startFocusApp({
 
       initVolumeControls();
 
-      document.querySelectorAll('.mode-chip').forEach((chip) => {
-        chip.addEventListener('click', () => {
-          if(cycleState.plan!=='single')return;
-          resetCycle('single',Number(chip.dataset.minutes)||0);
-          if(playing)clock.lastTimestamp=Date.now();
-        });
-      });
-      function applyCustomDuration() {
-        if(playing||transitioning||cycleState.plan!=='single')return;
-        const raw=$('custom-minutes').value.trim(),minutes=Number(raw);
-        if(!raw||!cycleTools.validDuration(minutes)||minutes<1) {
-          $('custom-duration-status').textContent='Ingresá un número entero de 1 a 180 minutos.';
-          $('custom-minutes').setAttribute('aria-invalid','true');
-          return;
-        }
-        $('custom-minutes').setAttribute('aria-invalid','false');
-        resetCycle('single',minutes);
-        $('custom-duration-status').textContent='Duración aplicada: '+minutes+' minutos. Tocá Iniciar cuando quieras.';
-      }
-      $('apply-duration').addEventListener('click',applyCustomDuration);
-      $('custom-minutes').addEventListener('keydown',event=>{
-        if(event.key==='Enter'){event.preventDefault();applyCustomDuration();}
-      });
+      initDurationControls();
 
       btn.addEventListener('click', () => (playing ? pause() : play()));
       $('mobile-toggle').addEventListener('click', () => (playing ? pause() : play()));
