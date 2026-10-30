@@ -198,3 +198,11 @@ Los controles, selectores, eventos, textos y atributos accesibles permanecen igu
 El guardado conserva lectura de `focus-feedback-v3`, datos de rating/distracciones y los últimos 200 registros. La escritura usa el callback de persistencia de la aplicación para conservar el mensaje de error. Solo un guardado exitoso descarta la instantánea, oculta el panel, muestra la confirmación y actualiza el informe. El registro del evento permanece en el mismo punto del arranque.
 
 Las APIs previas de renderizado e inicialización se mantienen. La prueba de navegador existente de valoración y los casos de informe, pausa y enlaces se ejecutan completos sin modificaciones. No se agregan controles ni cambia el formato. Ambos workers conservan los módulos y pasan a caché fuente v3.44.
+
+## Volúmenes, perfiles y silencio
+
+`src/ui/VolumeController.js` coordina los cuatro niveles, porcentajes/progreso visual, perfiles existentes y estado de silencio/restauración del volumen maestro. Recibe documento, elementos, motor, `StorageService` y valores predeterminados. Conserva la clave `focus-audio-settings-v2`, límites al recuperar niveles y resultado de persistencia.
+
+`FocusController` conserva el registro global de teclado y sus exclusiones de campos editables/repetición; el atajo existente delega en `toggleMute`. Los eventos de niveles y perfiles se registran en el mismo punto mediante `initVolumeControls`. El estudio y las mezclas continúan usando los mismos callbacks de actualización y guardado.
+
+Los valores de perfiles, orden de actualización, atributos `aria-pressed`, mensajes porcentuales y llamadas `engine.updateLevel` permanecen intactos. La cobertura existente de aplicación, niveles, perfiles, mezclas y navegador se ejecuta sin cambios. Ambos workers precargan el módulo con caché fuente v3.45; no se agregan controles, atajos o dependencias.
