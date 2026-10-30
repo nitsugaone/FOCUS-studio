@@ -214,3 +214,11 @@ Los valores de perfiles, orden de actualización, atributos `aria-pressed`, mens
 Se mantienen cambio de `data-focus-view`, etiqueta y atributo accesible del botón, Escape que cierra y devuelve el foco al control, espacio para reproducir/pausar y M/m para silencio. El orden de exclusiones permanece: Escape de la vista, repetición y destino editable. Las acciones consultan la reproducción vigente; no se añaden atajos ni cambios de reloj/audio.
 
 Los eventos se registran en el mismo punto del arranque. La cobertura existente de vista de concentración, reproducción, volumen, progreso y Escape se ejecuta sin modificar pruebas o selectores. Ambos workers precargan el módulo con caché fuente v3.46.
+
+## Controles de duración de sesión
+
+`CycleController` registra también los chips de minutos y la aplicación de duración personalizada mediante `initDurationControls`. La inicialización se llama en el mismo punto del arranque, antes de los botones de reproducción; `initCycles` conserva su orden y responsabilidades previas.
+
+Los eventos consultan el plan y la reproducción vigentes. Se mantienen el rechazo durante reproducción/transición o ciclos, validación de enteros de 1 a 180, mensajes, `aria-invalid`, tecla Enter y actualización del timestamp tras elegir un chip durante reproducción. `FocusController.resetCycle` conserva reloj, historial, persistencia y automatización de audio.
+
+No se modifican HTML, selectores, firmas de eventos, pruebas ni dependencias. Ambos workers conservan la misma lista de recursos y usan caché fuente v3.47.

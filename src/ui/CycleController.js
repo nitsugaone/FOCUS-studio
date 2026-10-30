@@ -32,6 +32,33 @@ export function createCycleController({
     modeLabelEl.textContent=kind+' ('+clock.durationMinutes+' min)';
   }
 
+  function initDurationControls() {
+    document.querySelectorAll('.mode-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        if(getCycleState().plan!=='single')return;
+        resetCycle('single',Number(chip.dataset.minutes)||0);
+        if(getPlaybackState().playing)clock.lastTimestamp=Date.now();
+      });
+    });
+    function applyCustomDuration() {
+      const {playing,transitioning}=getPlaybackState();
+      if(playing||transitioning||getCycleState().plan!=='single')return;
+      const raw=$('custom-minutes').value.trim(),minutes=Number(raw);
+      if(!raw||!cycleTools.validDuration(minutes)||minutes<1) {
+        $('custom-duration-status').textContent='Ingresá un número entero de 1 a 180 minutos.';
+        $('custom-minutes').setAttribute('aria-invalid','true');
+        return;
+      }
+      $('custom-minutes').setAttribute('aria-invalid','false');
+      resetCycle('single',minutes);
+      $('custom-duration-status').textContent='Duración aplicada: '+minutes+' minutos. Tocá Iniciar cuando quieras.';
+    }
+    $('apply-duration').addEventListener('click',applyCustomDuration);
+    $('custom-minutes').addEventListener('keydown',event=>{
+      if(event.key==='Enter'){event.preventDefault();applyCustomDuration();}
+    });
+  }
+
   function initCycles() {
     const cycleState=getCycleState();
     if(cycleState.singleDuration>0)$('custom-minutes').value=cycleState.singleDuration;
@@ -46,5 +73,5 @@ export function createCycleController({
     syncCycleUI();
   }
 
-  return {cycleAction,syncCycleUI,initCycles};
+  return {cycleAction,syncCycleUI,initCycles,initDurationControls};
 }
