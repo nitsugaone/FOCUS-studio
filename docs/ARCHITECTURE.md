@@ -182,3 +182,11 @@ Se conservan selección entre filtros, favorita que carga mediante el botón exi
 `FocusController` conserva la carga inicial y validación de datos, los controles del estudio y la aplicación de una mezcla al audio y la sesión. La carga se comprueba contra el estado vigente de reproducción/transición antes de invocar ese callback. Los eventos se registran en el mismo punto del arranque, con los mismos selectores, mensajes y orden de guardado/renderizado.
 
 Las APIs previas de eliminación/recuperación se mantienen; `initMixActions` añade únicamente la composición interna de eventos ya existentes. La suite actual de biblioteca, copia, recuperación y navegador se ejecuta sin cambios. No se agregan controles ni formatos. Ambos workers conservan la lista de módulos y pasan a caché fuente v3.42.
+
+## Controles del estudio
+
+`src/ui/StudioController.js` coordina la sincronización visual y los eventos existentes de ambiente, evolución, brillo, melodía, ancho estéreo, balance, ritmo de notas, entrada, cierre, preservación de mezcla y descanso con/sin sonido. Recibe elementos, reloj, motor y callbacks de estado, persistencia y aplicación. Los accesores leen el estudio actual cuando se reemplaza por datos cargados o compartidos.
+
+`FocusController` conserva la propiedad del estado, la carga inicial y las instantáneas de configuración que entrega a `FocusAudioEngine`. El nuevo módulo no construye nodos Web Audio. Se conservan las guardas de entrada/cierre/descanso, el registro de historial antes de cambiar silencio, valores de ambiente cuando corresponde y reinicio de notas en los mismos cambios durante reproducción.
+
+Los controles, selectores, eventos, textos y atributos accesibles permanecen iguales. Las pruebas existentes de estudio y navegador cubren ajustes, balance, ritmo, envolventes, preservación y descansos silenciosos; se ejecutan sin modificar casos. Ambos workers precargan el módulo con caché fuente v3.43.
