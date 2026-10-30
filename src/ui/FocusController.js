@@ -11,7 +11,7 @@ import {createPlaybackController} from './PlaybackController.js';
 import {ListeningProgress} from '../session/ListeningProgress.js';
 import {createSessionExtensionController} from './SessionExtensionController.js';
 import {createMixLibraryController} from './MixLibraryController.js';
-import {validStudio,createMixCopy} from '../storage/mixes.js';
+import {validStudio} from '../storage/mixes.js';
 import {createResponsiveController} from './ResponsiveController.js';
 import {createHistoryView} from './HistoryView.js';
 import {SessionClock} from '../session/SessionClock.js';
@@ -141,8 +141,17 @@ export function startFocusApp({
           levels:Object.fromEntries(Object.keys(DEFAULTS).map(k=>[k,Number($('vol-'+k).value)]))};
       }
 
-      const {syncMixUndoUI,commitMixes,deleteSelectedMix,undoMixDeletion}=createMixLibraryController({
-        state:mixState,$,writeLocal,renderMixes,selectedMixIndex
+      function applySavedMix(mix) {
+        studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,balance:mix.balance??0,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20,fadeInSeconds:mix.fadeInSeconds??12,preserveMix:mix.preserveMix??false,restSound:mix.restSound??'sound'};
+        Object.keys(DEFAULTS).forEach(k=>{$('vol-'+k).value=mix.levels[k];updateRange(k,false);});
+        const plan=Object.prototype.hasOwnProperty.call(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single';
+        resetCycle(plan,plan==='single'?(cycleTools.validDuration(mix.duration)?mix.duration:0):cycleState.singleDuration);
+        applyScene();persistSettings();writeLocal(STUDIO_KEY,studio);
+      }
+
+      const {syncMixUndoUI,initMixActions}=createMixLibraryController({
+        state:mixState,$,writeLocal,renderMixes,selectedMixIndex,currentMix,syncMixActions,
+        getPlaybackState:()=>({playing,transitioning}),applySavedMix
       });
       // Only crossing the breakpoint resets panels. Manual toggles within a
       // layout remain untouched, and playback nodes are never recreated.
@@ -204,54 +213,7 @@ export function startFocusApp({
         $('center-balance').addEventListener('click',()=>{
           studio.balance=0;applyScene();writeLocal(STUDIO_KEY,studio);
         });
-        $('save-mix').addEventListener('click',()=>{
-          const name=$('preset-name').value.trim(); if(!name){$('studio-status').textContent='Escribí un nombre para tu mezcla.';return;}
-          if(mixState.mixes.length>=50){$('studio-status').textContent='Podés guardar hasta 50 mezclas.';return;}
-          if(commitMixes([...mixState.mixes,currentMix(name)],String(mixState.mixes.length),true))$('studio-status').textContent='Mezcla guardada.';
-        });
-        $('load-mix').addEventListener('click',()=>{
-          if($('saved-mixes').value==='')return;
-          const mix=mixState.mixes[Number($('saved-mixes').value)];if(!mix)return;
-          if(playing||transitioning){$('studio-status').textContent=transitioning?'Esperá a que termine el inicio del audio para cargar una mezcla.':'Pausá la sesión antes de cargar una mezcla.';return;}
-          studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,balance:mix.balance??0,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20,fadeInSeconds:mix.fadeInSeconds??12,preserveMix:mix.preserveMix??false,restSound:mix.restSound??'sound'};
-          Object.keys(DEFAULTS).forEach(k=>{$('vol-'+k).value=mix.levels[k];updateRange(k,false);});
-          const plan=Object.prototype.hasOwnProperty.call(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single';
-          resetCycle(plan,plan==='single'?(cycleTools.validDuration(mix.duration)?mix.duration:0):cycleState.singleDuration);
-          applyScene();persistSettings();writeLocal(STUDIO_KEY,studio);
-          $('studio-status').textContent='Mezcla cargada.';
-        });
-        $('delete-mix').addEventListener('click',deleteSelectedMix);
-        $('undo-delete-mix').addEventListener('click',undoMixDeletion);
-
-        $('saved-mixes').addEventListener('change',()=>{
-          syncMixActions();
-          const mix=mixState.mixes[selectedMixIndex()];
-          if(mix)$('preset-name').value=mix.name;
-        });
-        $('update-mix').addEventListener('click',()=>{
-          const i=selectedMixIndex();if(i<0)return;
-          const next=mixState.mixes.map((mix,j)=>j===i?currentMix(mix.name,mix.favorite===true):mix);
-          if(commitMixes(next,String(i)))$('studio-status').textContent='Ajustes de la mezcla actualizados.';
-        });
-        $('duplicate-mix').addEventListener('click',()=>{
-          const index=selectedMixIndex();if(index<0)return;
-          try {
-            const copy=createMixCopy(mixState.mixes,index);
-            if(commitMixes([...mixState.mixes,copy],String(mixState.mixes.length),true)){
-              $('preset-name').value=copy.name;
-              $('studio-status').textContent='Copia guardada. Cargala en pausa para editar su sonido.';
-            }
-          }catch(error){$('studio-status').textContent=error.message;}
-        });
-        $('rename-mix').addEventListener('click',()=>{
-          const i=selectedMixIndex(),name=$('preset-name').value.trim();if(i<0)return;
-          if(!name){$('studio-status').textContent='Escribí el nuevo nombre.';return;}
-          if(commitMixes(mixState.mixes.map((mix,j)=>j===i?{...mix,name}:mix),String(i),true))$('studio-status').textContent='Mezcla renombrada.';
-        });
-        $('favorite-mix').addEventListener('click',()=>{
-          const i=selectedMixIndex();if(i<0)return;
-          commitMixes(mixState.mixes.map((mix,j)=>j===i?{...mix,favorite:mix.favorite!==true}:mix),String(i));
-        });
+        initMixActions();
         $('save-feedback').addEventListener('click',()=>{
           if(!feedbackSession)return;
           const old=readLocal('focus-feedback-v3',[]);

@@ -1,5 +1,9 @@
-// Coordinates saved-mix transactions and recovery with explicit UI dependencies.
-export function createMixLibraryController({state,$,writeLocal,renderMixes,selectedMixIndex}) {
+import {createMixCopy} from '../storage/mixes.js';
+
+// Coordinates saved-mix actions, transactions and recovery with explicit UI dependencies.
+export function createMixLibraryController({
+  state,$,writeLocal,renderMixes,selectedMixIndex,currentMix,syncMixActions,getPlaybackState,applySavedMix
+}) {
   function syncMixUndoUI() {
     const available=state.deletionUndo!==null;
     $('undo-delete-mix').hidden=!available;
@@ -33,5 +37,53 @@ export function createMixLibraryController({state,$,writeLocal,renderMixes,selec
       $('studio-status').textContent='Mezcla recuperada. Cargala en pausa para usarla.';
     }
   }
-  return {syncMixUndoUI,commitMixes,deleteSelectedMix,undoMixDeletion};
+  function initMixActions() {
+    $('save-mix').addEventListener('click',()=>{
+      const name=$('preset-name').value.trim(); if(!name){$('studio-status').textContent='Escribí un nombre para tu mezcla.';return;}
+      if(state.mixes.length>=50){$('studio-status').textContent='Podés guardar hasta 50 mezclas.';return;}
+      if(commitMixes([...state.mixes,currentMix(name)],String(state.mixes.length),true))$('studio-status').textContent='Mezcla guardada.';
+    });
+    $('load-mix').addEventListener('click',()=>{
+      if($('saved-mixes').value==='')return;
+      const mix=state.mixes[Number($('saved-mixes').value)];if(!mix)return;
+      const {playing,transitioning}=getPlaybackState();
+      if(playing||transitioning){$('studio-status').textContent=transitioning?'Esperá a que termine el inicio del audio para cargar una mezcla.':'Pausá la sesión antes de cargar una mezcla.';return;}
+      applySavedMix(mix);
+      $('studio-status').textContent='Mezcla cargada.';
+    });
+    $('delete-mix').addEventListener('click',deleteSelectedMix);
+    $('undo-delete-mix').addEventListener('click',undoMixDeletion);
+
+    $('saved-mixes').addEventListener('change',()=>{
+      syncMixActions();
+      const mix=state.mixes[selectedMixIndex()];
+      if(mix)$('preset-name').value=mix.name;
+    });
+    $('update-mix').addEventListener('click',()=>{
+      const i=selectedMixIndex();if(i<0)return;
+      const next=state.mixes.map((mix,j)=>j===i?currentMix(mix.name,mix.favorite===true):mix);
+      if(commitMixes(next,String(i)))$('studio-status').textContent='Ajustes de la mezcla actualizados.';
+    });
+    $('duplicate-mix').addEventListener('click',()=>{
+      const index=selectedMixIndex();if(index<0)return;
+      try {
+        const copy=createMixCopy(state.mixes,index);
+        if(commitMixes([...state.mixes,copy],String(state.mixes.length),true)){
+          $('preset-name').value=copy.name;
+          $('studio-status').textContent='Copia guardada. Cargala en pausa para editar su sonido.';
+        }
+      }catch(error){$('studio-status').textContent=error.message;}
+    });
+    $('rename-mix').addEventListener('click',()=>{
+      const i=selectedMixIndex(),name=$('preset-name').value.trim();if(i<0)return;
+      if(!name){$('studio-status').textContent='Escribí el nuevo nombre.';return;}
+      if(commitMixes(state.mixes.map((mix,j)=>j===i?{...mix,name}:mix),String(i),true))$('studio-status').textContent='Mezcla renombrada.';
+    });
+    $('favorite-mix').addEventListener('click',()=>{
+      const i=selectedMixIndex();if(i<0)return;
+      commitMixes(state.mixes.map((mix,j)=>j===i?{...mix,favorite:mix.favorite!==true}:mix),String(i));
+    });
+  }
+
+  return {syncMixUndoUI,commitMixes,deleteSelectedMix,undoMixDeletion,initMixActions};
 }

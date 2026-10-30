@@ -174,3 +174,11 @@ La cobertura existente de ciclos y navegador comprueba planes 25/5 y 50/10, sesi
 `MixLibraryController` mantiene persistencia, eliminación y recuperación; `FocusController` conserva eventos de edición/carga y aplicación de audio. La vista avisa de la sincronización de recuperación mediante un callback diferido: ambas fábricas se construyen antes del primer renderizado. El estado compartido permite ver la biblioteca actual cuando el controlador reemplaza su lista.
 
 Se conservan selección entre filtros, favorita que carga mediante el botón existente, vista previa informativa, textos y atributos accesibles. Los datos mostrados continúan usando texto. La cobertura existente de búsqueda, selección, favoritas, edición, eliminación/recuperación y vista previa se ejecuta sin cambios. Ambos workers precargan el módulo con caché fuente v3.41.
+
+## Acciones de la biblioteca de mezclas
+
+`MixLibraryController` reúne también el registro de los eventos existentes de guardar, cargar, actualizar, duplicar, renombrar y marcar favorita. Recibe los mismos adaptadores de biblioteca/vista y callbacks de instantánea actual y aplicación de ajustes. La duplicación conserva la regla pura de `src/storage/mixes.js`; las escrituras siguen pasando por el mismo `commitMixes`, con sus límites y recuperación.
+
+`FocusController` conserva la carga inicial y validación de datos, los controles del estudio y la aplicación de una mezcla al audio y la sesión. La carga se comprueba contra el estado vigente de reproducción/transición antes de invocar ese callback. Los eventos se registran en el mismo punto del arranque, con los mismos selectores, mensajes y orden de guardado/renderizado.
+
+Las APIs previas de eliminación/recuperación se mantienen; `initMixActions` añade únicamente la composición interna de eventos ya existentes. La suite actual de biblioteca, copia, recuperación y navegador se ejecuta sin cambios. No se agregan controles ni formatos. Ambos workers conservan la lista de módulos y pasan a caché fuente v3.42.
