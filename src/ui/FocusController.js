@@ -1,3 +1,4 @@
+import {createVolumeController} from './VolumeController.js';
 import {createStudioController} from './StudioController.js';
 import {createMixLibraryView} from './MixLibraryView.js';
 import {createCycleController} from './CycleController.js';
@@ -29,11 +30,6 @@ export function startFocusApp({
 }={}) {
 
       const DEFAULTS = { master: 75, noise: 70, drone: 60, notes: 55 };
-      const PRESETS = {
-        balanced: { master: 75, noise: 70, drone: 60, notes: 55 },
-        noise:    { master: 72, noise: 92, drone: 24, notes: 8 },
-        minimal:  { master: 65, noise: 45, drone: 38, notes: 20 }
-      };
 
       const $ = (id) => document.getElementById(id);
       const btn = $('toggle');
@@ -49,8 +45,6 @@ export function startFocusApp({
       const engine=new FocusAudioEngine({platform:window,clearTimeout});
       let playing = false;
       let transitioning = false;
-      let muted = false;
-      let preMuteMaster = 75;
 
 
       // Reloj de alta precisión basado en timestamps reales (inmune a background tab throttling)
@@ -70,6 +64,10 @@ export function startFocusApp({
         if(!saved)$('studio-status').textContent='No se pudo guardar en este dispositivo.';
         return saved;
       }
+
+      const {updateRange,loadSettings,persistSettings,initVolumeControls,toggleMute}=createVolumeController({
+        document,$,engine,storage,defaults:DEFAULTS
+      });
 
       const {syncEntryUI,syncFadeUI,syncSceneLabels,syncRestSoundUI,syncStudio,initStudioControls}=createStudioController({
         $,clock,engine,getStudio:()=>studio,getCycleState:()=>cycleState,getPlaybackState:()=>({playing,transitioning}),
@@ -303,57 +301,7 @@ export function startFocusApp({
         startSessionClock,stopSessionClock,requestWakeLock,releaseWakeLock,hideError,showError,syncUI
       });
 
-      function updateRange(id, save = true) {
-        const input = $('vol-' + id);
-        const output = $('out-' + id);
-        const value = Number(input.value);
-        output.textContent = value + '%';
-        input.style.setProperty('--progress', value + '%');
-        engine.updateLevel(id,value);
-        if (save) persistSettings();
-        syncPresetState();
-      }
-
-      function loadSettings() {
-        const saved=storage.read('focus-audio-settings-v2',null);
-        Object.keys(DEFAULTS).forEach((id) => {
-          const value = saved && Number.isFinite(saved[id]) ? Math.max(0, Math.min(100, saved[id])) : DEFAULTS[id];
-          $('vol-' + id).value = value;
-          updateRange(id, false);
-        });
-      }
-
-      function persistSettings() {
-        const settings = {};
-        Object.keys(DEFAULTS).forEach((id) => { settings[id] = Number($('vol-' + id).value); });
-        return storage.write('focus-audio-settings-v2',settings);
-      }
-
-      function syncPresetState() {
-        document.querySelectorAll('[data-preset]').forEach((button) => {
-          const preset = PRESETS[button.dataset.preset];
-          const selected = preset && Object.keys(DEFAULTS).every((id) => Number($('vol-' + id).value) === preset[id]);
-          button.setAttribute('aria-pressed', String(Boolean(selected)));
-        });
-      }
-
-      document.querySelectorAll('.range').forEach((input) => {
-        const id = input.id.replace('vol-', '');
-        input.addEventListener('input', () => updateRange(id));
-      });
-
-      document.querySelectorAll('[data-preset]').forEach((button) => {
-        button.addEventListener('click', () => {
-          const values = PRESETS[button.dataset.preset];
-          if (!values) return;
-          Object.keys(values).forEach((id) => {
-            $('vol-' + id).value = values[id];
-            updateRange(id, false);
-          });
-          persistSettings();
-          syncPresetState();
-        });
-      });
+      initVolumeControls();
 
       document.querySelectorAll('.mode-chip').forEach((chip) => {
         chip.addEventListener('click', () => {
@@ -462,16 +410,7 @@ export function startFocusApp({
           playing ? pause() : play();
         } else if (event.key === 'm' || event.key === 'M') {
           event.preventDefault();
-          const masterInput = $('vol-master');
-          if (!muted && Number(masterInput.value) > 0) {
-            preMuteMaster = Number(masterInput.value);
-            muted = true;
-            masterInput.value = 0;
-          } else {
-            muted = false;
-            masterInput.value = preMuteMaster || 75;
-          }
-          updateRange('master');
+          toggleMute();
         }
       });
 
