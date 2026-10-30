@@ -1,3 +1,4 @@
+import {createInteractionController} from './InteractionController.js';
 import {createVolumeController} from './VolumeController.js';
 import {createStudioController} from './StudioController.js';
 import {createMixLibraryView} from './MixLibraryView.js';
@@ -385,34 +386,11 @@ export function startFocusApp({
         });
       }
 
-      let focusView=false;
-      function setFocusView(enabled) {
-        focusView=Boolean(enabled);
-        document.body.dataset.focusView=String(focusView);
-        const control=$('focus-view-toggle');
-        control.setAttribute('aria-pressed',String(focusView));
-        control.textContent=focusView?'Ver todos los controles':'Vista de concentración';
-        $('focus-view-scene').hidden=!focusView;
-        syncSceneLabels();
-      }
-      $('focus-view-toggle').addEventListener('click',()=>setFocusView(!focusView));
-
-      document.addEventListener('keydown', (event) => {
-        if(event.key==='Escape'&&focusView) {
-          event.preventDefault();setFocusView(false);$('focus-view-toggle').focus();return;
-        }
-        if (event.repeat) return;
-        const target = event.target;
-        if (target instanceof HTMLElement && target.matches('input, button, textarea, select, a, [contenteditable="true"]')) return;
-
-        if (event.code === 'Space') {
-          event.preventDefault();
-          playing ? pause() : play();
-        } else if (event.key === 'm' || event.key === 'M') {
-          event.preventDefault();
-          toggleMute();
-        }
+      const {initInteractions}=createInteractionController({
+        document,$,isPlaying:()=>playing,play,pause,toggleMute,syncSceneLabels,
+        isEditableTarget:target=>target instanceof HTMLElement&&target.matches('input, button, textarea, select, a, [contenteditable="true"]')
       });
+      initInteractions();
 
       document.addEventListener('visibilitychange', async () => {
         if (!document.hidden && playing) {

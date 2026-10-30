@@ -203,6 +203,14 @@ Las APIs previas de renderizado e inicialización se mantienen. La prueba de nav
 
 `src/ui/VolumeController.js` coordina los cuatro niveles, porcentajes/progreso visual, perfiles existentes y estado de silencio/restauración del volumen maestro. Recibe documento, elementos, motor, `StorageService` y valores predeterminados. Conserva la clave `focus-audio-settings-v2`, límites al recuperar niveles y resultado de persistencia.
 
-`FocusController` conserva el registro global de teclado y sus exclusiones de campos editables/repetición; el atajo existente delega en `toggleMute`. Los eventos de niveles y perfiles se registran en el mismo punto mediante `initVolumeControls`. El estudio y las mezclas continúan usando los mismos callbacks de actualización y guardado.
+`InteractionController` coordina el registro global de teclado y sus exclusiones de campos editables/repetición; el atajo existente delega en `toggleMute`. Los eventos de niveles y perfiles se registran en el mismo punto mediante `initVolumeControls`. El estudio y las mezclas continúan usando los mismos callbacks de actualización y guardado.
 
 Los valores de perfiles, orden de actualización, atributos `aria-pressed`, mensajes porcentuales y llamadas `engine.updateLevel` permanecen intactos. La cobertura existente de aplicación, niveles, perfiles, mezclas y navegador se ejecuta sin cambios. Ambos workers precargan el módulo con caché fuente v3.45; no se agregan controles, atajos o dependencias.
+
+## Vista de concentración y atajos
+
+`src/ui/InteractionController.js` posee el estado de vista de concentración y registra el botón y atajos existentes. Recibe documento, elementos, estado de reproducción, acciones de reproducción/silencio, etiquetas de escena y comprobación de destino editable. `FocusController` conserva la composición y entrega los mismos callbacks ya usados por los botones.
+
+Se mantienen cambio de `data-focus-view`, etiqueta y atributo accesible del botón, Escape que cierra y devuelve el foco al control, espacio para reproducir/pausar y M/m para silencio. El orden de exclusiones permanece: Escape de la vista, repetición y destino editable. Las acciones consultan la reproducción vigente; no se añaden atajos ni cambios de reloj/audio.
+
+Los eventos se registran en el mismo punto del arranque. La cobertura existente de vista de concentración, reproducción, volumen, progreso y Escape se ejecuta sin modificar pruebas o selectores. Ambos workers precargan el módulo con caché fuente v3.46.
