@@ -207,7 +207,7 @@ export function startFocusApp({
 
 
       // Prevención de apagado de pantalla en escritorio / móviles (Screen Wake Lock API)
-      const {requestWakeLock,releaseWakeLock,setupMediaSession}=createBrowserPlaybackServices({
+      const {requestWakeLock,releaseWakeLock,setupMediaSession,initPageLifecycle}=createBrowserPlaybackServices({
         navigator,isPlaying:()=>playing,play:()=>play(),pause:()=>pause()
       });
 
@@ -296,20 +296,9 @@ export function startFocusApp({
       });
       initInteractions();
 
-      document.addEventListener('visibilitychange', async () => {
-        if (!document.hidden && playing) {
-          advanceSessionClock();
-          applyScene();
-          renderTimer();
-          if(playing)await requestWakeLock();
-        }
-      });
-
-      window.addEventListener('pagehide', () => {
-
-        if(!reloadingAfterRestore)stopSessionClock();
-        releaseWakeLock();
-        engine.close();
+      initPageLifecycle({
+        window,document,advanceSessionClock,applyScene,renderTimer,stopSessionClock,
+        isReloadingAfterRestore:()=>reloadingAfterRestore,closeAudio:()=>engine.close()
       });
 
       setupInstallAndUpdates();

@@ -54,5 +54,26 @@ export function createBrowserPlaybackServices({
     } catch (_) {}
   }
 
-  return {requestWakeLock,releaseWakeLock,setupMediaSession};
+  function initPageLifecycle({
+    window,document,advanceSessionClock,applyScene,renderTimer,stopSessionClock,
+    isReloadingAfterRestore,closeAudio
+  }) {
+    document.addEventListener('visibilitychange', async () => {
+      if (!document.hidden && isPlaying()) {
+        advanceSessionClock();
+        applyScene();
+        renderTimer();
+        if(isPlaying())await requestWakeLock();
+      }
+    });
+
+    window.addEventListener('pagehide', () => {
+
+      if(!isReloadingAfterRestore())stopSessionClock();
+      releaseWakeLock();
+      closeAudio();
+    });
+  }
+
+  return {requestWakeLock,releaseWakeLock,setupMediaSession,initPageLifecycle};
 }

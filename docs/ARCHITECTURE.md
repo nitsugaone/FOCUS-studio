@@ -242,3 +242,13 @@ Se mantienen truncamiento de segundos, límite inferior de cero, finalización d
 `FocusController` conserva adaptadores de función para los controladores construidos antes del temporizador; la instancia se crea sin iniciar ni detener el reloj, y la pausa se resuelve cuando se usa. Las reglas de tiempo y ciclos siguen en `src/session/` y la automatización acústica, en `FocusAudioEngine`.
 
 No se modifican HTML, selectores, eventos, pruebas o dependencias. Ambos workers precargan el módulo con caché fuente v3.49.
+
+## Ciclo de vida de la página
+
+`BrowserPlaybackServices.initPageLifecycle` registra los eventos existentes `visibilitychange` y `pagehide`. Recibe ventana, documento y callbacks de reloj, escena, renderizado, consulta de recarga por restauración y cierre del motor; reutiliza los servicios de Wake Lock y consulta la reproducción vigente.
+
+Al volver a una página visible durante reproducción conserva avance del reloj, actualización de escena y renderizado, y solo solicita Wake Lock si la sesión sigue reproduciéndose después de reconciliar el tiempo. Al salir, detiene el reloj salvo recarga por restauración, libera Wake Lock y solicita el cierre del motor en el mismo orden. No añade pausas, guardados ni esperas.
+
+`FocusController` entrega el flag vigente de restauración y el cierre del motor mediante callbacks. El registro mantiene su posición después de los atajos y antes de preparar la instalación/actualizaciones. La API previa del servicio se mantiene y construirlo no registra eventos.
+
+No se modifican HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan sus recursos y usan caché fuente v3.50.
