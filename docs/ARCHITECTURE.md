@@ -342,3 +342,11 @@ Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers 
 El texto, selector, orden de aviso y resultado de persistencia permanecen intactos. `StorageService` y `SessionPersistence` siguen sin acceso al DOM; la composición deja de actualizar directamente el mensaje.
 
 Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.59.
+
+## Comprobaciones de límites arquitectónicos
+
+`tests/module-graph.test.mjs` conserva las comprobaciones de imports locales y precarga offline, y añade detección de ciclos mediante el recorrido de imports estáticos existente. Audio, almacenamiento y sesión no pueden depender de UI ni del arranque; audio solo depende de su propio dominio.
+
+Las comprobaciones estructurales recorren todos los módulos alcanzados por `src/main.js`: prohíben referencias directas a documento/localStorage en el dominio y construcción de recursos Web Audio fuera de `src/audio/`. `tests/architecture.test.mjs` conserva sus aserciones previas y protege además la delegación de eventos y contenido visual fuera de `FocusController`.
+
+Estas comprobaciones protegen los límites extraídos y complementan las pruebas de comportamiento. No se modifica código de aplicación, HTML, selectores, eventos, dependencias ni suite de navegador. No cambia el Service Worker ni sus recursos.
