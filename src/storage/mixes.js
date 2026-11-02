@@ -41,4 +41,9 @@ import {SCENES} from '../audio/scenes.js';
         }
         throw Error('No se pudo elegir un nombre para la copia.');
       }
-export {validStudio,mixSearchIndices,createMixCopy};
+
+// Project existing studio fields with the same defaults for legacy settings/mixes.
+function studioSettings(value) {
+  return {scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,balance:value.balance??0,notePace:value.notePace??'normal',fadeOutSeconds:value.fadeOutSeconds??20,fadeInSeconds:value.fadeInSeconds??12,preserveMix:value.preserveMix??false,restSound:value.restSound??'sound'};
+}
+export {validStudio,studioSettings,mixSearchIndices,createMixCopy};
