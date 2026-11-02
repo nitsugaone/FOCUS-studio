@@ -292,3 +292,13 @@ Aplicar una escena conserva el orden sincronizar controles, configurar motor y a
 El módulo no construye nodos ni añade timers: `FocusAudioEngine` mantiene la automatización acústica y las envolventes del audio. Los eventos del estudio delegan en las mismas acciones ahora locales; construir el controlador no configura ni inicia audio.
 
 Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.54.
+
+## Coordinación del historial
+
+`src/ui/HistoryController.js` compone `DailyHistory` y `HistoryView`, coordina el progreso de escucha con la misma instancia de `ListeningProgress` y registra los controles existentes del historial. Recibe reloj, almacenamiento, elementos y consulta vigente de descanso en silencio.
+
+`syncFocusHistoryProgress` conserva el avance con `silent` y `flush`, agrega segundos y redibuja solo cuando hay progreso registrable. Los umbrales, checkpoint, fracciones y reglas de silencio siguen en `ListeningProgress`; fechas, redondeo y persistencia siguen en `DailyHistory`. No cambia el gráfico ni añade audio/timers.
+
+El registro de controles opcionales mantiene existencia, eventos y acciones: sumar los 15 minutos de simulación ya existentes y reiniciar historial, seguido de renderizado. `FocusController` conserva un adaptador de función para los controladores construidos antes del historial. La composición y registro mantienen su ubicación, y cargar historial permanece antes de recuperar la sesión.
+
+Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers precargan el módulo con caché fuente v3.55.
