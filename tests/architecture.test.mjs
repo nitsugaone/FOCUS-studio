@@ -11,6 +11,8 @@ const engineSource=await readFile(new URL('../src/audio/FocusAudioEngine.js',imp
 assert.doesNotMatch(engineSource,/document|localStorage|\$\(/,'Audio engine has no DOM or storage coupling');
 const uiSource=await readFile(new URL('../src/ui/FocusController.js',import.meta.url),'utf8');
 assert.doesNotMatch(uiSource,/\.create(?:Gain|Oscillator|BiquadFilter|Convolver|BufferSource)\(/,'UI cannot construct audio nodes');
+assert.doesNotMatch(uiSource,/\.addEventListener\s*\(/,'Composition delegates event registration to UI controllers');
+assert.doesNotMatch(uiSource,/\.(?:textContent|innerHTML)\s*=/,'Composition delegates presentation to UI controllers');
 const engine=new FocusAudioEngine({platform:{}});
 engine.configure({scene:'rain'}, {master:75}, {elapsedMs:0,durationMinutes:0,silent:false});
 assert.equal(engine.initialized(),false,'Construction and configuration do not start audio');
