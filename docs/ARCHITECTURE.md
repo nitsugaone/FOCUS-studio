@@ -232,3 +232,13 @@ Se conserva el orden de actualización de etiquetas, iconos, clases, atributos a
 `FocusController.syncUI` sigue como adaptador de composición para los controladores creados antes de la vista. Los callbacks de reproducir/pausar se resuelven al usarlos, una vez creado `PlaybackController`; la construcción de la vista no registra eventos ni actualiza la interfaz. `initPlaybackControls` se invoca en el punto original del arranque.
 
 Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers precargan la vista con caché fuente v3.48.
+
+## Temporizador y ciclo de ticks
+
+`src/ui/SessionTimerController.js` coordina el formato HH:MM:SS, temporizadores principal/móvil y ciclo de avance, inicio y detención de ticks. Usa la instancia compartida de `SessionClock`, getters del estado vigente y callbacks para escena, historial, persistencia y pausa. No crea temporizadores adicionales ni nodos de audio.
+
+Se mantienen truncamiento de segundos, límite inferior de cero, finalización del ciclo antes de `pause(true)` al llegar al objetivo y posterior sincronización del temporizador móvil y extensión. Cada tick conserva el orden avance, escena, renderizado, historial y guardado. Detener conserva avance final del reloj, historial forzado y persistencia forzada.
+
+`FocusController` conserva adaptadores de función para los controladores construidos antes del temporizador; la instancia se crea sin iniciar ni detener el reloj, y la pausa se resuelve cuando se usa. Las reglas de tiempo y ciclos siguen en `src/session/` y la automatización acústica, en `FocusAudioEngine`.
+
+No se modifican HTML, selectores, eventos, pruebas o dependencias. Ambos workers precargan el módulo con caché fuente v3.49.

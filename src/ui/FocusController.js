@@ -1,3 +1,4 @@
+import {createSessionTimerController} from './SessionTimerController.js';
 import {createPlaybackView} from './PlaybackView.js';
 import {createInteractionController} from './InteractionController.js';
 import {createVolumeController} from './VolumeController.js';
@@ -34,7 +35,6 @@ export function startFocusApp({
       const DEFAULTS = { master: 75, noise: 70, drone: 60, notes: 55 };
 
       const $ = (id) => document.getElementById(id);
-      const timerEl = $('timer');
       const modeLabelEl = $('session-mode-label');
 
       const engine=new FocusAudioEngine({platform:window,clearTimeout});
@@ -211,42 +211,15 @@ export function startFocusApp({
         navigator,isPlaying:()=>playing,play:()=>play(),pause:()=>pause()
       });
 
-      function formatSeconds(totalSecs) {
-        const safe = Math.max(0, Math.floor(totalSecs));
-        const hours = Math.floor(safe / 3600);
-        const minutes = Math.floor((safe % 3600) / 60);
-        const seconds = safe % 60;
-        return [hours, minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':');
-      }
-
-      function renderTimer() {
-        const elapsedSecs = Math.floor(clock.elapsedMs / 1000);
-        if (clock.durationMinutes > 0) {
-          const targetSecs = clock.durationMinutes * 60;
-          const remaining = Math.max(0, targetSecs - elapsedSecs);
-          timerEl.textContent = formatSeconds(remaining);
-          if (remaining === 0 && playing) {
-            cycleState=cycleTools.complete(cycleState);
-            pause(true); // Cierre suave automático al cumplir el objetivo
-          }
-        } else {
-          timerEl.textContent = formatSeconds(elapsedSecs);
-        }
-        $('mobile-timer').textContent=timerEl.textContent;
-        syncExtensionUI();
-      }
-
-      function advanceSessionClock() {clock.advance(playing);}
-      function startSessionClock() {
-        clock.start(()=>{
-          if(!playing)return;
-          advanceSessionClock();applyScene();renderTimer();syncFocusHistoryProgress();saveSession();
-        });
-      }
-
-      function stopSessionClock() {
-        clock.stop(playing);syncFocusHistoryProgress(true);saveSession(true);
-      }
+      const sessionTimer=createSessionTimerController({
+        $,clock,cycleTools,isPlaying:()=>playing,getCycleState:()=>cycleState,
+        setCycleState:value=>{cycleState=value;},pause:slowFade=>pause(slowFade),
+        syncExtensionUI,applyScene,syncFocusHistoryProgress,saveSession
+      });
+      function renderTimer() {sessionTimer.renderTimer();}
+      function advanceSessionClock() {sessionTimer.advanceSessionClock();}
+      function startSessionClock() {sessionTimer.startSessionClock();}
+      function stopSessionClock() {sessionTimer.stopSessionClock();}
 
       const {renderPlayback,showError,hideError,initPlaybackControls}=createPlaybackView({
         window,navigator,$,getPlaybackState:()=>({playing,transitioning}),getCycleState:()=>cycleState,
