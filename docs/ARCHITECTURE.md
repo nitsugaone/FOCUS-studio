@@ -222,3 +222,13 @@ Los eventos se registran en el mismo punto del arranque. La cobertura existente 
 Los eventos consultan el plan y la reproducción vigentes. Se mantienen el rechazo durante reproducción/transición o ciclos, validación de enteros de 1 a 180, mensajes, `aria-invalid`, tecla Enter y actualización del timestamp tras elegir un chip durante reproducción. `FocusController.resetCycle` conserva reloj, historial, persistencia y automatización de audio.
 
 No se modifican HTML, selectores, firmas de eventos, pruebas ni dependencias. Ambos workers conservan la misma lista de recursos y usan caché fuente v3.47.
+
+## Presentación de reproducción
+
+`src/ui/PlaybackView.js` concentra el estado visual del reproductor, mensajes de error y registro de botones de escritorio/móvil y su observador de visibilidad. Recibe elementos mediante `$`, navegador, ventana, getters del estado actual y acciones de reproducción; no construye nodos de audio ni gestiona el reloj.
+
+Se conserva el orden de actualización de etiquetas, iconos, clases, atributos accesibles, botones de actualización/backup/enlace y estado de Media Session. El observador mantiene el mismo umbral y fallback. Los clics consultan la reproducción vigente y delegan en las acciones existentes.
+
+`FocusController.syncUI` sigue como adaptador de composición para los controladores creados antes de la vista. Los callbacks de reproducir/pausar se resuelven al usarlos, una vez creado `PlaybackController`; la construcción de la vista no registra eventos ni actualiza la interfaz. `initPlaybackControls` se invoca en el punto original del arranque.
+
+Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers precargan la vista con caché fuente v3.48.
