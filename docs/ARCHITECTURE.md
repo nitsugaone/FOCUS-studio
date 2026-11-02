@@ -252,3 +252,13 @@ Al volver a una página visible durante reproducción conserva avance del reloj,
 `FocusController` entrega el flag vigente de restauración y el cierre del motor mediante callbacks. El registro mantiene su posición después de los atajos y antes de preparar la instalación/actualizaciones. La API previa del servicio se mantiene y construirlo no registra eventos.
 
 No se modifican HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan sus recursos y usan caché fuente v3.50.
+
+## Reinicio de sesión y reloj
+
+`SessionTimerController` coordina también `resetCycle` y el registro del botón existente mediante `initResetControl`. Recibe la misma instancia de `ListeningProgress`, etiqueta de modo y callbacks de sincronización y programación de entrada/cierre. `FocusController.resetCycle` conserva su firma y resultado como adaptador de composición para los controladores creados antes del temporizador.
+
+El cambio de plan/duración conserva avance previo, historial forzado, estado inicial del ciclo, duración, checkpoint y borrado del tiempo, mensajes, campos, reprogramación durante reproducción, renderizado y guardado forzado con su resultado. El botón conserva el plan y tramo, elimina solo la marca de completado y mantiene su orden distinto de persistencia/sincronización; no se unifican comportamientos diferentes.
+
+El estado se obtiene al usar cada acción, y el registro del botón sigue inmediatamente después de los controles de reproducción. Construir el controlador no reinicia la sesión ni programa audio. Las reglas del ciclo permanecen en `src/session/` y la automatización acústica en el motor.
+
+Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers mantienen la precarga y usan caché fuente v3.51.
