@@ -332,3 +332,13 @@ La recuperación se expresa directamente en el arranque mediante `sessionTimer.r
 Se conservan los adaptadores de temporizador, sincronización de UI/historial y reinicio usados por controladores construidos antes de sus dependencias. No se reordena construcción, registro, carga o reproducción, ni se añade otro módulo.
 
 Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers mantienen la precarga y usan caché fuente v3.58.
+
+## Presentación de errores de guardado
+
+`StudioController` coordina `writeLocal` y `showStorageError`. La primera delega la escritura en `StorageService`, muestra el aviso existente si falla y devuelve el mismo resultado. La segunda actualiza exclusivamente el mensaje ya existente de `studio-status`; construir el controlador no escribe datos ni modifica la interfaz.
+
+`FocusController.saveSession` mantiene snapshot, cadencia y resultado de `SessionPersistence`, y delega la presentación únicamente cuando el resultado es estrictamente `false`. Un guardado omitido por cadencia no produce aviso. Biblioteca, feedback y estudio reciben el mismo contrato `writeLocal(key,value)`.
+
+El texto, selector, orden de aviso y resultado de persistencia permanecen intactos. `StorageService` y `SessionPersistence` siguen sin acceso al DOM; la composición deja de actualizar directamente el mensaje.
+
+Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.59.
