@@ -163,22 +163,7 @@ export function startFocusApp({
         syncSessionControls:()=>{syncExtensionUI();syncEntryUI();syncFadeUI();syncRestSoundUI();syncSceneLabels();}
       });
       function resetCycle(plan,singleDuration=cycleState.singleDuration) {
-        advanceSessionClock();syncFocusHistoryProgress(true);
-        $('extension-status').textContent='';
-        cycleState=cycleTools.initial(plan,singleDuration);
-        clock.durationMinutes=cycleTools.duration(cycleState);
-        listeningProgress.checkpoint();clock.elapsedMs=0;
-        $('resume-status').textContent='';
-        modeLabelEl.textContent=clock.durationMinutes?'Cuenta regresiva ('+clock.durationMinutes+' min)':'Tiempo de sesión (Libre)';
-        $('custom-duration-status').textContent='';
-        $('custom-minutes').setAttribute('aria-invalid','false');
-        if(plan==='single'&&singleDuration>0)$('custom-minutes').value=singleDuration;
-        if(playing) {
-          clock.lastTimestamp=Date.now();
-          scheduleAudioClosing(true);
-          scheduleAudioEntry(true);
-        }
-        syncCycleUI();renderTimer();const saved=saveSession(true);syncUI();return saved;
+        return sessionTimer.resetCycle(plan,singleDuration);
       }
 
       const sessionPersistence=new SessionPersistence({storage,cycleTools});
@@ -214,7 +199,8 @@ export function startFocusApp({
       const sessionTimer=createSessionTimerController({
         $,clock,cycleTools,isPlaying:()=>playing,getCycleState:()=>cycleState,
         setCycleState:value=>{cycleState=value;},pause:slowFade=>pause(slowFade),
-        syncExtensionUI,applyScene,syncFocusHistoryProgress,saveSession
+        syncExtensionUI,applyScene,syncFocusHistoryProgress,saveSession,listeningProgress,modeLabelEl,
+        syncCycleUI,syncUI,scheduleAudioClosing,scheduleAudioEntry
       });
       function renderTimer() {sessionTimer.renderTimer();}
       function advanceSessionClock() {sessionTimer.advanceSessionClock();}
@@ -243,24 +229,7 @@ export function startFocusApp({
       initDurationControls();
 
       initPlaybackControls();
-      $('reset-timer').addEventListener('click', () => {
-        $('extension-status').textContent='';
-        advanceSessionClock();
-        cycleState={...cycleState,completed:false};
-        syncCycleUI();
-        syncFocusHistoryProgress(true);
-        listeningProgress.checkpoint();
-        clock.elapsedMs = 0;
-        saveSession(true);
-        $('resume-status').textContent='';
-        if (playing) {
-          clock.lastTimestamp = Date.now();
-          scheduleAudioClosing(true);
-          scheduleAudioEntry(true);
-        }
-        renderTimer();
-        syncUI();
-      });
+      sessionTimer.initResetControl();
 
       // ==========================================
       // SECCIÓN DE DATOS: HISTORIAL DE HÁBITOS DE FOCO (SVG NATIVO)
