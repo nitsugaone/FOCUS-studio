@@ -16,7 +16,7 @@ import {createPlaybackController} from './PlaybackController.js';
 import {ListeningProgress} from '../session/ListeningProgress.js';
 import {createSessionExtensionController} from './SessionExtensionController.js';
 import {createMixLibraryController} from './MixLibraryController.js';
-import {validStudio} from '../storage/mixes.js';
+import {studioSettings} from '../storage/mixes.js';
 import {createResponsiveController} from './ResponsiveController.js';
 import {createHistoryView} from './HistoryView.js';
 import {SessionClock} from '../session/SessionClock.js';
@@ -53,7 +53,6 @@ export function startFocusApp({
       let studio = {scene:'rain',evolution:35,brightness:50,melody:true,stereoWidth:100,balance:0,notePace:'normal',fadeOutSeconds:20,fadeInSeconds:12,preserveMix:false,restSound:'sound'};
       const mixState={mixes:[],deletionUndo:null};
       const storage=new StorageService(localStorage);
-      function readLocal(key,fallback) { return storage.read(key,fallback); }
       function writeLocal(key,value) {
         const saved=storage.write(key,value);
         if(!saved)$('studio-status').textContent='No se pudo guardar en este dispositivo.';
@@ -99,7 +98,7 @@ export function startFocusApp({
       }
 
       function applySavedMix(mix) {
-        studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,balance:mix.balance??0,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20,fadeInSeconds:mix.fadeInSeconds??12,preserveMix:mix.preserveMix??false,restSound:mix.restSound??'sound'};
+        studio=studioSettings(mix);
         Object.keys(DEFAULTS).forEach(k=>{$('vol-'+k).value=mix.levels[k];updateRange(k,false);});
         const plan=Object.prototype.hasOwnProperty.call(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single';
         resetCycle(plan,plan==='single'?(cycleTools.validDuration(mix.duration)?mix.duration:0):cycleState.singleDuration);
@@ -115,10 +114,9 @@ export function startFocusApp({
       const setupResponsivePanels=createResponsiveController({window,$});
 
       function initStudio() {
-        const loaded=readLocal(STUDIO_KEY,null);
-        if(validStudio(loaded)) studio={scene:loaded.scene,evolution:loaded.evolution,brightness:loaded.brightness,melody:loaded.melody,stereoWidth:loaded.stereoWidth??100,balance:loaded.balance??0,notePace:loaded.notePace??'normal',fadeOutSeconds:loaded.fadeOutSeconds??20,fadeInSeconds:loaded.fadeInSeconds??12,preserveMix:loaded.preserveMix??false,restSound:loaded.restSound??'sound'};
-        const mixes=readLocal('focus-mixes-v3',[]);
-        mixState.mixes=Array.isArray(mixes) ? mixes.filter(m=>validStudio(m)&&typeof m.name==='string'&&m.levels&&Object.keys(DEFAULTS).every(k=>Number.isFinite(m.levels[k])&&m.levels[k]>=0&&m.levels[k]<=100)).slice(0,50) : [];
+        const loaded=storage.loadStudio(STUDIO_KEY);
+        if(loaded)studio=loaded;
+        mixState.mixes=storage.loadMixes(Object.keys(DEFAULTS));
         syncStudio();renderMixes();
         $('mix-search').addEventListener('input',()=>renderMixes($('saved-mixes').value));
         $('clear-mix-search').addEventListener('click',()=>{
@@ -134,7 +132,7 @@ export function startFocusApp({
       let reloadingAfterRestore=false;
 
       function applySharedMix(mix) {
-        studio={scene:mix.scene,evolution:mix.evolution,brightness:mix.brightness,melody:mix.melody,stereoWidth:mix.stereoWidth??100,balance:mix.balance??0,notePace:mix.notePace??'normal',fadeOutSeconds:mix.fadeOutSeconds??20,fadeInSeconds:mix.fadeInSeconds??12,preserveMix:mix.preserveMix??false,restSound:mix.restSound??'sound'};
+        studio=studioSettings(mix);
         Object.keys(DEFAULTS).forEach(key=>{$('vol-'+key).value=mix.levels[key];updateRange(key,false);});
         const sessionSaved=resetCycle(mix.cyclePlan,mix.cyclePlan==='single'?mix.duration:cycleState.singleDuration);
         applyScene();

@@ -272,3 +272,13 @@ Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers 
 El orden del arranque permanece: recuperar sesión después de cargar historial, aplicar acceso PWA después de inicializar ciclos, y procesar enlace de mezcla después del acceso PWA. Así se conservan las precedencias previas y la exclusión de tiempo ya contabilizado.
 
 Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.52.
+
+## Carga de estudio y mezclas
+
+`StorageService.loadStudio(key)` lee y valida los ajustes del estudio, y devuelve su proyección compatible o `null`. `loadMixes(levelKeys)` lee `focus-mixes-v3` y conserva el filtrado previo por estudio válido, nombre, presencia de niveles y valores numéricos finitos de 0 a 100, seguido del límite de 50. No escribe, cambia el orden ni normaliza los registros de la biblioteca.
+
+`src/storage/mixes.js` exporta `studioSettings`, función pura que proyecta los mismos campos y valores nulos/ausentes predeterminados que antes estaban repetidos al cargar ajustes y aplicar mezclas guardadas o compartidas. No modifica el objeto recibido ni incluye nombre, niveles, duración o campos adicionales en el estudio. La validación sigue separada y no se endurece.
+
+`FocusController.initStudio` conserva el estudio inicial si la lectura no es válida, asigna los resultados del servicio y mantiene renderizado y registro de eventos en el mismo orden. Aplicar mezclas conserva la coordinación previa de niveles, reloj, audio y guardado.
+
+Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.53.
