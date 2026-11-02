@@ -1,352 +1,134 @@
-# Arquitectura ES6 de FOCUS
+# Arquitectura de FOCUS Studio
 
-Este cambio conserva la interfaz, las claves y los formatos de datos y los valores acústicos. GitHub Pages sirve el HTML raíz y módulos ES6 nativos; no se agrega un bundler ni dependencias.
+FOCUS carga `src/main.js` desde el HTML raíz mediante un módulo ES6. El punto de entrada llama a `startFocusApp`; los IDs, clases y atributos accesibles del HTML son el contrato de los controladores y las pruebas de navegador.
 
-## Dependencias
+GitHub Pages sirve este HTML y sus módulos nativos. El repositorio también dispone de un build Vite, validado de forma independiente. El scaffold React/TypeScript y sus dependencias de desarrollo no son el punto de entrada del sitio de Pages.
 
-- `src/main.js` inicia `src/ui/FocusController.js`.
-- La interfaz coordina audio, almacenamiento y sesión. ResponsiveController y HistoryView se ocupan de sus vistas.
-- `src/audio/FocusAudioEngine.js` es el único propietario del AudioContext, grafo, fuentes, notas y temporizadores de suspensión. Importa DSP y escenas, sin importar módulos de interfaz o almacenamiento.
-- `src/audio/dsp.js` contiene los constructores y las funciones matemáticas de estéreo, balance, ruido, reverberación, ráfagas y envolventes. Sus parámetros Web Audio son explícitos.
-- `src/session/cycles.js` define las reglas de sesiones simples, rondas y descansos. `SessionClock.js` mide tiempo real con reloj y temporizadores inyectables. `sharing.js` conserva el formato de enlaces.
-- `src/storage/StorageService.js` centraliza acceso JSON y fallos de persistencia mediante un adaptador. `backups.js` conserva validación, combinación, límites, transacciones y recuperación. `mixes.js` e `insights.js` contienen reglas sin DOM.
+## Responsabilidades y dependencias
 
-## Audio
+| Área | Módulos | Responsabilidad |
+| --- | --- | --- |
+| Arranque | [main.js](../src/main.js), [FocusController.js](../src/ui/FocusController.js) | Crear estado y servicios, conectar callbacks y ejecutar carga/registro en el orden existente. |
+| Audio | [FocusAudioEngine.js](../src/audio/FocusAudioEngine.js) | Poseer AudioContext, grafo, fuentes, notas, suspensión y cierre. |
+| DSP y escenas | [dsp.js](../src/audio/dsp.js), [scenes.js](../src/audio/scenes.js) | Cálculos, constructores de procesamiento con parámetros explícitos y datos de ambientes. |
+| Tiempo y ciclos | [SessionClock.js](../src/session/SessionClock.js), [cycles.js](../src/session/cycles.js) | Tiempo real acumulado, duración y reglas de sesiones simples, rondas, descansos y extensión. |
+| Progreso y recuperación | [ListeningProgress.js](../src/session/ListeningProgress.js), [SessionPersistence.js](../src/session/SessionPersistence.js) | Segundos ya contabilizados, cadencia de guardado y validación de snapshots. |
+| Persistencia | [StorageService.js](../src/storage/StorageService.js), [DailyHistory.js](../src/storage/DailyHistory.js) | Adaptador JSON, carga compatible de estudio/biblioteca e historial por fecha local. |
+| Reglas de datos | [backups.js](../src/storage/backups.js), [mixes.js](../src/storage/mixes.js), [insights.js](../src/storage/insights.js), [sharing.js](../src/session/sharing.js) | Validación y transacciones de copias, ajustes compatibles, búsqueda/duplicación, informes y codec de enlaces. |
+| Reproducción | [PlaybackController.js](../src/ui/PlaybackController.js), [PlaybackView.js](../src/ui/PlaybackView.js) | Inicio/pausa y coordinación de recursos; presentación, errores y botones principal/móvil. |
+| Estudio y niveles | [StudioController.js](../src/ui/StudioController.js), [VolumeController.js](../src/ui/VolumeController.js) | Controles y estado visual, escena/entrada/cierre, captura/aplicación de mezclas y aviso de guardado; niveles, perfiles y mute. |
+| Sesión en UI | [SessionTimerController.js](../src/ui/SessionTimerController.js), [CycleController.js](../src/ui/CycleController.js), [SessionExtensionController.js](../src/ui/SessionExtensionController.js) | Ticks/renderizado/reinicio/recuperación/accesos PWA, controles de ciclo/duración y acción de extensión. |
+| Biblioteca | [MixLibraryController.js](../src/ui/MixLibraryController.js), [MixLibraryView.js](../src/ui/MixLibraryView.js) | Acciones y recuperación de eliminación; selección, favoritas, búsqueda y preview. |
+| Historial y valoración | [HistoryController.js](../src/ui/HistoryController.js), [HistoryView.js](../src/ui/HistoryView.js), [InsightsController.js](../src/ui/InsightsController.js) | Registrar escucha y dibujar el historial; guardar valoraciones y presentar informes/filtros. |
+| Datos portables | [SharedMixController.js](../src/ui/SharedMixController.js), [BackupController.js](../src/ui/BackupController.js) | Preview y acciones de enlaces; selección, preview, importación, recuperación y descarga de copias. |
+| Navegador y PWA | [BrowserPlaybackServices.js](../src/ui/BrowserPlaybackServices.js), [PwaController.js](../src/ui/PwaController.js) | Wake Lock, Media Session y eventos de página; instalación y actualización manual. |
+| Presentación adaptable | [ResponsiveController.js](../src/ui/ResponsiveController.js), [InteractionController.js](../src/ui/InteractionController.js) | Paneles por breakpoint; vista de concentración y atajos existentes. |
 
-`new FocusAudioEngine({platform, clearTimeout})` no crea fuentes ni inicia reproducción. La interfaz entrega copias de ajustes, volúmenes y datos del tramo con `configure(settings, levels, {elapsedMs, durationMinutes, silent})`. Luego coordina `resume()`, `applyScene()` y `start()`. `pause(slowFade)` y `close()` gestionan los recursos y temporizadores del motor.
+Audio solo importa su propio dominio. Almacenamiento y sesión pueden usar módulos de dominio, pero no UI ni el arranque. Los módulos de dominio reciben adaptadores y no acceden directamente al documento o al almacenamiento del navegador.
 
-`scheduleEntry(smooth)` y `scheduleClosing(smooth)` mantienen las automatizaciones en AudioContext.currentTime. Extender una sesión cambia el cierre y conserva la entrada y las fuentes. Cambiar un nivel usa `updateLevel(id,value)`. La secuencia de notas se reinicia o reprograma mediante `resetNotes()` y `restartNotes()`.
+`FocusController` conserva la composición: no registra directamente eventos DOM ni asigna contenido visual. Los controladores de UI pueden coordinar el motor, pero no construyen recursos Web Audio.
 
-El elemento HTML de audio auxiliar recibe el MediaStream devuelto por `stream()` en la interfaz. Media Session, Wake Lock y eventos de página son responsabilidad de la interfaz. El motor no conoce elementos HTML ni ejecuta callbacks que los busquen.
+## Contratos que deben conservarse
 
-El AudioWorklet mantiene `audio/noise-processor.js` y su alternativa con buffers. Su URL y el nombre del procesador se conservan para no cambiar el contrato existente.
+### Audio y reproducción
 
-## Sesión y almacenamiento
+`new FocusAudioEngine({platform, clearTimeout})` no crea el grafo ni inicia sonido. `configure(settings, levels, {elapsedMs, durationMinutes, silent})` toma copias de ajustes y niveles. `resume()` inicializa o reanuda; `applyScene(smooth)` actualiza el grafo y `start()` programa las envolventes y notas.
 
-SessionClock conserva el tiempo acumulado, la marca de avance y la duración. Un callback tardío se limita al final del tramo; una pausa no suma tiempo; un reloj que retrocede no resta tiempo. El controlador decide cuándo renderizar, contabilizar historial y guardar. Los descansos y rondas siguientes siguen requiriendo la misma acción explícita del usuario.
+La automatización de entrada y cierre usa `AudioContext.currentTime`. Los ticks de pantalla actualizan presentación y reconcilian tiempo; no son el reloj del cierre acústico. Extender una sesión reemplaza el cierre conservando entrada y fuentes. `updateLevel`, `resetNotes` y `restartNotes` conservan sus responsabilidades específicas.
 
-StorageService recibe el adaptador de almacenamiento desde el arranque. Devuelve un resultado de guardado para que la interfaz decida cómo informar el error. Las copias siguen usando el formato y versión existentes, incluidos el rollback y la recuperación de importación.
+`PlaybackController` mantiene la exclusión durante inicio/transición y coordina reloj, feedback, audio auxiliar, Media Session y Wake Lock. `stream()` entrega el MediaStream que la UI conecta al elemento auxiliar. El motor permanece desacoplado de elementos HTML.
 
-## PWA y pruebas
+El worklet conserva la ruta [audio/noise-processor.js](../audio/noise-processor.js), su copia pública y su alternativa con buffers.
 
-Los dos Service Workers precargan la lista completa de módulos además del HTML y el worklet. La actualización continúa requiriendo una acción desde una sesión pausada. Cambiar cualquier archivo de producción requiere actualizar la versión de caché y, si corresponde, su lista de recursos.
+### Estado, callbacks y arranque
 
-Las pruebas de navegador conservan casos, selectores y acciones. Las pruebas que renderizan Web Audio leen funciones de los módulos de producción mediante `tests/support/application-source.mjs`; no usan copias del código. La prueba simulada de la aplicación importa el controlador real con adaptadores de navegador inyectados. Las pruebas de arquitectura comprueban el arranque modular, aislamiento, fallos de almacenamiento y ciclo de vida del reloj.
+Los getters consultan el estudio, ciclo y reproducción vigentes: cargar una mezcla o recuperar una sesión puede reemplazar esos objetos. Evitar capturar snapshots al construir un controlador que deba seguir leyendo cambios.
 
-Ejecutar:
-- `node --test tests/*.test.mjs`
-- En `tools/browser-tests`: `npm ci --ignore-scripts --no-audit --no-fund` y `npm test`.
+Algunas dependencias se construyen después de sus consumidores. Los adaptadores de temporizador, sincronización de UI/historial y reinicio de `FocusController` se resuelven al usarse. No adelantarlos ni ejecutar esas acciones durante construcción. Las acciones de escena ya se conectan directamente porque el estudio se construye antes de sus consumidores.
 
-El scaffold React/TypeScript previo se conserva fuera del punto de entrada de Pages; no forma parte del arranque modular de esta aplicación.
+Los registros existentes conservan el orden: volumen, duración, reproducción, reinicio, historial, atajos y ciclo de página. La carga final conserva:
 
-## Build Vite
+1. Ajustes de volumen.
+2. Estudio y biblioteca; sincronización y renderizado inicial; registro de búsqueda, controles del estudio, acciones de mezclas y feedback.
+3. Paneles adaptables e historial diario.
+4. Recuperación del snapshot de sesión, sin autoplay ni guardado.
+5. Informes, copias de seguridad y controles de ciclo.
+6. Acceso PWA de duración y después enlace compartido.
+7. Renderizado final de reloj, historial y estado de reproducción.
 
-El despliegue sin empaquetar conserva las rutas fuente en ambos workers del repositorio. Para `vite build`, el plugin `scripts/build-offline-worker.mjs` reemplaza el worker de salida después de emitir los archivos: precarga el bundle y recursos realmente presentes en el directorio de salida, sin mapas de fuentes ni rutas `src/` inexistentes. La versión de caché se deriva del contenido emitido. La prueba del hook usa un directorio temporal y comprueba que todas las rutas precargadas existen.
+Esta precedencia permite que un acceso PWA reemplace la sesión recuperada y que el enlace se procese después. Las fases siguientes de ciclos guiados siguen requiriendo inicio explícito.
 
-## Validación del build completo
+Al volver a una página visible, `BrowserPlaybackServices` avanza el reloj, aplica escena, renderiza y solicita Wake Lock solo si la reproducción continúa. En `pagehide` detiene el reloj salvo recarga por restauración, libera Wake Lock y cierra el motor. El flag de restauración evita sobrescribir datos recién importados.
 
-La CI ejecuta `npm run build -- --base=/FOCUS-studio/` con las dependencias de la aplicación y valida el resultado real mediante `node scripts/validate-build.mjs`. Comprueba el bundle, la ubicación pública del manifest, sus recursos y accesos de inicio y las URLs precargadas por el worker. El hook HTML de Vite conserva el manifest en la raíz pública para que sus rutas relativas sigan siendo válidas.
+### Tiempo y escucha
 
-El artefacto `focus-production-build` se descarga en un job de navegador independiente. Los mismos 210 casos se ejecutan sin cambios contra los módulos fuente y contra `dist/`, incluidos el uso offline y la reproducción. El servidor de pruebas elige `dist/` cuando `FOCUS_TEST_TARGET=build` y mantiene el montaje `/FOCUS-studio/`. Los reportes de ambas variantes se guardan por separado.
+`SessionClock` recibe reloj y temporizadores inyectados. Limita callbacks tardíos al final del tramo, no acumula tiempo detenido y no resta tiempo si el reloj retrocede. Los adaptadores de APIs nativas deben conservar el receptor correcto.
 
-## Instalaciones con dependencias bloqueadas
+`ListeningProgress.advance(elapsedMs, {silent, flush})` entrega segundos nuevos al acumular al menos cinco segundos, o uno con cierre forzado. Conserva la fracción pendiente. Un descanso silencioso mueve el checkpoint sin sumar escucha; recuperar una sesión fija el checkpoint al tiempo ya registrado.
 
-El proyecto conserva `package-lock.json` en la raíz y otro en `tools/browser-tests/`, porque son instalaciones npm independientes. Ambos registran versiones resueltas, URLs e integridad de los paquetes. La CI instala con `npm ci --ignore-scripts --no-audit --no-fund`; el build y las pruebas usan esas resoluciones.
+`HistoryController` agrega y redibuja solo cuando hay segundos registrables. `DailyHistory` mantiene fechas locales, asignación al día del registro, redondeo a décimas por actualización y minutos enteros para el gráfico.
 
-Para preparar el build local, ejecutar `npm ci --ignore-scripts --no-audit --no-fund` en la raíz. Para las pruebas de navegador, ejecutar el mismo comando en `tools/browser-tests/`. Las actualizaciones intencionales de dependencias deben incluir el manifest y su lockfile correspondiente y superar las validaciones de lógica, build, offline y ambas distribuciones.
+`SessionPersistence.save` limita guardados normales a cinco segundos y admite guardado forzado. Devuelve el resultado de escritura o `undefined` cuando omite el guardado por cadencia. La UI presenta el error de sesión solo ante `false` estricto. Recuperar valida y limita el snapshot; aplicar ese resultado al reloj pertenece a `SessionTimerController`.
 
-## Pruebas de contratos ES6
+## Persistencia y formatos
 
-Las pruebas unitarias de funciones puras de DSP, ciclos, enlaces, mezclas, copias e informes importan las exportaciones de producción. Así comprueban el contrato real del módulo y sus dependencias sin buscar cuerpos de funciones por nombre o indentación. Se conservan las mismas aserciones de comportamiento.
+`StorageService` recibe el adaptador desde el arranque. `read` usa fallback ante datos ausentes/ilegibles; `write` devuelve éxito o fallo. La presentación del aviso existente pertenece a `StudioController.writeLocal/showStorageError`.
 
-En esta etapa, 13 archivos eliminan la extracción textual de funciones; otros tres importan su parte pura y conservan el entorno simulado de interfaz para el comportamiento restante. La prueba de ciclos mantiene una comprobación estática de compatibilidad con navegadores sin `Object.hasOwn`. El AudioWorklet conserva el entorno simulado de `registerProcessor`.
+| Clave | Datos |
+| --- | --- |
+| `focus-studio-v3` | Ajustes del estudio. |
+| `focus-audio-settings-v2` | Niveles master/noise/drone/notes. |
+| `focus-mixes-v3` | Biblioteca de mezclas y favoritas. |
+| `focus-session-v1` | Duración, tiempo acumulado y estado de ciclo. |
+| `focus-feedback-v3` | Valoraciones de sesiones. |
+| `focus-daily-history-v1` | Minutos por fecha local. |
+| `focus-backup-undo-v1` | Datos para recuperar la importación previa. |
 
-`tests/support/application-source.mjs` sigue reservado para los casos que necesitan estado interno del controlador y para transportar funciones a las pruebas de renderizado Web Audio del navegador. Esos casos y los 210 escenarios de navegador se mantienen; esta migración no expone nuevas APIs del producto para facilitar las pruebas.
+`loadStudio(key)` valida y aplica la proyección pura `studioSettings`. `loadMixes(levelKeys)` conserva el filtrado y límite de 50, sin reescribir registros. Al aplicar mezclas guardadas o compartidas se usan los mismos defaults de compatibilidad, manteniendo las diferencias de validación y los resultados de persistencia de cada ruta.
 
-## Controlador de biblioteca de mezclas
+Las acciones de biblioteca escriben antes de reemplazar estado. Una escritura fallida conserva datos y recuperación pendiente; una mutación guardada invalida la eliminación recuperable anterior. Esa eliminación pendiente vive en memoria y no se exporta.
 
-`src/ui/MixLibraryController.js` coordina guardar cambios, eliminar y recuperar la última eliminación. Recibe el estado de la biblioteca, el acceso a elementos, la función de persistencia, el renderizado y la selección como dependencias explícitas. `FocusController` conserva el arranque, la carga y validación de datos, los eventos y la aplicación de ajustes al audio.
+Las copias usan `format: 'focus-studio-backup'`, `version: 1`, con validación, combinación, rollback y recuperación en `backups.js`. El controlador descarta lecturas de archivo obsoletas. Aplicar o recuperar una copia recarga solo después de la transacción.
 
-El controlador escribe antes de cambiar el estado. Una escritura fallida conserva las mezclas y la recuperación pendiente; una edición guardada descarta la recuperación anterior. La eliminación conserva una copia de los niveles y la recuperación mantiene posición y metadatos. La búsqueda y los mensajes conservan su comportamiento.
+Los enlaces usan la lista permitida de ajustes con `v: 1`. Compartir no incluye nombres de mezclas, historial ni tiempo acumulado. Recibir/descartar un enlace no aplica ajustes; aplicarlo requiere pausa.
 
-La prueba de recuperación importa la misma fábrica usada por la aplicación y proporciona su estado y adaptadores de UI/almacenamiento. Conserva las aserciones existentes sin leer archivos fuente ni reconstruir funciones. El módulo forma parte de la precarga de ambos workers; la caché fuente pasa a v3.28.
+## PWA y dos distribuciones verificadas
 
-## Controlador de extensión de sesiones
+Para Pages con módulos nativos, [sw.js](../sw.js) y [public/sw.js](../public/sw.js) deben ser idénticos y precargar el grafo completo, worklet y recursos públicos. Un cambio de producción requiere revisar la versión de caché y agregar/quitar recursos cuando corresponda. Cambios solo de documentación o pruebas no requieren una nueva caché.
 
-`src/ui/SessionExtensionController.js` coordina la acción existente de prolongar una sesión y su disponibilidad visual. Importa la regla pura de `src/session/cycles.js`; recibe el reloj, accesores al estado actual y callbacks de audio, persistencia y renderizado. Los accesores evitan conservar una copia obsoleta cuando el controlador principal reemplaza el estado de un ciclo.
+`PwaController` descubre el worker en espera y solo envía `SKIP_WAITING` tras la acción existente en pausa, guardando antes la sesión. La instalación no fuerza activación; `controllerchange` solo recarga tras esa solicitud.
 
-La extensión avanza el reloj antes de validar, conserva el tiempo transcurrido y el historial, y reprograma únicamente el cierre de audio cuando hay reproducción. Mantiene el límite de 180 minutos y la exclusión de sesiones libres, ciclos, tramos terminados y transiciones. El fallo de guardado conserva el cambio en memoria y el mensaje existente.
+El build de [vite.config.ts](../vite.config.ts) usa [build-offline-worker.mjs](../scripts/build-offline-worker.mjs). Después de emitir archivos, genera la precarga de los recursos reales de `dist/` y una versión derivada de su contenido, sin rutas fuente inexistentes ni mapas de fuentes. El hook HTML mantiene el manifest en la raíz pública.
 
-La prueba importa el controlador de producción, conserva todas las aserciones anteriores y añade comprobaciones del contrato visual y del fallo de guardado. No reconstruye cuerpos de funciones ni lee código fuente. Ambos workers precargan el módulo; la caché fuente pasa a v3.29. No cambian el HTML, los eventos ni los escenarios de navegador.
+[validate-build.mjs](../scripts/validate-build.mjs) verifica el bundle real, subruta de despliegue, manifest, accesos PWA y cada recurso offline. El servidor de pruebas monta tanto fuente como build bajo `/FOCUS-studio/`; selecciona `dist/` con `FOCUS_TEST_TARGET=build`.
 
-## Contabilización del tiempo de escucha
+## Validación y mantenimiento
 
-`src/session/ListeningProgress.js` mantiene la marca del tiempo ya contabilizado. `advance(elapsedMs, {silent, flush})` devuelve los segundos nuevos: acumula por bloques de al menos cinco segundos durante la reproducción o de uno al cerrar, conservando la fracción pendiente. Un descanso en silencio actualiza la marca sin devolver segundos, por lo que ese tiempo no se añade al reanudar el sonido.
+La [CI de calidad](../.github/workflows/quality.yml) ejecuta Node, build y los mismos 210 casos de navegador en fuente y build: 420 ejecuciones en seis perfiles Chromium/WebKit. Mantiene artefactos de build y reportes separados por variante.
 
-`checkpoint(elapsedMs = 0)` conserva el punto ya registrado al restaurar una sesión o reinicia la contabilización al iniciar otro tramo. El módulo no conoce DOM, almacenamiento ni Web Audio. `FocusController` conserva la coordinación de guardado y renderizado del historial y los mismos puntos de cierre, restauración y reinicio.
+Las dependencias de desarrollo están bloqueadas mediante dos lockfiles, uno en la raíz y otro en `tools/browser-tests/`. Para reproducir los comandos de CI desde la raíz:
 
-La prueba de descansos importa la clase de producción, conserva las aserciones anteriores y comprueba umbrales, fracciones, llamadas repetidas, restauración, reinicio y exclusión del silencio. Ambos workers precargan el módulo con caché fuente v3.30. No cambian las claves o el formato del historial, la asignación por día ni su redondeo.
+```sh
+npm ci --ignore-scripts --no-audit --no-fund
+node --test tests/*.test.mjs
+npm run build -- --base=/FOCUS-studio/
+node scripts/validate-build.mjs
+```
 
-## Coordinación de pausa
+En `tools/browser-tests/`, con los navegadores de Playwright disponibles, ejecutar en PowerShell:
 
-`src/ui/PlaybackController.js` coordina la pausa mediante adaptadores explícitos de estado, reloj, motor de audio, persistencia, interfaz, Media Session y Wake Lock. `FocusController` conserva el registro de eventos y el arranque. Los accesores leen el estado y los ajustes actuales; el motor sigue sin dependencias del DOM.
+```powershell
+npm ci --ignore-scripts --no-audit --no-fund
+$env:FOCUS_TEST_TARGET = 'source'
+npm test
+$env:FOCUS_TEST_TARGET = 'build'
+npm test
+```
 
-Se conserva el orden: detener el reloj y registrar el progreso, comprobar el final y persistir el ciclo completado, preparar la valoración del tramo de foco cuando corresponde, marcar la pausa, pausar el motor y el audio auxiliar, actualizar Media Session, liberar Wake Lock y sincronizar la interfaz. Una pausa repetida o durante una transición no ejecuta efectos.
+El build debe existir antes de probar la segunda variante. CI usa la imagen Playwright indicada en el workflow. Estas pruebas cubren coordinación y renderizado Web Audio; la escucha, volumen percibido y bloqueo de pantalla en equipos físicos corresponden a [la guía de validación](VALIDACION-V3.md).
 
-La prueba de cierre de audio importa ahora la fábrica real y conserva todas sus aserciones anteriores. También comprueba el orden, la finalización tras un callback tardío, pausas repetidas, transiciones, valoración y navegadores sin Media Session o audio auxiliar. Ninguna prueba unitaria reconstruye ya funciones de UI desde texto; el helper de fuente se conserva para la comprobación estática de compatibilidad de ciclos y las pruebas de renderizado Web Audio en navegador. Ambos workers precargan el nuevo módulo con caché fuente v3.31.
+Las pruebas de lógica importan módulos de producción y usan adaptadores controlados. [application-source.mjs](../tests/support/application-source.mjs) permanece para la comprobación estática de compatibilidad de ciclos y el transporte de funciones DSP a los escenarios de navegador; no reconstruye controladores de UI.
 
-## Inicio y reanudación de reproducción
+[architecture.test.mjs](../tests/architecture.test.mjs) protege el arranque modular y la delegación de eventos/presentación. [module-graph.test.mjs](../tests/module-graph.test.mjs) detecta ciclos en los imports estáticos de una línea usados por producción, límites de dominio, propiedad de recursos de audio y precarga. Si cambia el formato de imports, debe ampliarse ese lector estructural.
 
-`PlaybackController` reúne `play()` y `pause(slowFade = false)` con los mismos adaptadores de estado y recursos. Sustituye al módulo dedicado solo a pausa. `FocusController` registra los mismos eventos y conserva configuración, renderizado, persistencia y servicios de navegador. `FocusAudioEngine` sigue siendo el propietario del grafo sin acceso al DOM.
-
-El arranque conserva la exclusión durante reproducción o transición, el avance manual al siguiente tramo, reinicio de una sesión vencida y orden de configuración/reanudación del motor. El stream y Media Session se preparan solo al inicializar el motor; al reanudar se conservan progreso y fuentes. Si falla el inicio, se detiene el reloj, se muestra el error existente y siempre se libera la marca de transición y sincroniza la interfaz. El rechazo del audio auxiliar continúa siendo tolerado.
-
-Las pruebas importan el controlador real y cubren inicio, reanudación, guardas durante una promesa pendiente, siguiente tramo, sesión vencida, recursos multimedia opcionales y fallos de reanudación o inicio. Las aserciones anteriores de pausa y cierre se conservan. Ambos workers sustituyen la ruta antigua por el módulo compartido con caché fuente v3.32.
-
-## Datos del historial diario
-
-`src/storage/DailyHistory.js` conserva la carga, acumulación, reinicio, últimos siete días y cálculo de racha. Recibe `StorageService` y una función opcional `currentDate` para obtener fechas locales. No accede al DOM, al motor de audio ni a `localStorage` directamente.
-
-`FocusController` conserva los mismos eventos de historial, el cálculo de segundos mediante `ListeningProgress` y la coordinación con `HistoryView`. La clave `focus-daily-history-v1`, el formato por fecha, el redondeo a décimas por actualización y el redondeo del gráfico a minutos permanecen intactos. El tiempo se asigna al día vigente al registrar, como antes; una escritura fallida conserva los datos en memoria y no cambia el tratamiento existente de errores.
-
-Las pruebas importan el módulo real con almacenamiento y fecha controlados. Cubren carga ausente o inválida, redondeo, cambio de día/año, semana con febrero bisiesto, rachas, reinicio y fallos de lectura/escritura. Ambos workers precargan el módulo con caché fuente v3.33. El HTML y los escenarios de navegador se conservan.
-
-## Servicios de reproducción del navegador
-
-`src/ui/BrowserPlaybackServices.js` posee el Wake Lock y prepara los metadatos y acciones de Media Session. Recibe el navegador, el estado actual de reproducción y los callbacks `play`/`pause`; el constructor de metadatos se obtiene de forma diferida y puede inyectarse en pruebas. No construye nodos ni accede al DOM o al almacenamiento.
-
-`FocusController` conserva los eventos de visibilidad y salida de página, y entrega los mismos servicios a `PlaybackController`. Se mantienen solicitud de bloqueo durante reproducción, limpieza al liberar o recibir el evento `release`, tolerancia a rechazos y navegadores sin estas APIs. Los metadatos y handlers `play`, `pause` y `stop` permanecen idénticos.
-
-Las pruebas importan el servicio real y simulan adquisición, liberación externa o explícita, reacquisición, fallos y soporte opcional. También comprueban metadatos y despacho de las acciones multimedia. Son verificaciones automatizadas de coordinación; no sustituyen pruebas de pantalla bloqueada en dispositivos reales. Ambos workers precargan el módulo con caché fuente v3.34.
-
-## Instalación y actualización PWA
-
-`src/ui/PwaController.js` posee el aviso de instalación pendiente, el worker en espera y la marca de recarga solicitada. Recibe ventana, navegador, acceso a los elementos, estado actual de reproducción y guardado de sesión. `FocusController` conserva el arranque y sincroniza el mismo botón al cambiar la reproducción.
-
-Los eventos y mensajes se conservan: instalación manual con `beforeinstallprompt`, registro del worker al cargar o recuperar conexión, disponibilidad offline y descubrimiento de actualizaciones. El controlador solo envía `SKIP_WAITING` tras la acción existente del usuario en pausa y guarda antes la sesión; `controllerchange` solo recarga después de esa solicitud. No se modifican las reglas de activación del worker.
-
-Las pruebas importan el controlador real con adaptadores de eventos y promesas. Comprueban ausencia de recarga automática, bloqueo de actualización durante reproducción/transición, guardado previo a activación, descubrimiento de un worker instalado, instalación pendiente y sus fallos, conexión y soporte opcional. Ambos workers precargan el módulo con caché fuente v3.35.
-
-## Vista de valoraciones e informes
-
-`src/ui/InsightsController.js` coordina la lectura de valoraciones mediante `StorageService`, los selectores existentes de período/ambiente y el renderizado del resumen, comparación, tabla y diez registros recientes. Recibe documento, acceso a elementos y servicio de almacenamiento. Las reglas de validación, agrupación y comparación permanecen en `src/storage/insights.js`.
-
-`FocusController` conserva el guardado de valoraciones, la importación/restauración y el arranque; invoca el mismo renderizado cuando corresponde. Se mantienen la clave `focus-feedback-v3`, todos los selectores, eventos, textos, fechas locales y el uso de `textContent` para los datos mostrados.
-
-La cobertura existente de cálculo, aplicación simulada y navegador comprueba el período predeterminado, todo el historial, filtro por ambiente y filas de grupos/registros. Se conserva sin cambios y se ejecuta completa contra módulos fuente y build. Ambos workers precargan el módulo con caché fuente v3.36; no cambian el HTML, los controles ni las dependencias.
-
-## Interfaz de copias de seguridad
-
-`src/ui/BackupController.js` posee la copia pendiente y la secuencia de lecturas de archivo. Recibe adaptadores de documento, ventana, elementos, almacenamiento, descarga y estado actual de reproducción. Valida y aplica mediante `StorageService`; las reglas de transacción, combinación y recuperación permanecen en `src/storage/backups.js`.
-
-Se conservan selección, límite de 1 MB, vista previa, cancelación, opción existente de ajustes, importación/recuperación solo en pausa y descarga JSON con liberación diferida de su URL. La secuencia descarta lecturas antiguas tras otra selección o una cancelación. `FocusController` conserva el indicador que evita guardar el estado anterior durante la salida de página tras restaurar: el callback de recarga se invoca solo después de aplicar o recuperar la copia.
-
-Las pruebas de aplicación existentes siguen comprobando datos inválidos, vista previa, importación en pausa, progreso restaurado durante `pagehide`, recuperación y exportación. La prueba del controlador importa los módulos reales para verificar lecturas asíncronas superpuestas, cancelación y errores sin aplicar datos obsoletos. Ambos workers precargan el nuevo módulo con caché fuente v3.37; se mantienen HTML, eventos, formatos y dependencias.
-
-## Enlaces de mezclas compartidas
-
-`src/ui/SharedMixController.js` posee la mezcla recibida pendiente y coordina vista previa, creación/copia del enlace, menú nativo, aplicación o descarte y limpieza del hash. Recibe ventana, navegador, elementos, estado vigente y callbacks de la aplicación. La codificación y validación continúan en `src/session/sharing.js` con el mismo formato y lista de campos.
-
-`FocusController` conserva la aplicación de ajustes al estudio, niveles y sesión. El callback devuelve los mismos resultados de persistencia; después se oculta la vista previa, se limpia la valoración y se muestran los mensajes existentes, conservando el orden. Recibir o descartar un enlace no aplica ajustes; aplicarlo sigue requiriendo pausa. Compartir utiliza únicamente el enlace generado y el mismo título.
-
-La cobertura existente comprueba la apertura de enlaces de ajustes y compatibilidad, uso del menú nativo, promesa pendiente sin duplicar solicitudes, cancelación/error y copia manual cuando faltan APIs. Se ejecuta completa sin modificar pruebas ni selectores. Ambos workers precargan el módulo con caché fuente v3.38; no cambian controles, datos compartidos ni dependencias.
-
-## Persistencia de sesiones
-
-`src/session/SessionPersistence.js` conserva la clave `focus-session-v1`, intervalo de guardado de cinco segundos, guardados forzados y normalización de sesiones recuperadas. Recibe `StorageService`, las reglas de ciclos y una función de tiempo inyectable. No modifica el reloj ni accede al DOM o al motor de audio.
-
-`FocusController` entrega la instantánea y conserva el mensaje de fallo de escritura. Al recuperar, aplica la duración, progreso y ciclo devueltos, marca el tiempo ya contabilizado y actualiza la misma interfaz sin iniciar audio. Se conservan compatibilidad con sesiones antiguas sin ciclo, rechazo de datos inválidos o superiores a siete días, límite al final de un tramo y finalización de un ciclo agotado sin avanzar automáticamente.
-
-La prueba del módulo usa almacenamiento real con adaptador en memoria y tiempo controlado. Verifica cadencia y guardado forzado/fallido, compatibilidad, validación, sesiones libres y tramos completados. Las pruebas anteriores de reloj, pausa, restauración y navegador se conservan. Ambos workers precargan el módulo con caché fuente v3.39.
-
-## Vista y eventos de ciclos
-
-`src/ui/CycleController.js` coordina las etiquetas de iniciar/descansar/siguiente/repetir, estado de ronda, disponibilidad de los controles y eventos existentes del selector de plan y extensión. Recibe documento, elementos, reloj, reglas de ciclo, accesores al estado actual y callbacks de sincronización/reinicio. No construye nodos de audio ni persiste datos.
-
-Las reglas permanecen en `src/session/cycles.js`; `FocusController` conserva el reinicio y la coordinación de reloj, historial, envolventes y guardado. La sincronización de entrada/cierre, descanso y escena mantiene su orden. El selector continúa bloqueado durante reproducción/transición, las rondas avanzan con la misma acción manual y los descansos en silencio mantienen sus etiquetas.
-
-La cobertura existente de ciclos y navegador comprueba planes 25/5 y 50/10, sesiones simples, cambio de ronda, pausas, restauración y descansos silenciosos. Se conserva sin cambios y se ejecuta completa. Ambos workers precargan el módulo con caché fuente v3.40; se mantienen selectores, textos, eventos y atributos accesibles.
-
-## Vista de biblioteca de mezclas
-
-`src/ui/MixLibraryView.js` coordina selector, accesos de favoritas, estado de acciones y vista previa de la mezcla guardada. Recibe documento, constructor de opciones, acceso a elementos, estado compartido de biblioteca y reglas de ciclos. La búsqueda usa la misma función pura de `src/storage/mixes.js` y conserva los índices originales de las mezclas.
-
-`MixLibraryController` mantiene persistencia, eliminación y recuperación; `FocusController` conserva eventos de edición/carga y aplicación de audio. La vista avisa de la sincronización de recuperación mediante un callback diferido: ambas fábricas se construyen antes del primer renderizado. El estado compartido permite ver la biblioteca actual cuando el controlador reemplaza su lista.
-
-Se conservan selección entre filtros, favorita que carga mediante el botón existente, vista previa informativa, textos y atributos accesibles. Los datos mostrados continúan usando texto. La cobertura existente de búsqueda, selección, favoritas, edición, eliminación/recuperación y vista previa se ejecuta sin cambios. Ambos workers precargan el módulo con caché fuente v3.41.
-
-## Acciones de la biblioteca de mezclas
-
-`MixLibraryController` reúne también el registro de los eventos existentes de guardar, cargar, actualizar, duplicar, renombrar y marcar favorita. Recibe los mismos adaptadores de biblioteca/vista y callbacks de instantánea actual y aplicación de ajustes. La duplicación conserva la regla pura de `src/storage/mixes.js`; las escrituras siguen pasando por el mismo `commitMixes`, con sus límites y recuperación.
-
-`FocusController` conserva la carga inicial y validación de datos, los controles del estudio y la aplicación de una mezcla al audio y la sesión. La carga se comprueba contra el estado vigente de reproducción/transición antes de invocar ese callback. Los eventos se registran en el mismo punto del arranque, con los mismos selectores, mensajes y orden de guardado/renderizado.
-
-Las APIs previas de eliminación/recuperación se mantienen; `initMixActions` añade únicamente la composición interna de eventos ya existentes. La suite actual de biblioteca, copia, recuperación y navegador se ejecuta sin cambios. No se agregan controles ni formatos. Ambos workers conservan la lista de módulos y pasan a caché fuente v3.42.
-
-## Controles del estudio
-
-`src/ui/StudioController.js` coordina la sincronización visual y los eventos existentes de ambiente, evolución, brillo, melodía, ancho estéreo, balance, ritmo de notas, entrada, cierre, preservación de mezcla y descanso con/sin sonido. Recibe elementos, reloj, motor y callbacks de estado, persistencia y aplicación. Los accesores leen el estudio actual cuando se reemplaza por datos cargados o compartidos.
-
-`FocusController` conserva la propiedad del estado, la carga inicial y las instantáneas de configuración que entrega a `FocusAudioEngine`. El nuevo módulo no construye nodos Web Audio. Se conservan las guardas de entrada/cierre/descanso, el registro de historial antes de cambiar silencio, valores de ambiente cuando corresponde y reinicio de notas en los mismos cambios durante reproducción.
-
-Los controles, selectores, eventos, textos y atributos accesibles permanecen iguales. Las pruebas existentes de estudio y navegador cubren ajustes, balance, ritmo, envolventes, preservación y descansos silenciosos; se ejecutan sin modificar casos. Ambos workers precargan el módulo con caché fuente v3.43.
-
-## Estado y guardado de valoraciones
-
-`InsightsController` posee también la instantánea de sesión pendiente de valorar y registra el evento existente de guardado mediante `initFeedback`. `PlaybackController` entrega la misma instantánea al pausar; la aplicación de una mezcla compartida invoca la misma limpieza a través del método explícito `clearFeedback`.
-
-El guardado conserva lectura de `focus-feedback-v3`, datos de rating/distracciones y los últimos 200 registros. La escritura usa el callback de persistencia de la aplicación para conservar el mensaje de error. Solo un guardado exitoso descarta la instantánea, oculta el panel, muestra la confirmación y actualiza el informe. El registro del evento permanece en el mismo punto del arranque.
-
-Las APIs previas de renderizado e inicialización se mantienen. La prueba de navegador existente de valoración y los casos de informe, pausa y enlaces se ejecutan completos sin modificaciones. No se agregan controles ni cambia el formato. Ambos workers conservan los módulos y pasan a caché fuente v3.44.
-
-## Volúmenes, perfiles y silencio
-
-`src/ui/VolumeController.js` coordina los cuatro niveles, porcentajes/progreso visual, perfiles existentes y estado de silencio/restauración del volumen maestro. Recibe documento, elementos, motor, `StorageService` y valores predeterminados. Conserva la clave `focus-audio-settings-v2`, límites al recuperar niveles y resultado de persistencia.
-
-`InteractionController` coordina el registro global de teclado y sus exclusiones de campos editables/repetición; el atajo existente delega en `toggleMute`. Los eventos de niveles y perfiles se registran en el mismo punto mediante `initVolumeControls`. El estudio y las mezclas continúan usando los mismos callbacks de actualización y guardado.
-
-Los valores de perfiles, orden de actualización, atributos `aria-pressed`, mensajes porcentuales y llamadas `engine.updateLevel` permanecen intactos. La cobertura existente de aplicación, niveles, perfiles, mezclas y navegador se ejecuta sin cambios. Ambos workers precargan el módulo con caché fuente v3.45; no se agregan controles, atajos o dependencias.
-
-## Vista de concentración y atajos
-
-`src/ui/InteractionController.js` posee el estado de vista de concentración y registra el botón y atajos existentes. Recibe documento, elementos, estado de reproducción, acciones de reproducción/silencio, etiquetas de escena y comprobación de destino editable. `FocusController` conserva la composición y entrega los mismos callbacks ya usados por los botones.
-
-Se mantienen cambio de `data-focus-view`, etiqueta y atributo accesible del botón, Escape que cierra y devuelve el foco al control, espacio para reproducir/pausar y M/m para silencio. El orden de exclusiones permanece: Escape de la vista, repetición y destino editable. Las acciones consultan la reproducción vigente; no se añaden atajos ni cambios de reloj/audio.
-
-Los eventos se registran en el mismo punto del arranque. La cobertura existente de vista de concentración, reproducción, volumen, progreso y Escape se ejecuta sin modificar pruebas o selectores. Ambos workers precargan el módulo con caché fuente v3.46.
-
-## Controles de duración de sesión
-
-`CycleController` registra también los chips de minutos y la aplicación de duración personalizada mediante `initDurationControls`. La inicialización se llama en el mismo punto del arranque, antes de los botones de reproducción; `initCycles` conserva su orden y responsabilidades previas.
-
-Los eventos consultan el plan y la reproducción vigentes. Se mantienen el rechazo durante reproducción/transición o ciclos, validación de enteros de 1 a 180, mensajes, `aria-invalid`, tecla Enter y actualización del timestamp tras elegir un chip durante reproducción. `FocusController.resetCycle` conserva reloj, historial, persistencia y automatización de audio.
-
-No se modifican HTML, selectores, firmas de eventos, pruebas ni dependencias. Ambos workers conservan la misma lista de recursos y usan caché fuente v3.47.
-
-## Presentación de reproducción
-
-`src/ui/PlaybackView.js` concentra el estado visual del reproductor, mensajes de error y registro de botones de escritorio/móvil y su observador de visibilidad. Recibe elementos mediante `$`, navegador, ventana, getters del estado actual y acciones de reproducción; no construye nodos de audio ni gestiona el reloj.
-
-Se conserva el orden de actualización de etiquetas, iconos, clases, atributos accesibles, botones de actualización/backup/enlace y estado de Media Session. El observador mantiene el mismo umbral y fallback. Los clics consultan la reproducción vigente y delegan en las acciones existentes.
-
-`FocusController.syncUI` sigue como adaptador de composición para los controladores creados antes de la vista. Los callbacks de reproducir/pausar se resuelven al usarlos, una vez creado `PlaybackController`; la construcción de la vista no registra eventos ni actualiza la interfaz. `initPlaybackControls` se invoca en el punto original del arranque.
-
-Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers precargan la vista con caché fuente v3.48.
-
-## Temporizador y ciclo de ticks
-
-`src/ui/SessionTimerController.js` coordina el formato HH:MM:SS, temporizadores principal/móvil y ciclo de avance, inicio y detención de ticks. Usa la instancia compartida de `SessionClock`, getters del estado vigente y callbacks para escena, historial, persistencia y pausa. No crea temporizadores adicionales ni nodos de audio.
-
-Se mantienen truncamiento de segundos, límite inferior de cero, finalización del ciclo antes de `pause(true)` al llegar al objetivo y posterior sincronización del temporizador móvil y extensión. Cada tick conserva el orden avance, escena, renderizado, historial y guardado. Detener conserva avance final del reloj, historial forzado y persistencia forzada.
-
-`FocusController` conserva adaptadores de función para los controladores construidos antes del temporizador; la instancia se crea sin iniciar ni detener el reloj, y la pausa se resuelve cuando se usa. Las reglas de tiempo y ciclos siguen en `src/session/` y la automatización acústica, en `FocusAudioEngine`.
-
-No se modifican HTML, selectores, eventos, pruebas o dependencias. Ambos workers precargan el módulo con caché fuente v3.49.
-
-## Ciclo de vida de la página
-
-`BrowserPlaybackServices.initPageLifecycle` registra los eventos existentes `visibilitychange` y `pagehide`. Recibe ventana, documento y callbacks de reloj, escena, renderizado, consulta de recarga por restauración y cierre del motor; reutiliza los servicios de Wake Lock y consulta la reproducción vigente.
-
-Al volver a una página visible durante reproducción conserva avance del reloj, actualización de escena y renderizado, y solo solicita Wake Lock si la sesión sigue reproduciéndose después de reconciliar el tiempo. Al salir, detiene el reloj salvo recarga por restauración, libera Wake Lock y solicita el cierre del motor en el mismo orden. No añade pausas, guardados ni esperas.
-
-`FocusController` entrega el flag vigente de restauración y el cierre del motor mediante callbacks. El registro mantiene su posición después de los atajos y antes de preparar la instalación/actualizaciones. La API previa del servicio se mantiene y construirlo no registra eventos.
-
-No se modifican HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan sus recursos y usan caché fuente v3.50.
-
-## Reinicio de sesión y reloj
-
-`SessionTimerController` coordina también `resetCycle` y el registro del botón existente mediante `initResetControl`. Recibe la misma instancia de `ListeningProgress`, etiqueta de modo y callbacks de sincronización y programación de entrada/cierre. `FocusController.resetCycle` conserva su firma y resultado como adaptador de composición para los controladores creados antes del temporizador.
-
-El cambio de plan/duración conserva avance previo, historial forzado, estado inicial del ciclo, duración, checkpoint y borrado del tiempo, mensajes, campos, reprogramación durante reproducción, renderizado y guardado forzado con su resultado. El botón conserva el plan y tramo, elimina solo la marca de completado y mantiene su orden distinto de persistencia/sincronización; no se unifican comportamientos diferentes.
-
-El estado se obtiene al usar cada acción, y el registro del botón sigue inmediatamente después de los controles de reproducción. Construir el controlador no reinicia la sesión ni programa audio. Las reglas del ciclo permanecen en `src/session/` y la automatización acústica en el motor.
-
-Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers mantienen la precarga y usan caché fuente v3.51.
-
-## Recuperación y accesos directos de sesión
-
-`SessionTimerController.restoreSession` aplica el snapshot ya validado por `SessionPersistence`: ciclo, duración, tiempo y checkpoint de escucha, chips y etiqueta de modo, y aviso de recuperación. No inicia reproducción ni guarda al recuperar. `FocusController` conserva el adaptador y obtiene el snapshot del servicio de persistencia.
-
-`applyShortcut` conserva lectura de `duration || mode`, validación y manejo de errores existentes. Solo una duración positiva válida configura una sesión simple, limpia el tiempo y checkpoint, actualiza campo/chips/etiqueta y fuerza guardado. No reproduce ni agrega opciones.
-
-El orden del arranque permanece: recuperar sesión después de cargar historial, aplicar acceso PWA después de inicializar ciclos, y procesar enlace de mezcla después del acceso PWA. Así se conservan las precedencias previas y la exclusión de tiempo ya contabilizado.
-
-Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.52.
-
-## Carga de estudio y mezclas
-
-`StorageService.loadStudio(key)` lee y valida los ajustes del estudio, y devuelve su proyección compatible o `null`. `loadMixes(levelKeys)` lee `focus-mixes-v3` y conserva el filtrado previo por estudio válido, nombre, presencia de niveles y valores numéricos finitos de 0 a 100, seguido del límite de 50. No escribe, cambia el orden ni normaliza los registros de la biblioteca.
-
-`src/storage/mixes.js` exporta `studioSettings`, función pura que proyecta los mismos campos y valores nulos/ausentes predeterminados que antes estaban repetidos al cargar ajustes y aplicar mezclas guardadas o compartidas. No modifica el objeto recibido ni incluye nombre, niveles, duración o campos adicionales en el estudio. La validación sigue separada y no se endurece.
-
-`FocusController.initStudio` conserva el estudio inicial si la lectura no es válida, asigna los resultados del servicio y mantiene renderizado y registro de eventos en el mismo orden. Aplicar mezclas conserva la coordinación previa de niveles, reloj, audio y guardado.
-
-Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.53.
-
-## Coordinación de escena
-
-`StudioController` coordina también `configureAudio`, `applyScene` y programación de entrada/cierre, usando el motor existente, reloj compartido, estado vigente del estudio/ciclo y las mismas claves de niveles. `FocusController` conserva adaptadores con las firmas previas para reproducción, temporizador y extensión.
-
-Aplicar una escena conserva el orden sincronizar controles, configurar motor y aplicar escena. La etiqueta de fase solo se actualiza si el motor está inicializado, con las mismas envolventes y prioridad de descanso en silencio, cierre, entrada, descanso sostenido, concentración y sesión libre. Programar entrada/cierre conserva reconfiguración previa y argumento de suavizado.
-
-El módulo no construye nodos ni añade timers: `FocusAudioEngine` mantiene la automatización acústica y las envolventes del audio. Los eventos del estudio delegan en las mismas acciones ahora locales; construir el controlador no configura ni inicia audio.
-
-Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.54.
-
-## Coordinación del historial
-
-`src/ui/HistoryController.js` compone `DailyHistory` y `HistoryView`, coordina el progreso de escucha con la misma instancia de `ListeningProgress` y registra los controles existentes del historial. Recibe reloj, almacenamiento, elementos y consulta vigente de descanso en silencio.
-
-`syncFocusHistoryProgress` conserva el avance con `silent` y `flush`, agrega segundos y redibuja solo cuando hay progreso registrable. Los umbrales, checkpoint, fracciones y reglas de silencio siguen en `ListeningProgress`; fechas, redondeo y persistencia siguen en `DailyHistory`. No cambia el gráfico ni añade audio/timers.
-
-El registro de controles opcionales mantiene existencia, eventos y acciones: sumar los 15 minutos de simulación ya existentes y reiniciar historial, seguido de renderizado. `FocusController` conserva un adaptador de función para los controladores construidos antes del historial. La composición y registro mantienen su ubicación, y cargar historial permanece antes de recuperar la sesión.
-
-Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers precargan el módulo con caché fuente v3.55.
-
-## Captura y aplicación de mezclas
-
-`StudioController` coordina `currentMix`, `applySavedMix` y `applySharedMix` con getters del estado vigente, setter de estudio y las mismas reglas de ciclos. `FocusController` entrega esas acciones a biblioteca y enlaces, que conservan sus guardas y eventos.
-
-La captura mantiene nombre/favorito, ajustes, plan y duración de foco, y niveles numéricos actuales. La mezcla guardada conserva compatibilidad de plan/duración mediante validación y fallback; la mezcla compartida mantiene los valores ya validados por su decodificador. Ambas aplican el estudio, niveles sin suavizado adicional, reinicio y escena en el orden previo.
-
-Se mantienen guardado de niveles/estudio y resultados: la ruta compartida devuelve `sessionSaved`, `levelsSaved` y `studioSaved`; la guardada conserva su retorno implícito y orden de persistencia. No se unifican las diferencias entre las rutas ni se añaden escrituras, reproducción o validación.
-
-Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.56.
-
-## Eventos de búsqueda de biblioteca
-
-`MixLibraryView.initMixSearch` registra el campo de búsqueda y su limpieza, junto a la presentación de biblioteca que ya coordinaba. Se conservan evento `input`, selección vigente al renderizar, clic de limpieza, consulta vacía y devolución de foco al campo.
-
-`FocusController.initStudio` conserva carga y asignación de datos, sincronización y renderizado inicial. Luego registra búsqueda mediante `initMixSearch` antes de controles del estudio, acciones de mezclas y feedback, en el mismo orden previo. Construir la vista no registra estos eventos.
-
-El filtro puro `mixSearchIndices`, índices originales, favoritas, preview, mensajes y datos guardados no cambian. `FocusController` deja de registrar directamente eventos DOM y conserva la composición de controladores y el arranque.
-
-Sin cambios de HTML, selectores, firmas de eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.57.
-
-## Composición sin delegaciones redundantes
-
-`FocusController` conecta directamente `configureAudio`, `scheduleAudioClosing`, `scheduleAudioEntry` y `applyScene` exportadas por `StudioController`. El estudio se construye antes de todos sus consumidores, por lo que estas acciones no requieren adaptadores diferidos. Conservan sus firmas, valores predeterminados y ejecución síncrona; las implementaciones no cambian.
-
-La recuperación se expresa directamente en el arranque mediante `sessionTimer.restoreSession(sessionPersistence.restore())`, en la misma posición después de cargar historial. Se elimina el adaptador que solo se invocaba una vez.
-
-Se conservan los adaptadores de temporizador, sincronización de UI/historial y reinicio usados por controladores construidos antes de sus dependencias. No se reordena construcción, registro, carga o reproducción, ni se añade otro módulo.
-
-Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers mantienen la precarga y usan caché fuente v3.58.
-
-## Presentación de errores de guardado
-
-`StudioController` coordina `writeLocal` y `showStorageError`. La primera delega la escritura en `StorageService`, muestra el aviso existente si falla y devuelve el mismo resultado. La segunda actualiza exclusivamente el mensaje ya existente de `studio-status`; construir el controlador no escribe datos ni modifica la interfaz.
-
-`FocusController.saveSession` mantiene snapshot, cadencia y resultado de `SessionPersistence`, y delega la presentación únicamente cuando el resultado es estrictamente `false`. Un guardado omitido por cadencia no produce aviso. Biblioteca, feedback y estudio reciben el mismo contrato `writeLocal(key,value)`.
-
-El texto, selector, orden de aviso y resultado de persistencia permanecen intactos. `StorageService` y `SessionPersistence` siguen sin acceso al DOM; la composición deja de actualizar directamente el mensaje.
-
-Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.59.
-
-## Comprobaciones de límites arquitectónicos
-
-`tests/module-graph.test.mjs` conserva las comprobaciones de imports locales y precarga offline, y añade detección de ciclos mediante el recorrido de imports estáticos existente. Audio, almacenamiento y sesión no pueden depender de UI ni del arranque; audio solo depende de su propio dominio.
-
-Las comprobaciones estructurales recorren todos los módulos alcanzados por `src/main.js`: prohíben referencias directas a documento/localStorage en el dominio y construcción de recursos Web Audio fuera de `src/audio/`. `tests/architecture.test.mjs` conserva sus aserciones previas y protege además la delegación de eventos y contenido visual fuera de `FocusController`.
-
-Estas comprobaciones protegen los límites extraídos y complementan las pruebas de comportamiento. No se modifica código de aplicación, HTML, selectores, eventos, dependencias ni suite de navegador. No cambia el Service Worker ni sus recursos.
+Al modificar un módulo, conservar firmas/eventos/selectores y orden de efectos; revisar consumidores, estado vigente y precarga; ejecutar Node, build y ambas variantes de navegador. Mantener este documento como descripción del estado actual; el historial de extracción está en los commits y PRs.
