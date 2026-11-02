@@ -1,9 +1,10 @@
+import {studioSettings} from '../storage/mixes.js';
 import {SCENES} from '../audio/scenes.js';
 import {balanceLabel,entryEnvelope,sessionEnvelope} from '../audio/dsp.js';
 
 // Existing studio controls with current application state and audio/storage adapters.
 export function createStudioController({
-  $,clock,engine,defaults,getStudio,getCycleState,getPlaybackState,isSilentRest,studioKey,
+  $,clock,engine,defaults,getStudio,setStudio,cycleTools,resetCycle,getCycleState,getPlaybackState,isSilentRest,studioKey,
   updateRange,persistSettings,syncFocusHistoryProgress,writeLocal,syncUI
 }) {
   function syncEntryUI() {
@@ -73,6 +74,28 @@ export function createStudioController({
 
   }
 
+  function currentMix(name, favorite=false) {
+    const studio=getStudio(),cycleState=getCycleState();
+    return {...studio,name,favorite,cyclePlan:cycleState.plan,duration:cycleState.plan==='single'?clock.durationMinutes:cycleTools.plans[cycleState.plan].focus,
+      levels:Object.fromEntries(Object.keys(defaults).map(k=>[k,Number($('vol-'+k).value)]))};
+  }
+
+  function applySavedMix(mix) {
+    setStudio(studioSettings(mix));
+    Object.keys(defaults).forEach(k=>{$('vol-'+k).value=mix.levels[k];updateRange(k,false);});
+    const plan=Object.prototype.hasOwnProperty.call(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single';
+    resetCycle(plan,plan==='single'?(cycleTools.validDuration(mix.duration)?mix.duration:0):getCycleState().singleDuration);
+    applyScene();persistSettings();writeLocal(studioKey,getStudio());
+  }
+
+  function applySharedMix(mix) {
+    setStudio(studioSettings(mix));
+    Object.keys(defaults).forEach(key=>{$('vol-'+key).value=mix.levels[key];updateRange(key,false);});
+    const sessionSaved=resetCycle(mix.cyclePlan,mix.cyclePlan==='single'?mix.duration:getCycleState().singleDuration);
+    applyScene();
+    const levelsSaved=persistSettings(),studioSaved=writeLocal(studioKey,getStudio());
+    return {sessionSaved,levelsSaved,studioSaved};
+  }
   function initStudioControls() {
     ['soundscape','evolution','brightness','melody','stereo-width','channel-balance','note-pace','fade-in','fade-out','preserve-mix','rest-sound'].forEach(id=>$(id).addEventListener('input',()=>{
       const studio=getStudio(),cycleState=getCycleState(),{playing,transitioning}=getPlaybackState();
@@ -125,5 +148,5 @@ export function createStudioController({
   }
 
   return {syncEntryUI,syncFadeUI,syncSceneLabels,syncRestSoundUI,syncStudio,initStudioControls,
-    configureAudio,scheduleAudioClosing,scheduleAudioEntry,applyScene};
+    configureAudio,scheduleAudioClosing,scheduleAudioEntry,applyScene,currentMix,applySavedMix,applySharedMix};
 }

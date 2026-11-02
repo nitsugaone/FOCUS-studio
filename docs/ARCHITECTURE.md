@@ -302,3 +302,13 @@ Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers 
 El registro de controles opcionales mantiene existencia, eventos y acciones: sumar los 15 minutos de simulación ya existentes y reiniciar historial, seguido de renderizado. `FocusController` conserva un adaptador de función para los controladores construidos antes del historial. La composición y registro mantienen su ubicación, y cargar historial permanece antes de recuperar la sesión.
 
 Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers precargan el módulo con caché fuente v3.55.
+
+## Captura y aplicación de mezclas
+
+`StudioController` coordina `currentMix`, `applySavedMix` y `applySharedMix` con getters del estado vigente, setter de estudio y las mismas reglas de ciclos. `FocusController` entrega esas acciones a biblioteca y enlaces, que conservan sus guardas y eventos.
+
+La captura mantiene nombre/favorito, ajustes, plan y duración de foco, y niveles numéricos actuales. La mezcla guardada conserva compatibilidad de plan/duración mediante validación y fallback; la mezcla compartida mantiene los valores ya validados por su decodificador. Ambas aplican el estudio, niveles sin suavizado adicional, reinicio y escena en el orden previo.
+
+Se mantienen guardado de niveles/estudio y resultados: la ruta compartida devuelve `sessionSaved`, `levelsSaved` y `studioSaved`; la guardada conserva su retorno implícito y orden de persistencia. No se unifican las diferencias entre las rutas ni se añaden escrituras, reproducción o validación.
+
+Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.56.

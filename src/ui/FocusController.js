@@ -16,7 +16,6 @@ import {createPlaybackController} from './PlaybackController.js';
 import {ListeningProgress} from '../session/ListeningProgress.js';
 import {createSessionExtensionController} from './SessionExtensionController.js';
 import {createMixLibraryController} from './MixLibraryController.js';
-import {studioSettings} from '../storage/mixes.js';
 import {createResponsiveController} from './ResponsiveController.js';
 import {SessionClock} from '../session/SessionClock.js';
 import {FocusAudioEngine} from '../audio/FocusAudioEngine.js';
@@ -63,8 +62,10 @@ export function startFocusApp({
 
       const {syncEntryUI,syncFadeUI,syncSceneLabels,syncRestSoundUI,syncStudio,initStudioControls,
         configureAudio:configureStudioAudio,scheduleAudioClosing:scheduleStudioClosing,
-        scheduleAudioEntry:scheduleStudioEntry,applyScene:applyStudioScene}=createStudioController({
-        $,clock,engine,defaults:DEFAULTS,getStudio:()=>studio,getCycleState:()=>cycleState,getPlaybackState:()=>({playing,transitioning}),
+        scheduleAudioEntry:scheduleStudioEntry,applyScene:applyStudioScene,
+        currentMix,applySavedMix,applySharedMix}=createStudioController({
+        $,clock,engine,defaults:DEFAULTS,getStudio:()=>studio,setStudio:value=>{studio=value;},
+        cycleTools,resetCycle,getCycleState:()=>cycleState,getPlaybackState:()=>({playing,transitioning}),
         isSilentRest,studioKey:STUDIO_KEY,updateRange,persistSettings,syncFocusHistoryProgress,writeLocal,syncUI
       });
 
@@ -78,19 +79,6 @@ export function startFocusApp({
       const {selectedMixIndex,renderMixes,syncMixActions}=createMixLibraryView({
         document,Option,$,state:mixState,cycleTools,syncMixUndoUI:()=>syncMixUndoUI()
       });
-
-      function currentMix(name, favorite=false) {
-        return {...studio,name,favorite,cyclePlan:cycleState.plan,duration:cycleState.plan==='single'?clock.durationMinutes:cycleTools.plans[cycleState.plan].focus,
-          levels:Object.fromEntries(Object.keys(DEFAULTS).map(k=>[k,Number($('vol-'+k).value)]))};
-      }
-
-      function applySavedMix(mix) {
-        studio=studioSettings(mix);
-        Object.keys(DEFAULTS).forEach(k=>{$('vol-'+k).value=mix.levels[k];updateRange(k,false);});
-        const plan=Object.prototype.hasOwnProperty.call(cycleTools.plans,mix.cyclePlan)?mix.cyclePlan:'single';
-        resetCycle(plan,plan==='single'?(cycleTools.validDuration(mix.duration)?mix.duration:0):cycleState.singleDuration);
-        applyScene();persistSettings();writeLocal(STUDIO_KEY,studio);
-      }
 
       const {syncMixUndoUI,initMixActions}=createMixLibraryController({
         state:mixState,$,writeLocal,renderMixes,selectedMixIndex,currentMix,syncMixActions,
@@ -118,14 +106,6 @@ export function startFocusApp({
 
       let reloadingAfterRestore=false;
 
-      function applySharedMix(mix) {
-        studio=studioSettings(mix);
-        Object.keys(DEFAULTS).forEach(key=>{$('vol-'+key).value=mix.levels[key];updateRange(key,false);});
-        const sessionSaved=resetCycle(mix.cyclePlan,mix.cyclePlan==='single'?mix.duration:cycleState.singleDuration);
-        applyScene();
-        const levelsSaved=persistSettings(),studioSaved=writeLocal(STUDIO_KEY,studio);
-        return {sessionSaved,levelsSaved,studioSaved};
-      }
       const {syncSharedMixButton,initSharedMix}=createSharedMixController({
         window,navigator,$,getPlaybackState:()=>({playing,transitioning}),currentMix,applySharedMix,
         clearFeedback
