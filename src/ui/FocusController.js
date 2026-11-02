@@ -1,3 +1,4 @@
+import {createHistoryController} from './HistoryController.js';
 import {createSessionTimerController} from './SessionTimerController.js';
 import {createPlaybackView} from './PlaybackView.js';
 import {createInteractionController} from './InteractionController.js';
@@ -11,14 +12,12 @@ import {createBackupController} from './BackupController.js';
 import {createInsightsController} from './InsightsController.js';
 import {createPwaController} from './PwaController.js';
 import {createBrowserPlaybackServices} from './BrowserPlaybackServices.js';
-import {createDailyHistory} from '../storage/DailyHistory.js';
 import {createPlaybackController} from './PlaybackController.js';
 import {ListeningProgress} from '../session/ListeningProgress.js';
 import {createSessionExtensionController} from './SessionExtensionController.js';
 import {createMixLibraryController} from './MixLibraryController.js';
 import {studioSettings} from '../storage/mixes.js';
 import {createResponsiveController} from './ResponsiveController.js';
-import {createHistoryView} from './HistoryView.js';
 import {SessionClock} from '../session/SessionClock.js';
 import {FocusAudioEngine} from '../audio/FocusAudioEngine.js';
 import {StorageService} from '../storage/StorageService.js';
@@ -205,33 +204,12 @@ export function startFocusApp({
       initPlaybackControls();
       sessionTimer.initResetControl();
 
-      // ==========================================
-      // SECCIÓN DE DATOS: HISTORIAL DE HÁBITOS DE FOCO (SVG NATIVO)
-      // ==========================================
-      const {loadHistory,addFocusSecondsToToday,getLast7DaysData,calculateStreak,resetHistory}=createDailyHistory({storage});
-
-      function syncFocusHistoryProgress(flush = false) {
-        const seconds=listeningProgress.advance(clock.elapsedMs,{silent:isSilentRest(),flush});
-        if(seconds){addFocusSecondsToToday(seconds);renderHistoryChart();}
-      }
-
-      const renderHistoryChart=createHistoryView({$,getLast7DaysData,calculateStreak});
-
-      const btnSimulated = $('btn-add-simulated');
-      if (btnSimulated) {
-        btnSimulated.addEventListener('click', () => {
-          addFocusSecondsToToday(15 * 60);
-          renderHistoryChart();
-        });
-      }
-
-      const btnResetHistory = $('btn-reset-history');
-      if (btnResetHistory) {
-        btnResetHistory.addEventListener('click', () => {
-          resetHistory();
-          renderHistoryChart();
-        });
-      }
+      const {loadHistory,renderHistoryChart,initHistoryControls,
+        syncFocusHistoryProgress:syncHistoryProgress}=createHistoryController({
+        $,storage,clock,listeningProgress,isSilentRest
+      });
+      function syncFocusHistoryProgress(flush=false) {syncHistoryProgress(flush);}
+      initHistoryControls();
 
       const {initInteractions}=createInteractionController({
         document,$,isPlaying:()=>playing,play,pause,toggleMute,syncSceneLabels,
