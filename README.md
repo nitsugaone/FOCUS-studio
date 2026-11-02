@@ -281,6 +281,8 @@ Seleccionar una mezcla muestra un resumen de los datos guardados: nombre, ambien
 
 ## Arquitectura modular
 
-El HTML raíz conserva la interfaz y carga `src/main.js` como módulo ES6. El motor de audio, la persistencia y las reglas/reloj de sesión están separados de los controladores del DOM. No se agregaron dependencias ni se modificaron formatos de mezclas o copias. La PWA precarga el grafo completo de módulos.
+El HTML raíz carga `src/main.js` como módulo ES6. `FocusController` compone servicios y controladores; audio, persistencia y reglas/reloj de sesión están separados de los eventos y vistas del DOM. Las comprobaciones de arquitectura protegen esos límites y detectan ciclos de importación.
 
-Consultar [la arquitectura y los contratos de módulos](docs/ARCHITECTURE.md). Ejecutar todas las pruebas de lógica y señal con `node --test tests/*.test.mjs`; las pruebas de navegador se ejecutan con `npm test` dentro de `tools/browser-tests`.
+GitHub Pages sirve los módulos nativos. El build Vite existente se verifica por separado con los mismos casos de navegador y recursos offline. Las dependencias de desarrollo están fijadas en los lockfiles de raíz y `tools/browser-tests/`; el motor funciona en el navegador sin librerías de audio externas.
+
+Consultar [la arquitectura, contratos, orden de arranque y comandos de validación](docs/ARCHITECTURE.md). La CI ejecuta la suite Node, el build real y los mismos 210 casos de navegador contra fuente y build, incluidos reproducción y funcionamiento offline.
