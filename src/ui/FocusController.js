@@ -21,7 +21,6 @@ import {createResponsiveController} from './ResponsiveController.js';
 import {createHistoryView} from './HistoryView.js';
 import {SessionClock} from '../session/SessionClock.js';
 import {FocusAudioEngine} from '../audio/FocusAudioEngine.js';
-import {entryEnvelope,sessionEnvelope} from '../audio/dsp.js';
 import {StorageService} from '../storage/StorageService.js';
 import {createCycleTools,isSilentRestState} from '../session/cycles.js';
 
@@ -63,30 +62,19 @@ export function startFocusApp({
         document,$,engine,storage,defaults:DEFAULTS
       });
 
-      const {syncEntryUI,syncFadeUI,syncSceneLabels,syncRestSoundUI,syncStudio,initStudioControls}=createStudioController({
-        $,clock,engine,getStudio:()=>studio,getCycleState:()=>cycleState,getPlaybackState:()=>({playing,transitioning}),
-        isSilentRest,studioKey:STUDIO_KEY,updateRange,persistSettings,syncFocusHistoryProgress,applyScene,writeLocal,syncUI
+      const {syncEntryUI,syncFadeUI,syncSceneLabels,syncRestSoundUI,syncStudio,initStudioControls,
+        configureAudio:configureStudioAudio,scheduleAudioClosing:scheduleStudioClosing,
+        scheduleAudioEntry:scheduleStudioEntry,applyScene:applyStudioScene}=createStudioController({
+        $,clock,engine,defaults:DEFAULTS,getStudio:()=>studio,getCycleState:()=>cycleState,getPlaybackState:()=>({playing,transitioning}),
+        isSilentRest,studioKey:STUDIO_KEY,updateRange,persistSettings,syncFocusHistoryProgress,writeLocal,syncUI
       });
 
       function isSilentRest() {return isSilentRestState(cycleState,studio.restSound);}
 
-      function configureAudio() {
-        engine.configure(studio,Object.fromEntries(Object.keys(DEFAULTS).map(id=>[id,Number($('vol-'+id).value)])),{
-          elapsedMs:clock.elapsedMs,durationMinutes:clock.durationMinutes,silent:isSilentRest()
-        });
-      }
-      function scheduleAudioClosing(smooth=false) {configureAudio();engine.scheduleClosing(smooth);}
-      function scheduleAudioEntry(smooth=false) {configureAudio();engine.scheduleEntry(smooth);}
-      function applyScene(smooth=1.5) {
-        syncStudio();configureAudio();engine.applyScene(smooth);
-        if(!engine.initialized())return;
-        const progress=clock.durationMinutes?Math.min(1,clock.elapsedMs/(clock.durationMinutes*60000)):0;
-        // Audio automation owns the envelopes; the timer only updates their caption.
-        const {exit}=sessionEnvelope(clock.elapsedMs,clock.durationMinutes,studio.fadeOutSeconds);
-        const entry=entryEnvelope(clock.elapsedMs,studio.fadeInSeconds);
-        $('session-phase').textContent=isSilentRest()?'Descanso en silencio':exit<1 ? 'Cierre gradual' : entry<1 ? 'Entrada suave' : cycleState.plan!=='single'&&cycleState.phase==='rest' ? 'Descanso sostenido' : progress>0 ? 'Concentración sostenida' : 'Sesión libre';
-
-      }
+      function configureAudio() {configureStudioAudio();}
+      function scheduleAudioClosing(smooth=false) {scheduleStudioClosing(smooth);}
+      function scheduleAudioEntry(smooth=false) {scheduleStudioEntry(smooth);}
+      function applyScene(smooth=1.5) {applyStudioScene(smooth);}
 
       const {selectedMixIndex,renderMixes,syncMixActions}=createMixLibraryView({
         document,Option,$,state:mixState,cycleTools,syncMixUndoUI:()=>syncMixUndoUI()
