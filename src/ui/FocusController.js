@@ -61,8 +61,7 @@ export function startFocusApp({
       });
 
       const {syncEntryUI,syncFadeUI,syncSceneLabels,syncRestSoundUI,syncStudio,initStudioControls,
-        configureAudio:configureStudioAudio,scheduleAudioClosing:scheduleStudioClosing,
-        scheduleAudioEntry:scheduleStudioEntry,applyScene:applyStudioScene,
+        configureAudio,scheduleAudioClosing,scheduleAudioEntry,applyScene,
         currentMix,applySavedMix,applySharedMix}=createStudioController({
         $,clock,engine,defaults:DEFAULTS,getStudio:()=>studio,setStudio:value=>{studio=value;},
         cycleTools,resetCycle,getCycleState:()=>cycleState,getPlaybackState:()=>({playing,transitioning}),
@@ -70,11 +69,6 @@ export function startFocusApp({
       });
 
       function isSilentRest() {return isSilentRestState(cycleState,studio.restSound);}
-
-      function configureAudio() {configureStudioAudio();}
-      function scheduleAudioClosing(smooth=false) {scheduleStudioClosing(smooth);}
-      function scheduleAudioEntry(smooth=false) {scheduleStudioEntry(smooth);}
-      function applyScene(smooth=1.5) {applyStudioScene(smooth);}
 
       const {selectedMixIndex,renderMixes,syncMixActions,initMixSearch}=createMixLibraryView({
         document,Option,$,state:mixState,cycleTools,syncMixUndoUI:()=>syncMixUndoUI()
@@ -134,7 +128,6 @@ export function startFocusApp({
         if(saved===false)$('studio-status').textContent='No se pudo guardar en este dispositivo.';
         return saved;
       }
-      function restoreSession() {sessionTimer.restoreSession(sessionPersistence.restore());}
       const {syncUpdateButton,setupInstallAndUpdates}=createPwaController({
         window,navigator,$,getPlaybackState:()=>({playing,transitioning}),saveSession
       });
@@ -205,7 +198,7 @@ export function startFocusApp({
       initStudio();
       setupResponsivePanels();
       loadHistory();
-      restoreSession();
+      sessionTimer.restoreSession(sessionPersistence.restore());
       initInsights();
       initBackups();
       initCycles();

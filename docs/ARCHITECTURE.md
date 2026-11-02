@@ -322,3 +322,13 @@ Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers 
 El filtro puro `mixSearchIndices`, índices originales, favoritas, preview, mensajes y datos guardados no cambian. `FocusController` deja de registrar directamente eventos DOM y conserva la composición de controladores y el arranque.
 
 Sin cambios de HTML, selectores, firmas de eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.57.
+
+## Composición sin delegaciones redundantes
+
+`FocusController` conecta directamente `configureAudio`, `scheduleAudioClosing`, `scheduleAudioEntry` y `applyScene` exportadas por `StudioController`. El estudio se construye antes de todos sus consumidores, por lo que estas acciones no requieren adaptadores diferidos. Conservan sus firmas, valores predeterminados y ejecución síncrona; las implementaciones no cambian.
+
+La recuperación se expresa directamente en el arranque mediante `sessionTimer.restoreSession(sessionPersistence.restore())`, en la misma posición después de cargar historial. Se elimina el adaptador que solo se invocaba una vez.
+
+Se conservan los adaptadores de temporizador, sincronización de UI/historial y reinicio usados por controladores construidos antes de sus dependencias. No se reordena construcción, registro, carga o reproducción, ni se añade otro módulo.
+
+Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers mantienen la precarga y usan caché fuente v3.58.
