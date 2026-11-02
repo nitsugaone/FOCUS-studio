@@ -52,5 +52,12 @@ export function createMixLibraryView({document,Option,$,state,cycleTools,syncMix
     $('saved-mix-session').textContent=session+' · Maestro '+mix.levels.master+'% · Textura '+mix.levels.noise+'% · Drone '+mix.levels.drone+'% · Notas '+mix.levels.notes+'%';
   }
 
-  return {selectedMixIndex,renderMixes,syncMixActions};
+  function initMixSearch() {
+    $('mix-search').addEventListener('input',()=>renderMixes($('saved-mixes').value));
+    $('clear-mix-search').addEventListener('click',()=>{
+      $('mix-search').value='';renderMixes($('saved-mixes').value);$('mix-search').focus();
+    });
+  }
+
+  return {selectedMixIndex,renderMixes,syncMixActions,initMixSearch};
 }
