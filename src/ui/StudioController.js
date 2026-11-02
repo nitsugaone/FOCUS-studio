@@ -4,9 +4,19 @@ import {balanceLabel,entryEnvelope,sessionEnvelope} from '../audio/dsp.js';
 
 // Existing studio controls with current application state and audio/storage adapters.
 export function createStudioController({
-  $,clock,engine,defaults,getStudio,setStudio,cycleTools,resetCycle,getCycleState,getPlaybackState,isSilentRest,studioKey,
-  updateRange,persistSettings,syncFocusHistoryProgress,writeLocal,syncUI
+  $,clock,engine,storage,defaults,getStudio,setStudio,cycleTools,resetCycle,getCycleState,getPlaybackState,isSilentRest,studioKey,
+  updateRange,persistSettings,syncFocusHistoryProgress,syncUI
 }) {
+  function showStorageError() {
+    $('studio-status').textContent='No se pudo guardar en este dispositivo.';
+  }
+
+  function writeLocal(key,value) {
+    const saved=storage.write(key,value);
+    if(!saved)showStorageError();
+    return saved;
+  }
+
   function syncEntryUI() {
     const studio=getStudio(),{playing,transitioning}=getPlaybackState();
     $('fade-in').value=String(studio.fadeInSeconds);
@@ -147,6 +157,6 @@ export function createStudioController({
     });
   }
 
-  return {syncEntryUI,syncFadeUI,syncSceneLabels,syncRestSoundUI,syncStudio,initStudioControls,
+  return {writeLocal,showStorageError,syncEntryUI,syncFadeUI,syncSceneLabels,syncRestSoundUI,syncStudio,initStudioControls,
     configureAudio,scheduleAudioClosing,scheduleAudioEntry,applyScene,currentMix,applySavedMix,applySharedMix};
 }

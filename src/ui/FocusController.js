@@ -50,22 +50,16 @@ export function startFocusApp({
       let studio = {scene:'rain',evolution:35,brightness:50,melody:true,stereoWidth:100,balance:0,notePace:'normal',fadeOutSeconds:20,fadeInSeconds:12,preserveMix:false,restSound:'sound'};
       const mixState={mixes:[],deletionUndo:null};
       const storage=new StorageService(localStorage);
-      function writeLocal(key,value) {
-        const saved=storage.write(key,value);
-        if(!saved)$('studio-status').textContent='No se pudo guardar en este dispositivo.';
-        return saved;
-      }
-
       const {updateRange,loadSettings,persistSettings,initVolumeControls,toggleMute}=createVolumeController({
         document,$,engine,storage,defaults:DEFAULTS
       });
 
-      const {syncEntryUI,syncFadeUI,syncSceneLabels,syncRestSoundUI,syncStudio,initStudioControls,
+      const {writeLocal,showStorageError,syncEntryUI,syncFadeUI,syncSceneLabels,syncRestSoundUI,syncStudio,initStudioControls,
         configureAudio,scheduleAudioClosing,scheduleAudioEntry,applyScene,
         currentMix,applySavedMix,applySharedMix}=createStudioController({
-        $,clock,engine,defaults:DEFAULTS,getStudio:()=>studio,setStudio:value=>{studio=value;},
+        $,clock,engine,storage,defaults:DEFAULTS,getStudio:()=>studio,setStudio:value=>{studio=value;},
         cycleTools,resetCycle,getCycleState:()=>cycleState,getPlaybackState:()=>({playing,transitioning}),
-        isSilentRest,studioKey:STUDIO_KEY,updateRange,persistSettings,syncFocusHistoryProgress,writeLocal,syncUI
+        isSilentRest,studioKey:STUDIO_KEY,updateRange,persistSettings,syncFocusHistoryProgress,syncUI
       });
 
       function isSilentRest() {return isSilentRestState(cycleState,studio.restSound);}
@@ -125,7 +119,7 @@ export function startFocusApp({
       const sessionPersistence=new SessionPersistence({storage,cycleTools});
       function saveSession(force=false) {
         const saved=sessionPersistence.save({duration:clock.durationMinutes,elapsed:clock.elapsedMs,cycle:cycleState},force);
-        if(saved===false)$('studio-status').textContent='No se pudo guardar en este dispositivo.';
+        if(saved===false)showStorageError();
         return saved;
       }
       const {syncUpdateButton,setupInstallAndUpdates}=createPwaController({
