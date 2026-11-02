@@ -1,6 +1,6 @@
 // Coordinates the existing timer display and tick lifecycle through injected state/actions.
 export function createSessionTimerController({
-  $,clock,cycleTools,isPlaying,getCycleState,setCycleState,pause,syncExtensionUI,
+  window,document,$,clock,cycleTools,isPlaying,getCycleState,setCycleState,pause,syncExtensionUI,
   applyScene,syncFocusHistoryProgress,saveSession,listeningProgress,modeLabelEl,
   syncCycleUI,syncUI,scheduleAudioClosing,scheduleAudioEntry
 }) {
@@ -85,5 +85,38 @@ export function createSessionTimerController({
     });
   }
 
-  return {renderTimer,advanceSessionClock,startSessionClock,stopSessionClock,resetCycle,initResetControl};
+  function restoreSession(saved) {
+    if(!saved)return;
+    setCycleState(saved.cycle);
+    clock.durationMinutes=saved.duration;
+    clock.elapsedMs=saved.elapsed;
+    listeningProgress.checkpoint(clock.elapsedMs); // Time from the previous visit is already in history.
+    document.querySelectorAll('.mode-chip').forEach(c=>c.setAttribute('aria-pressed',String(Number(c.dataset.minutes)===clock.durationMinutes)));
+    modeLabelEl.textContent=clock.durationMinutes ? 'Cuenta regresiva ('+clock.durationMinutes+' min)' : 'Tiempo de sesión (Libre)';
+    if(clock.elapsedMs>0 && (!clock.durationMinutes || clock.elapsedMs<clock.durationMinutes*60000)) {
+      $('resume-status').textContent='Sesión recuperada. Tocá Iniciar para continuar.';
+    }
+  }
+
+  function applyShortcut() {
+    // Soporte para accesos directos PWA (shortcuts)
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const modeParam = Number(urlParams.get('duration') || urlParams.get('mode'));
+      if (modeParam > 0 && cycleTools.validDuration(modeParam)) {
+        setCycleState(cycleTools.initial('single',modeParam));
+        clock.durationMinutes = modeParam;
+        $('custom-minutes').value=modeParam;
+        clock.elapsedMs=0;listeningProgress.checkpoint();
+        $('resume-status').textContent='';
+        document.querySelectorAll('.mode-chip').forEach((c) => {
+          c.setAttribute('aria-pressed', String(Number(c.dataset.minutes) === modeParam));
+        });
+        modeLabelEl.textContent = `Cuenta regresiva (${modeParam} min)`;
+        saveSession(true);
+      }
+    } catch (_) {}
+  }
+
+  return {renderTimer,advanceSessionClock,startSessionClock,stopSessionClock,resetCycle,initResetControl,restoreSession,applyShortcut};
 }

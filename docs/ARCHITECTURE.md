@@ -262,3 +262,13 @@ El cambio de plan/duración conserva avance previo, historial forzado, estado in
 El estado se obtiene al usar cada acción, y el registro del botón sigue inmediatamente después de los controles de reproducción. Construir el controlador no reinicia la sesión ni programa audio. Las reglas del ciclo permanecen en `src/session/` y la automatización acústica en el motor.
 
 Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers mantienen la precarga y usan caché fuente v3.51.
+
+## Recuperación y accesos directos de sesión
+
+`SessionTimerController.restoreSession` aplica el snapshot ya validado por `SessionPersistence`: ciclo, duración, tiempo y checkpoint de escucha, chips y etiqueta de modo, y aviso de recuperación. No inicia reproducción ni guarda al recuperar. `FocusController` conserva el adaptador y obtiene el snapshot del servicio de persistencia.
+
+`applyShortcut` conserva lectura de `duration || mode`, validación y manejo de errores existentes. Solo una duración positiva válida configura una sesión simple, limpia el tiempo y checkpoint, actualiza campo/chips/etiqueta y fuerza guardado. No reproduce ni agrega opciones.
+
+El orden del arranque permanece: recuperar sesión después de cargar historial, aplicar acceso PWA después de inicializar ciclos, y procesar enlace de mezcla después del acceso PWA. Así se conservan las precedencias previas y la exclusión de tiempo ya contabilizado.
+
+Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.52.
