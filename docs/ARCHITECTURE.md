@@ -282,3 +282,13 @@ Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers 
 `FocusController.initStudio` conserva el estudio inicial si la lectura no es válida, asigna los resultados del servicio y mantiene renderizado y registro de eventos en el mismo orden. Aplicar mezclas conserva la coordinación previa de niveles, reloj, audio y guardado.
 
 Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.53.
+
+## Coordinación de escena
+
+`StudioController` coordina también `configureAudio`, `applyScene` y programación de entrada/cierre, usando el motor existente, reloj compartido, estado vigente del estudio/ciclo y las mismas claves de niveles. `FocusController` conserva adaptadores con las firmas previas para reproducción, temporizador y extensión.
+
+Aplicar una escena conserva el orden sincronizar controles, configurar motor y aplicar escena. La etiqueta de fase solo se actualiza si el motor está inicializado, con las mismas envolventes y prioridad de descanso en silencio, cierre, entrada, descanso sostenido, concentración y sesión libre. Programar entrada/cierre conserva reconfiguración previa y argumento de suavizado.
+
+El módulo no construye nodos ni añade timers: `FocusAudioEngine` mantiene la automatización acústica y las envolventes del audio. Los eventos del estudio delegan en las mismas acciones ahora locales; construir el controlador no configura ni inicia audio.
+
+Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.54.

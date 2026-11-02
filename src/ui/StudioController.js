@@ -1,10 +1,10 @@
 import {SCENES} from '../audio/scenes.js';
-import {balanceLabel} from '../audio/dsp.js';
+import {balanceLabel,entryEnvelope,sessionEnvelope} from '../audio/dsp.js';
 
 // Existing studio controls with current application state and audio/storage adapters.
 export function createStudioController({
-  $,clock,engine,getStudio,getCycleState,getPlaybackState,isSilentRest,studioKey,
-  updateRange,persistSettings,syncFocusHistoryProgress,applyScene,writeLocal,syncUI
+  $,clock,engine,defaults,getStudio,getCycleState,getPlaybackState,isSilentRest,studioKey,
+  updateRange,persistSettings,syncFocusHistoryProgress,writeLocal,syncUI
 }) {
   function syncEntryUI() {
     const studio=getStudio(),{playing,transitioning}=getPlaybackState();
@@ -51,6 +51,26 @@ export function createStudioController({
     $('channel-balance').setAttribute('aria-valuetext',balanceLabel(studio.balance));
     $('scene-description').textContent=SCENES[studio.scene].description;
     syncSceneLabels();
+  }
+
+  function configureAudio() {
+    const studio=getStudio();
+    engine.configure(studio,Object.fromEntries(Object.keys(defaults).map(id=>[id,Number($('vol-'+id).value)])),{
+      elapsedMs:clock.elapsedMs,durationMinutes:clock.durationMinutes,silent:isSilentRest()
+    });
+  }
+  function scheduleAudioClosing(smooth=false) {configureAudio();engine.scheduleClosing(smooth);}
+  function scheduleAudioEntry(smooth=false) {configureAudio();engine.scheduleEntry(smooth);}
+  function applyScene(smooth=1.5) {
+    syncStudio();configureAudio();engine.applyScene(smooth);
+    if(!engine.initialized())return;
+    const studio=getStudio(),cycleState=getCycleState();
+    const progress=clock.durationMinutes?Math.min(1,clock.elapsedMs/(clock.durationMinutes*60000)):0;
+    // Audio automation owns the envelopes; the timer only updates their caption.
+    const {exit}=sessionEnvelope(clock.elapsedMs,clock.durationMinutes,studio.fadeOutSeconds);
+    const entry=entryEnvelope(clock.elapsedMs,studio.fadeInSeconds);
+    $('session-phase').textContent=isSilentRest()?'Descanso en silencio':exit<1 ? 'Cierre gradual' : entry<1 ? 'Entrada suave' : cycleState.plan!=='single'&&cycleState.phase==='rest' ? 'Descanso sostenido' : progress>0 ? 'Concentración sostenida' : 'Sesión libre';
+
   }
 
   function initStudioControls() {
@@ -104,5 +124,6 @@ export function createStudioController({
     });
   }
 
-  return {syncEntryUI,syncFadeUI,syncSceneLabels,syncRestSoundUI,syncStudio,initStudioControls};
+  return {syncEntryUI,syncFadeUI,syncSceneLabels,syncRestSoundUI,syncStudio,initStudioControls,
+    configureAudio,scheduleAudioClosing,scheduleAudioEntry,applyScene};
 }
