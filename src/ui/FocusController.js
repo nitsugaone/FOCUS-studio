@@ -76,7 +76,7 @@ export function startFocusApp({
       function scheduleAudioEntry(smooth=false) {scheduleStudioEntry(smooth);}
       function applyScene(smooth=1.5) {applyStudioScene(smooth);}
 
-      const {selectedMixIndex,renderMixes,syncMixActions}=createMixLibraryView({
+      const {selectedMixIndex,renderMixes,syncMixActions,initMixSearch}=createMixLibraryView({
         document,Option,$,state:mixState,cycleTools,syncMixUndoUI:()=>syncMixUndoUI()
       });
 
@@ -93,10 +93,7 @@ export function startFocusApp({
         if(loaded)studio=loaded;
         mixState.mixes=storage.loadMixes(Object.keys(DEFAULTS));
         syncStudio();renderMixes();
-        $('mix-search').addEventListener('input',()=>renderMixes($('saved-mixes').value));
-        $('clear-mix-search').addEventListener('click',()=>{
-          $('mix-search').value='';renderMixes($('saved-mixes').value);$('mix-search').focus();
-        });
+        initMixSearch();
         initStudioControls();
         initMixActions();
         initFeedback();

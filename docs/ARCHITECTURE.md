@@ -312,3 +312,13 @@ La captura mantiene nombre/favorito, ajustes, plan y duración de foco, y nivele
 Se mantienen guardado de niveles/estudio y resultados: la ruta compartida devuelve `sessionSaved`, `levelsSaved` y `studioSaved`; la guardada conserva su retorno implícito y orden de persistencia. No se unifican las diferencias entre las rutas ni se añaden escrituras, reproducción o validación.
 
 Sin cambios de HTML, selectores, eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.56.
+
+## Eventos de búsqueda de biblioteca
+
+`MixLibraryView.initMixSearch` registra el campo de búsqueda y su limpieza, junto a la presentación de biblioteca que ya coordinaba. Se conservan evento `input`, selección vigente al renderizar, clic de limpieza, consulta vacía y devolución de foco al campo.
+
+`FocusController.initStudio` conserva carga y asignación de datos, sincronización y renderizado inicial. Luego registra búsqueda mediante `initMixSearch` antes de controles del estudio, acciones de mezclas y feedback, en el mismo orden previo. Construir la vista no registra estos eventos.
+
+El filtro puro `mixSearchIndices`, índices originales, favoritas, preview, mensajes y datos guardados no cambian. `FocusController` deja de registrar directamente eventos DOM y conserva la composición de controladores y el arranque.
+
+Sin cambios de HTML, selectores, firmas de eventos, pruebas o dependencias. Ambos workers conservan la precarga y usan caché fuente v3.57.
