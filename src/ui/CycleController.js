@@ -37,7 +37,7 @@ export function createCycleController({
       chip.addEventListener('click', () => {
         if(getCycleState().plan!=='single')return;
         resetCycle('single',Number(chip.dataset.minutes)||0);
-        if(getPlaybackState().playing)clock.lastTimestamp=Date.now();
+        if(getPlaybackState().playing)clock.rebase();
       });
     });
     function applyCustomDuration() {

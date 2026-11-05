@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focus-audio-v3.59';
+const CACHE_NAME = 'focus-audio-v3.60';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

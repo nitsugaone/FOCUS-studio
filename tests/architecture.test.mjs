@@ -48,3 +48,22 @@ const boundClock=new SessionClock({
 });
 boundClock.start(()=>{});boundClock.stop();
 assert.ok(receivers.every(receiver=>receiver===undefined),'Injected timer functions are called without a foreign receiver');
+
+let rebaseNow=10000,rebaseTick,scheduled=0,cleared=0;
+const rebasedClock=new SessionClock({
+ now:()=>rebaseNow,
+ setInterval:fn=>{rebaseTick=fn;scheduled++;return 42;},
+ clearInterval:()=>{cleared++;}
+});
+rebasedClock.durationMinutes=2;
+rebasedClock.elapsedMs=30000;
+rebasedClock.start(()=>rebasedClock.advance());
+const beforeRebase={elapsed:rebasedClock.elapsedMs,duration:rebasedClock.durationMinutes,timer:rebasedClock.timer,scheduled,cleared};
+rebaseNow+=60000;
+rebasedClock.rebase();
+assert.equal(rebasedClock.lastTimestamp,rebaseNow,'Rebase uses the injected time source');
+assert.deepEqual({elapsed:rebasedClock.elapsedMs,duration:rebasedClock.durationMinutes,timer:rebasedClock.timer,scheduled,cleared},beforeRebase,'Rebase preserves elapsed time, duration and active timer');
+rebaseNow+=1000;rebaseTick();
+assert.equal(rebasedClock.elapsedMs,31000,'Only time after the new reference is accumulated');
+rebasedClock.stop();
+console.log('PASS: injected clock rebase preserves progress/duration/timer and excludes the replaced time gap');
