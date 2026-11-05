@@ -57,7 +57,7 @@ export function createSessionTimerController({
     $('custom-minutes').setAttribute('aria-invalid','false');
     if(plan==='single'&&singleDuration>0)$('custom-minutes').value=singleDuration;
     if(isPlaying()) {
-      clock.lastTimestamp=Date.now();
+      clock.rebase();
       scheduleAudioClosing(true);
       scheduleAudioEntry(true);
     }
@@ -76,7 +76,7 @@ export function createSessionTimerController({
       saveSession(true);
       $('resume-status').textContent='';
       if (isPlaying()) {
-        clock.lastTimestamp = Date.now();
+        clock.rebase();
         scheduleAudioClosing(true);
         scheduleAudioEntry(true);
       }

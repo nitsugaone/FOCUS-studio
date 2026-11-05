@@ -62,7 +62,7 @@ Al volver a una página visible, `BrowserPlaybackServices` avanza el reloj, apli
 
 ### Tiempo y escucha
 
-`SessionClock` recibe reloj y temporizadores inyectados. Limita callbacks tardíos al final del tramo, no acumula tiempo detenido y no resta tiempo si el reloj retrocede. Los adaptadores de APIs nativas deben conservar el receptor correcto.
+`SessionClock` recibe reloj y temporizadores inyectados. Limita callbacks tardíos al final del tramo, no acumula tiempo detenido y no resta tiempo si el reloj retrocede. Los adaptadores de APIs nativas deben conservar el receptor correcto. `rebase()` actualiza solo la referencia temporal con la fuente inyectada, conservando progreso, duración y timer. El inicio y los reinicios durante reproducción usan esa misma operación; los controladores no escriben la marca temporal con `Date.now()`.
 
 `ListeningProgress.advance(elapsedMs, {silent, flush})` entrega segundos nuevos al acumular al menos cinco segundos, o uno con cierre forzado. Conserva la fracción pendiente. Un descanso silencioso mueve el checkpoint sin sumar escucha; recuperar una sesión fija el checkpoint al tiempo ya registrado.
 

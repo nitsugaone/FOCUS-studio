@@ -11,9 +11,12 @@ export class SessionClock {
   if(this.durationMinutes>0)this.elapsedMs=Math.min(this.elapsedMs,this.durationMinutes*60000);
   this.lastTimestamp=now;
  }
+ rebase() {
+  this.lastTimestamp=this.now();
+ }
  start(onTick) {
   this.clearInterval(this.timer);
-  this.lastTimestamp=this.now();
+  this.rebase();
   this.timer=this.setInterval(onTick,500);
  }
  stop(active=true) {
