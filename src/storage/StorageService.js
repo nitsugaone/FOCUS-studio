@@ -9,6 +9,12 @@ export class StorageService {
   removeItem(key) { this.adapter.removeItem(key); }
   read(key,fallback) { try { return JSON.parse(this.getItem(key))??fallback; } catch { return fallback; } }
   write(key,value) { try { this.setItem(key,JSON.stringify(value)); return true; } catch { return false; } }
+  loadLevels(defaults) {
+    const saved=this.read('focus-audio-settings-v2',null);
+    return Object.fromEntries(Object.keys(defaults).map(id=>[
+      id,saved && Number.isFinite(saved[id]) ? Math.max(0, Math.min(100, saved[id])) : defaults[id]
+    ]));
+  }
   loadStudio(key) {
     const loaded=this.read(key,null);
     return validStudio(loaded)?studioSettings(loaded):null;
