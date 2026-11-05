@@ -172,6 +172,9 @@ checks.push({check:'Other scenes mute the fire output',pass:crackleGain.gain.val
 element('soundscape').value='fire';element('soundscape').events.input();
 checks.push({check:'Fire scene has no melody, keeps graph, and enables its texture',pass:JSON.parse(memory.get('focus-studio-v3')).scene==='fire'&&element('melody').checked===false&&element('vol-drone').value===0&&element('vol-noise').value===68&&sources.length===fireSources&&crackleGain.gain.value===0.55});
 checks.push({check:'Leaving wind mutes its branch',pass:windGain.gain.value===0});
+const fireBrownGain=continuous?workletNode.connections[0]:sources[0].connections[0];
+const fireTextureFilter=continuous?workletNode.connections[1]:sources[1].connections[0];
+checks.push({check:'Fire mutes the continuous brown, white and wind beds',pass:fireBrownGain.gain.value===0&&fireTextureFilter.connections[0].gain.value===0&&windGain.gain.value===0});
 element('preset-name').value='Fogón';element('save-mix').events.click();
 element('create-share-link').events.click();
 checks.push({check:'Fire exports through mix and shared link',pass:JSON.parse(memory.get('focus-mixes-v3'))[0].scene==='fire'&&JSON.parse(decodeURIComponent(element('share-link').value.split('#mix=')[1])).scene==='fire'});
