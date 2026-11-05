@@ -84,7 +84,7 @@ Al volver a una página visible, `BrowserPlaybackServices` avanza el reloj, apli
 | `focus-daily-history-v1` | Minutos por fecha local. |
 | `focus-backup-undo-v1` | Datos para recuperar la importación previa. |
 
-`loadStudio(key)` valida y aplica la proyección pura `studioSettings`. `loadMixes(levelKeys)` conserva el filtrado y límite de 50, sin reescribir registros. Al aplicar mezclas guardadas o compartidas se usan los mismos defaults de compatibilidad, manteniendo las diferencias de validación y los resultados de persistencia de cada ruta.
+`loadStudio(key)` valida y aplica la proyección pura `studioSettings`. `loadMixes(levelKeys)` conserva el filtrado y límite de 50, sin reescribir registros. Al aplicar mezclas guardadas o compartidas se usan los mismos defaults de compatibilidad, manteniendo las diferencias de validación y los resultados de persistencia de cada ruta. La normalización de enlaces y copias también reutiliza `studioSettings` después de sus propias validaciones. Las pruebas de ambos formatos fijan el JSON legado y configurado para proteger campos, orden, defaults y exclusión de datos adicionales, sin modificar los objetos de origen.
 
 Las acciones de biblioteca escriben antes de reemplazar estado. Una escritura fallida conserva datos y recuperación pendiente; una mutación guardada invalida la eliminación recuperable anterior. Esa eliminación pendiente vive en memoria y no se exporta.
 

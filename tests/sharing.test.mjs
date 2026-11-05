@@ -57,3 +57,14 @@ for(const fadeInSeconds of [0,3,12,30])assert.equal(tools.decode(tools.encode({.
 assert.equal(tools.decode(tools.encode(mix)).fadeInSeconds,12);
 for(const fadeInSeconds of [-1,5,60,null,'12'])assert.throws(()=>tools.encode({...mix,fadeInSeconds}));
 console.log('PASS: entry choices, old link defaults and invalid values');
+
+// Frozen wire fixtures protect the existing field order, legacy defaults and whitelist.
+const legacyWire='{"v":1,"scene":"ocean","evolution":42,"brightness":30,"melody":false,"stereoWidth":100,"balance":0,"notePace":"normal","fadeOutSeconds":20,"fadeInSeconds":12,"preserveMix":false,"restSound":"sound","cyclePlan":"single","duration":17,"levels":{"master":28,"noise":65,"drone":25,"notes":0}}';
+assert.equal(encoded,'#mix='+encodeURIComponent(legacyWire),'Legacy mix encoding keeps the same JSON bytes');
+assert.deepEqual(tools.decode('#mix='+encodeURIComponent(legacyWire)),data,'Existing wire payloads remain decodable');
+const configuredMix={...mix,stereoWidth:0,balance:-35,notePace:'sparse',fadeOutSeconds:60,fadeInSeconds:0,preserveMix:true,restSound:'silent'};
+const configuredBefore=JSON.stringify(configuredMix);
+const configuredWire='{"v":1,"scene":"ocean","evolution":42,"brightness":30,"melody":false,"stereoWidth":0,"balance":-35,"notePace":"sparse","fadeOutSeconds":60,"fadeInSeconds":0,"preserveMix":true,"restSound":"silent","cyclePlan":"single","duration":17,"levels":{"master":28,"noise":65,"drone":25,"notes":0}}';
+assert.equal(tools.encode(configuredMix),'#mix='+encodeURIComponent(configuredWire),'Explicit settings retain field order and exclude personal fields');
+assert.equal(JSON.stringify(configuredMix),configuredBefore,'Projection never mutates the source mix');
+console.log('PASS: frozen legacy/configured link JSON, field order, privacy and source immutability');

@@ -1,3 +1,4 @@
+import {studioSettings} from './mixes.js';
 import {createCycleTools} from '../session/cycles.js';
       function createBackupTools(storage) {
         const keys={mixes:'focus-mixes-v3',history:'focus-daily-history-v1',ratings:'focus-feedback-v3',settings:'focus-audio-settings-v2',studio:'focus-studio-v3',session:'focus-session-v1'};
@@ -9,7 +10,7 @@ import {createCycleTools} from '../session/cycles.js';
         const requireValid=(condition,message)=>{if(!condition)throw Error(message);};
         const normalizeStudio=value=>{
           requireValid(object(value)&&scenes.includes(value.scene)&&number(value.evolution,0,100)&&number(value.brightness,0,100)&&typeof value.melody==='boolean'&&(value.stereoWidth===undefined||number(value.stereoWidth,0,100))&&(value.balance===undefined||(Number.isInteger(value.balance)&&number(value.balance,-100,100)))&&(value.notePace===undefined||['sparse','normal','frequent'].includes(value.notePace))&&(value.fadeInSeconds===undefined||[0,3,12,30].includes(value.fadeInSeconds))&&(value.fadeOutSeconds===undefined||[5,20,60].includes(value.fadeOutSeconds))&&(value.preserveMix===undefined||typeof value.preserveMix==='boolean')&&(value.restSound===undefined||['sound','silent'].includes(value.restSound)),'Ajustes de ambiente inválidos.');
-          return {scene:value.scene,evolution:value.evolution,brightness:value.brightness,melody:value.melody,stereoWidth:value.stereoWidth??100,balance:value.balance??0,notePace:value.notePace??'normal',fadeOutSeconds:value.fadeOutSeconds??20,fadeInSeconds:value.fadeInSeconds??12,preserveMix:value.preserveMix??false,restSound:value.restSound??'sound'};
+          return studioSettings(value);
         };
         const normalizeLevels=value=>{
           requireValid(object(value)&&['master','noise','drone','notes'].every(key=>number(value[key],0,100)),'Volúmenes inválidos.');
