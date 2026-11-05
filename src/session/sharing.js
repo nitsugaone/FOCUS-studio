@@ -1,4 +1,4 @@
-import {studioSettings} from '../storage/mixes.js';
+import {studioSettings} from '../storage/studio.js';
 import {createCycleTools} from './cycles.js';
       function createShareTools() {
         const cycles=createCycleTools(),scenes=['rain','ocean','space','speech','fire','wind'];

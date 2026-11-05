@@ -1,4 +1,4 @@
-import {studioSettings} from '../storage/mixes.js';
+import {studioSettings} from '../storage/studio.js';
 import {SCENES} from '../audio/scenes.js';
 import {balanceLabel,entryEnvelope,sessionEnvelope} from '../audio/dsp.js';
 
