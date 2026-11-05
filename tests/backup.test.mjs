@@ -192,3 +192,16 @@ const entryFile={...file,data:{...file.data,mixes:[{...mix,name:'Entrada',fadeIn
 entryTools.applyImport(entryFile);entryTools.applyImport(entryFile);
 assert.equal(JSON.parse(entryStorage.getItem('focus-mixes-v3')).length,2,'Distinct entrances remain distinct and repeated import is idempotent');
 console.log('PASS: entry choices in backups, defaults and distinct mix merging');
+
+// Stable normalized JSON protects portable data independently of the shared projection.
+const legacyStudioJSON='{"scene":"rain","evolution":35,"brightness":50,"melody":true,"stereoWidth":100,"balance":0,"notePace":"normal","fadeOutSeconds":20,"fadeInSeconds":12,"preserveMix":false,"restSound":"sound"}';
+const legacyMixJSON='{"scene":"rain","evolution":35,"brightness":50,"melody":true,"stereoWidth":100,"balance":0,"notePace":"normal","fadeOutSeconds":20,"fadeInSeconds":12,"preserveMix":false,"restSound":"sound","name":"Lectura","duration":25,"cyclePlan":"single","favorite":true,"levels":{"master":90,"noise":75,"drone":20,"notes":15}}';
+const normalizedLegacy=tools.validateBackup(file);
+assert.equal(JSON.stringify(normalizedLegacy.studio),legacyStudioJSON,'Old backup studio fields/defaults retain their JSON order');
+assert.equal(JSON.stringify(normalizedLegacy.mixes[0]),legacyMixJSON,'Old backup mix metadata/levels retain their JSON order');
+const configuredStudio={...scene,stereoWidth:0,balance:-35,notePace:'sparse',fadeOutSeconds:60,fadeInSeconds:0,preserveMix:true,restSound:'silent',name:'Omitir',history:{private:1}};
+const configuredStudioBefore=JSON.stringify(configuredStudio);
+const configuredStudioJSON='{"scene":"rain","evolution":35,"brightness":50,"melody":true,"stereoWidth":0,"balance":-35,"notePace":"sparse","fadeOutSeconds":60,"fadeInSeconds":0,"preserveMix":true,"restSound":"silent"}';
+assert.equal(JSON.stringify(tools.validateBackup({...file,data:{...file.data,studio:configuredStudio}}).studio),configuredStudioJSON,'Configured backup studio retains whitelist and order');
+assert.equal(JSON.stringify(configuredStudio),configuredStudioBefore,'Backup projection does not mutate the source settings');
+console.log('PASS: frozen backup studio/mix JSON, compatible defaults, field order and source immutability');
