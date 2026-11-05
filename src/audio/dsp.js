@@ -114,11 +114,16 @@
 
       function createCrackleBuffer(context) {
         const buffer=context.createBuffer(2,context.sampleRate*19,context.sampleRate);
-        const decay=Math.exp(-1/(context.sampleRate*0.006)),edge=context.sampleRate*0.02;
+        const edge=context.sampleRate*0.02;
         for(let ch=0;ch<2;ch++) {
-          const data=buffer.getChannelData(ch);let envelope=0;
+          const data=buffer.getChannelData(ch);let envelope=0,decay=Math.exp(-1/(context.sampleRate*0.006));
           for(let i=0;i<data.length;i++) {
-            if(Math.random()<8/context.sampleRate)envelope=Math.min(1,envelope+0.3+Math.random()*0.7);
+            const random=Math.random();
+            if(random<4.5/context.sampleRate) {
+              const size=random/(4.5/context.sampleRate);
+              envelope=Math.min(1,envelope+0.2+0.8*size);
+              decay=Math.exp(-1/(context.sampleRate*(0.004+0.045*size*size*size)));
+            }
             envelope*=decay;
             data[i]=(Math.random()*2-1)*envelope*0.45*Math.min(1,i/edge,(data.length-1-i)/edge);
           }

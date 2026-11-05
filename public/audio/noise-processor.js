@@ -8,7 +8,7 @@ class FocusNoiseProcessor extends AudioWorkletProcessor {
     this.brown=new Float64Array(2);
     this.fireStates=new Uint32Array([(seed^0xa341316c)>>>0||1,(seed^0xc8013ea4)>>>0||2]);
     this.embers=new Float64Array(2);
-    this.emberDecay=Math.exp(-1/(sampleRate*0.006));
+    this.emberDecays=new Float64Array(2).fill(Math.exp(-1/(sampleRate*0.006)));
     this.pole=Math.exp(-2*Math.PI*180/sampleRate);
   }
   process(inputs,outputs) {
@@ -30,16 +30,21 @@ class FocusNoiseProcessor extends AudioWorkletProcessor {
     const crackle=outputs[2];
     if(crackle)for(let ch=0;ch<2;ch++) {
       const data=crackle[ch];if(!data)continue;
-      let state=this.fireStates[ch],envelope=this.embers[ch];
+      let state=this.fireStates[ch],envelope=this.embers[ch],decay=this.emberDecays[ch];
       for(let i=0;i<data.length;i++) {
         state^=state<<13;state^=state>>>17;state^=state<<5;
         const random=(state>>>0)/4294967296;
-        if(random<8/sampleRate)envelope=Math.min(1,envelope+0.3+0.7*random/(8/sampleRate));
-        envelope*=this.emberDecay;
+        // Sparse fractures: small dry ticks and occasional longer wood crackles.
+        if(random<4.5/sampleRate) {
+          const size=random/(4.5/sampleRate);
+          envelope=Math.min(1,envelope+0.2+0.8*size);
+          decay=Math.exp(-1/(sampleRate*(0.004+0.045*size*size*size)));
+        }
+        envelope*=decay;
         state^=state<<13;state^=state>>>17;state^=state<<5;
         data[i]=((state>>>0)/2147483648-1)*envelope*0.45;
       }
-      this.fireStates[ch]=state>>>0;this.embers[ch]=envelope;
+      this.fireStates[ch]=state>>>0;this.embers[ch]=envelope;this.emberDecays[ch]=decay;
     }
     return true;
   }
