@@ -39,6 +39,8 @@ La automatización de entrada y cierre usa `AudioContext.currentTime`. Los ticks
 
 `PlaybackController` mantiene la exclusión durante inicio/transición y coordina reloj, feedback, audio auxiliar, Media Session y Wake Lock. `stream()` entrega el MediaStream que la UI conecta al elemento auxiliar. El motor permanece desacoplado de elementos HTML.
 
+El fogón usa una cama continua atenuada (marrón 0.02, blanco 0.004) detrás de las crepitaciones (0.55). Worklet y respaldo generan eventos independientes por canal, a una media de 4.5 por segundo, con amplitud y caída variables (4–49 ms); la cola exponencial dura más que esa constante. Las pruebas protegen el margen de señal, las pausas y la presencia de chasquidos cortos y colas largas. La evaluación del timbre sigue requiriendo escucha.
+
 El worklet conserva la ruta [audio/noise-processor.js](../audio/noise-processor.js), su copia pública y su alternativa con buffers.
 
 ### Estado, callbacks y arranque

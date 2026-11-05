@@ -1,4 +1,5 @@
 import {createCrackleBuffer as create} from '../src/audio/dsp.js';
+import {SCENES} from '../src/audio/scenes.js';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
@@ -30,6 +31,16 @@ for(const rate of [8000,44100,48000,96000]) {
  assert.ok(Math.abs(sum/data[2][0].length)<.005,'Crackles have no material DC bias');
  assert.ok(active/data[2][0].length>.02&&active/data[2][0].length<.5,'Texture is sparse');
  assert.ok(Math.abs(cross/Math.sqrt(leftEnergy*rightEnergy))<.15,'Independent stereo events');
+ // The fire bed must remain behind the wood events, rather than becoming a fan-like wash.
+ for(let channel=0;channel<2;channel++) {
+  let bedEnergy=0,eventEnergy=0;
+  for(let i=0;i<data[2][channel].length;i++) {
+   const bed=SCENES.fire.brown*data[0][channel][i]+SCENES.fire.white*data[1][channel][i];
+   bedEnergy+=bed*bed;
+   eventEnergy+=(SCENES.fire.crackle*data[2][channel][i])**2;
+  }
+  assert.ok(bedEnergy<eventEnergy*.15,'Fire is event-led at every supported sample rate');
+ }
 }
 const full=render(processor(48000),4096),node=processor(48000);
 const blocks=Array.from({length:32},()=>render(node,128));
@@ -42,3 +53,32 @@ for(let ch=0;ch<2;ch++) {
  assert.ok(data.some(value=>Math.abs(value)>.03));assert.ok(data.every(value=>Math.abs(value)<=.45));
 }
 console.log('PASS: fire bounds, sparsity, stereo, DC, sample rates, block continuity, unchanged base signals and fallback seams');
+
+function verifyWoodDynamics(data,label) {
+ const windowSize=80,events=[];let quiet=0,windows=0,run=0;
+ // 10 ms energy windows at 8 kHz distinguish short ticks, longer fractures and gaps.
+ for(let start=0;start+windowSize<=data.length;start+=windowSize) {
+  let energy=0;
+  for(let i=start;i<start+windowSize;i++)energy+=data[i]*data[i];
+  const rms=Math.sqrt(energy/windowSize);windows++;
+  if(rms<.001)quiet++;
+  if(rms>.003)run++;
+  else if(run){events.push(run);run=0;}
+ }
+ if(run)events.push(run);
+ assert.ok(quiet/windows>.4,label+': clear gaps remain between events');
+ assert.ok(events.filter(length=>length<=3).length>=10,label+': short dry ticks remain');
+ assert.ok(events.filter(length=>length>=10).length>=5,label+': wood fractures have audible-length tails');
+}
+const sustained=render(processor(8000),8000*30);
+for(const channel of sustained[2])verifyWoodDynamics(channel,'worklet');
+const originalRandom=Math.random;let fallbackSeed=93217,seededFallback;
+try {
+ Math.random=()=>{fallbackSeed^=fallbackSeed<<13;fallbackSeed^=fallbackSeed>>>17;fallbackSeed^=fallbackSeed<<5;return(fallbackSeed>>>0)/4294967296;};
+ seededFallback=create({sampleRate:8000,createBuffer(channels,length){
+  const data=Array.from({length:channels},()=>new Float32Array(length));
+  return{getChannelData:channel=>data[channel]};
+ }});
+} finally {Math.random=originalRandom;}
+for(let channel=0;channel<2;channel++)verifyWoodDynamics(seededFallback.getChannelData(channel),'buffer fallback');
+console.log('PASS: event-led fire mix, short ticks, longer wood tails and quiet gaps in both renderers');
