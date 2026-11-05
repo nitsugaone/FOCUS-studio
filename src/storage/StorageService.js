@@ -1,4 +1,4 @@
-import {validStudio,studioSettings} from './mixes.js';
+import {validStudio,studioSettings} from './studio.js';
 import {createBackupTools} from './backups.js';
 
 // The adapter is injected; storage failures do not have UI side effects.

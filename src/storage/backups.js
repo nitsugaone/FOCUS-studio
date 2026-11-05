@@ -1,4 +1,4 @@
-import {studioSettings} from './mixes.js';
+import {studioSettings} from './studio.js';
 import {createCycleTools} from '../session/cycles.js';
       function createBackupTools(storage) {
         const keys={mixes:'focus-mixes-v3',history:'focus-daily-history-v1',ratings:'focus-feedback-v3',settings:'focus-audio-settings-v2',studio:'focus-studio-v3',session:'focus-session-v1'};
