@@ -3,6 +3,10 @@ import {SCENES} from '../src/audio/scenes.js';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
+assert.equal(SCENES.fire.brown,0,'Fire has no continuous brown bed');
+assert.equal(SCENES.fire.white,0,'Fire has no continuous white bed');
+assert.equal(SCENES.fire.wind??0,0,'Fire has no wind layer');
+
 const source=await readFile(new URL('../audio/noise-processor.js',import.meta.url),'utf8');
 function processor(rate,seed=31) {
  let Type;new Function('AudioWorkletProcessor','registerProcessor','sampleRate',source)(class {},(_,value)=>Type=value,rate);
