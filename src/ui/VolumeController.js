@@ -19,10 +19,9 @@ export function createVolumeController({document,$,engine,storage,defaults}) {
   }
 
   function loadSettings() {
-    const saved=storage.read('focus-audio-settings-v2',null);
+    const levels=storage.loadLevels(defaults);
     Object.keys(defaults).forEach((id) => {
-      const value = saved && Number.isFinite(saved[id]) ? Math.max(0, Math.min(100, saved[id])) : defaults[id];
-      $('vol-' + id).value = value;
+      $('vol-' + id).value = levels[id];
       updateRange(id, false);
     });
   }

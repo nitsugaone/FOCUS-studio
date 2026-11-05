@@ -13,7 +13,7 @@ GitHub Pages sirve este HTML y sus módulos nativos. El repositorio también dis
 | DSP y escenas | [dsp.js](../src/audio/dsp.js), [scenes.js](../src/audio/scenes.js) | Cálculos, constructores de procesamiento con parámetros explícitos y datos de ambientes. |
 | Tiempo y ciclos | [SessionClock.js](../src/session/SessionClock.js), [cycles.js](../src/session/cycles.js) | Tiempo real acumulado, duración y reglas de sesiones simples, rondas, descansos y extensión. |
 | Progreso y recuperación | [ListeningProgress.js](../src/session/ListeningProgress.js), [SessionPersistence.js](../src/session/SessionPersistence.js) | Segundos ya contabilizados, cadencia de guardado y validación de snapshots. |
-| Persistencia | [StorageService.js](../src/storage/StorageService.js), [DailyHistory.js](../src/storage/DailyHistory.js) | Adaptador JSON, carga compatible de estudio/biblioteca e historial por fecha local. |
+| Persistencia | [StorageService.js](../src/storage/StorageService.js), [DailyHistory.js](../src/storage/DailyHistory.js) | Adaptador JSON, carga compatible de niveles/estudio/biblioteca e historial por fecha local. |
 | Ajustes del estudio | [studio.js](../src/storage/studio.js) | Validación y proyección de ajustes compatibles, sin acceso a la interfaz ni al almacenamiento. |
 | Reglas de datos | [backups.js](../src/storage/backups.js), [mixes.js](../src/storage/mixes.js), [insights.js](../src/storage/insights.js), [sharing.js](../src/session/sharing.js) | Validación y transacciones de copias, búsqueda/duplicación de mezclas, informes y codec de enlaces. |
 | Reproducción | [PlaybackController.js](../src/ui/PlaybackController.js), [PlaybackView.js](../src/ui/PlaybackView.js) | Inicio/pausa y coordinación de recursos; presentación, errores y botones principal/móvil. |
@@ -84,6 +84,8 @@ Al volver a una página visible, `BrowserPlaybackServices` avanza el reloj, apli
 | `focus-feedback-v3` | Valoraciones de sesiones. |
 | `focus-daily-history-v1` | Minutos por fecha local. |
 | `focus-backup-undo-v1` | Datos para recuperar la importación previa. |
+
+`loadLevels(defaults)` recupera los niveles guardados, conserva los valores finitos limitados a 0–100 y completa los ausentes o inválidos con los defaults recibidos. `VolumeController` aplica el resultado a los controles y al motor en el mismo orden, sin guardar durante la carga.
 
 `studio.js` concentra `validStudio` y la proyección pura `studioSettings`; `mixes.js` conserva sus exportaciones anteriores por compatibilidad y se ocupa de búsqueda y duplicación. Los consumidores de ajustes importan directamente desde `studio.js`. `loadStudio(key)` valida y aplica esa proyección. `loadMixes(levelKeys)` conserva el filtrado y límite de 50, sin reescribir registros. Al aplicar mezclas guardadas o compartidas se usan los mismos defaults de compatibilidad, manteniendo las diferencias de validación y los resultados de persistencia de cada ruta. La normalización de enlaces y copias también reutiliza `studioSettings` después de sus propias validaciones. Las pruebas de ambos formatos fijan el JSON legado y configurado para proteger campos, orden, defaults y exclusión de datos adicionales, sin modificar los objetos de origen.
 
