@@ -66,3 +66,13 @@ El HTML de AI Studio era una página v2 autónoma sin atributos de recursos exte
 Se retiran solo esas copias de distribución: 343 992 bytes de archivos heredados, aproximadamente 336 KiB. El colector de `scripts/build-offline-worker.mjs` incluía automáticamente todo lo emitido por Vite, por lo que los ocho archivos entraban al precaché compilado aunque no los usara la app. La plantilla del worker y el colector no se modifican; la versión del caché compilado se deriva de su contenido y cambia al reconstruir.
 
 Se conservan los originales de documentación, la captura real, las imágenes referenciadas por ambos manifests, los iconos y el worklet. La precarga fuente no contenía los archivos retirados: se mantienen idénticos `sw.js` y `public/sw.js`, sin cambiar su versión ni la aplicación activa. Motor, ambientes, UI, enlaces, copias de seguridad y tests permanecen intactos.
+
+## Limpieza portable de la compilación
+
+El comando heredado de `package.json` era `rm -rf dist server.js`: dependía de herramientas Unix y mencionaba un `server.js` ausente del árbol. Se sustituye por `node scripts/clean.mjs`, sin dependencias ni opciones nuevas.
+
+El script deriva la raíz desde `import.meta.url`, comprueba la ruta absoluta antes de la eliminación recursiva y limita la operación a un directorio `dist` real dentro del proyecto. Rechaza archivos y enlaces como salida; no usa la carpeta de trabajo del invocante como destino y no borra un posible servidor personalizado.
+
+La prueba nueva ejecuta una copia del script real en un fixture temporal con espacios en sus rutas. Verifica ejecución desde otra carpeta, repetición, preservación de fuentes y servidor, enlaces anidados, y rechazo de un archivo o enlace como `dist`. La prueba completa y el comando npm se ejecutaron correctamente en Windows. Los fixtures comprueban enlaces de directorio y junctions según la plataforma. CI vuelve a ejecutar la suite completa en Linux.
+
+Se mantienen las 29 suites anteriores y los casos de navegador sin cambios. No se modifican motor, ambientes, interfaz, archivos fuente de producción, workers, dependencias ni formatos de datos. El lockfile no cambia porque solo se sustituye un comando npm.

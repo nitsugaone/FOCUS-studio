@@ -14,7 +14,9 @@ npm run build -- --base=/FOCUS-studio/
 node scripts/validate-build.mjs
 ```
 
-Node ejecuta las 29 suites existentes de arranque modular, arquitectura, señal, interfaz simulada, sesiones y persistencia. No requiere instalar los paquetes del build. `npm run lint` comprueba la configuración TypeScript de las herramientas. Vite genera `dist/`; la validación comprueba la subruta publicada, manifest y los recursos precargados realmente emitidos.
+Node ejecuta las 30 suites de arranque modular, arquitectura, señal, interfaz simulada, sesiones, persistencia y mantenimiento. No requiere instalar los paquetes del build. `npm run lint` comprueba la configuración TypeScript de las herramientas. Vite genera `dist/`; la validación comprueba la subruta publicada, manifest y los recursos precargados realmente emitidos.
+
+La prueba de limpieza ejecuta el script real en un proyecto temporal con rutas que contienen espacios y desde un directorio ajeno. Comprueba repetición, preservación de fuentes/servidor, enlaces anidados y rechazo de un archivo o enlace como `dist`. No limpia el build del checkout de CI.
 
 ## Navegadores
 

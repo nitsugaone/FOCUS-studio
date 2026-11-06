@@ -111,6 +111,8 @@ El build de [vite.config.ts](../vite.config.ts) usa [build-offline-worker.mjs](.
 
 ## Validación y mantenimiento
 
+`npm run clean` ejecuta [clean.mjs](../scripts/clean.mjs). Resuelve la raíz a partir de su propio archivo, comprueba la ruta absoluta y solo elimina un directorio `dist` real de ese proyecto. La ausencia de salida es válida; archivos y enlaces como salida se rechazan. [clean.test.mjs](../tests/clean.test.mjs) verifica aislamiento y preservación con fixtures temporales, sin dependencias externas.
+
 La [CI de calidad](../.github/workflows/quality.yml) ejecuta Node, build y los mismos 210 casos de navegador en fuente y build: 420 ejecuciones en seis perfiles Chromium/WebKit. Mantiene artefactos de build y reportes separados por variante.
 
 Las dependencias de desarrollo están bloqueadas mediante dos lockfiles, uno en la raíz y otro en `tools/browser-tests/`. Para reproducir los comandos de CI desde la raíz:
