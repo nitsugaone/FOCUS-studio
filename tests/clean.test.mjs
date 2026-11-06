@@ -2,11 +2,14 @@ import {mkdtemp,mkdir,writeFile,readFile,rm,symlink,lstat,unlink,realpath} from 
 import {join,dirname,basename,relative} from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
 
-const fixture=await mkdtemp(join(tmpdir(),'focus-clean-'));
+const temporaryRoot=await realpath(tmpdir());
+const fixture=await mkdtemp(join(temporaryRoot,'focus-clean-'));
 const project=join(fixture,'project with spaces'),outside=join(fixture,'unrelated cwd');
 const output=join(project,'dist'),script=join(project,'scripts','clean.mjs');
+const temporaryAlias=join(fixture,'temporary alias');
 const exists=path=>lstat(path).catch(error=>{if(error.code==='ENOENT')return null;throw error;});
 const run=()=>spawnSync(process.execPath,[script],{cwd:outside,encoding:'utf8'});
 try {
@@ -41,14 +44,27 @@ try {
  assert.notEqual(linked.status,0,'A linked output directory is rejected');
  assert.equal((await lstat(output)).isSymbolicLink(),true,'The linked output is preserved on rejection');
  assert.equal(await readFile(join(outside,'dist','keep.txt'),'utf8'),'preserve unrelated output','External data remains intact');
- console.log('PASS: portable cleanup, caller-independent paths, repeated runs, source preservation and link/file guards');
+ if(process.env.FOCUS_CLEAN_FIXTURE_CHILD!=='1') {
+  const aliasedRoot=join(fixture,'isolated temporary root');
+  await mkdir(aliasedRoot);
+  await symlink(aliasedRoot,temporaryAlias,process.platform==='win32'?'junction':'dir');
+  assert.notEqual(await realpath(temporaryAlias),temporaryAlias,'The regression uses a real temporary-path alias');
+  const aliased=spawnSync(process.execPath,[fileURLToPath(import.meta.url)],{
+   cwd:outside,encoding:'utf8',
+   env:{...process.env,TMPDIR:temporaryAlias,TMP:temporaryAlias,TEMP:temporaryAlias,FOCUS_CLEAN_FIXTURE_CHILD:'1'}
+  });
+  assert.equal(aliased.status,0,aliased.stderr);
+ }
+ console.log('PASS: portable cleanup, caller-independent paths, repeated runs, source preservation, link/file guards and aliased temporary roots');
 } finally {
  // Verify the absolute disposable fixture before recursive cleanup on every platform.
- const actualFixture=await realpath(fixture),actualTemp=await realpath(tmpdir());
- assert.equal(dirname(actualFixture),actualTemp);
+ const actualFixture=await realpath(fixture);
+ assert.equal(dirname(actualFixture),temporaryRoot);
  assert.equal(relative(fixture,actualFixture),'');
  assert.ok(basename(actualFixture).startsWith('focus-clean-'));
  const outputEntry=await exists(output);
  if(outputEntry?.isSymbolicLink())await unlink(output);
+ const aliasEntry=await exists(temporaryAlias);
+ if(aliasEntry?.isSymbolicLink())await unlink(temporaryAlias);
  await rm(actualFixture,{recursive:true,force:true});
 }
