@@ -5,12 +5,12 @@ Ejecutar `node --test tests/*.test.mjs` para la suite completa. El test de estud
 
 ## Registro de pruebas en dispositivos reales
 
-Información recibida del usuario el 6 de noviembre de 2026: pruebas en celulares Android y PC, todas desde navegador web. En el intercambio previo informó que la reproducción, la escucha entre ambientes y la continuidad con pantalla bloqueada funcionaban; no se detalló qué comprobaciones se realizaron en cada equipo. Es un reporte manual del usuario, no una validación adicional realizada por el agente.
+Información recibida del usuario el 6 de noviembre de 2026: pruebas en celulares Android y PC, todas desde navegador web. Luego precisó Windows y Chrome para el PC. En el intercambio previo informó que la reproducción, la escucha entre ambientes y la continuidad con pantalla bloqueada funcionaban; no se detalló qué comprobaciones se realizaron en cada equipo. Es un reporte manual del usuario, no una validación adicional realizada por el agente.
 
 | Equipo informado | Sistema operativo | Modalidad | Modelo y versiones | Navegador y versión |
 | --- | --- | --- | --- | --- |
 | Celulares | Android; versión no informada | Navegador web | No informados | No informados |
-| PC | No informado | Navegador web | No informados | No informados |
+| PC | Windows; versión no informada | Navegador web | No informados | Chrome; versión no informada |
 
 No se informó la fecha de ejecución ni la duración del bloqueo por equipo. No se documentan pruebas de una PWA instalada ni de sistemas o navegadores específicos adicionales.
 

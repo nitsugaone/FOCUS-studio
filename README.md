@@ -39,7 +39,7 @@ La selección de notas usa grados pentatónicos menores relativos a la raíz del
 
 El motor conecta su salida a un `MediaStreamAudioDestinationNode`; `PlaybackController` entrega ese stream al elemento `<audio id="bg-audio">`. Media Session y Wake Lock se usan cuando el navegador los ofrece. Esta estrategia no garantiza continuidad en todos los sistemas.
 
-Las pruebas de navegador automatizadas cubren Chromium y WebKit en Linux. No equivalen a teléfonos físicos ni prueban el bloqueo real de pantalla. El usuario informó pruebas manuales en celulares Android y PC, todas desde navegador web. El [registro de validación](docs/VALIDACION-V3.md) conserva ese alcance; los modelos, versiones y navegadores no fueron informados. No se atribuyen resultados a una PWA instalada.
+Las pruebas de navegador automatizadas cubren Chromium y WebKit en Linux. No equivalen a teléfonos físicos ni prueban el bloqueo real de pantalla. El usuario informó pruebas manuales en celulares Android y PC con Windows y Chrome, todas desde navegador web. El [registro de validación](docs/VALIDACION-V3.md) conserva ese alcance; los modelos, versiones y el navegador utilizado en Android no fueron informados. No se atribuyen resultados a una PWA instalada.
 
 ## Instalación y ejecución local
 

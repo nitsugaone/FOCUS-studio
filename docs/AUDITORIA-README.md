@@ -38,6 +38,6 @@ La [CI del commit base](https://github.com/nitsugaone/FOCUS-studio/actions/runs/
 
 ## Información recibida después de la auditoría
 
-El 6 de noviembre de 2026 el usuario precisó: celulares Android y PC, todas las pruebas desde navegador web. Ese alcance y el funcionamiento informado previamente se registran en [VALIDACION-V3.md](VALIDACION-V3.md), sin asignar cada comprobación a equipos concretos. No informó modelos, versiones, navegadores, sistema operativo del PC, fecha de ejecución ni duración del bloqueo; esos datos quedan sin especificar. No se atribuyen pruebas a una PWA instalada. La clasificación de la tabla conserva el estado del commit auditado.
+El 6 de noviembre de 2026 el usuario precisó: celulares Android y PC, todas las pruebas desde navegador web. Ese alcance y el funcionamiento informado previamente se registran en [VALIDACION-V3.md](VALIDACION-V3.md), sin asignar cada comprobación a equipos concretos. Después precisó que el PC usa Windows y Chrome. No informó modelos, versiones, navegador de Android, fecha de ejecución ni duración del bloqueo; esos datos quedan sin especificar. No se atribuyen pruebas a una PWA instalada. La clasificación de la tabla conserva el estado del commit auditado.
 
 Una captura en navegador y WebKit sobre Linux no acreditan funcionamiento en un teléfono físico.
