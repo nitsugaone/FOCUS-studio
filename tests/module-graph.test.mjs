@@ -70,3 +70,32 @@ assert.ok(worker.includes("'./audio/noise-processor.js'"),'Offline precache incl
 assert.ok(cachedAssets.includes('./audio/noise-processor.js'),'Worker installation actually precaches the worklet');
 console.log('PASS: complete src inventory, real worker install handler and '+cachedAssets.length+' existing precache paths');
 console.log('PASS: all '+modules.size+' production ES modules resolve and are precached offline');
+
+const sharedResources=new Map([['sw.js',new URL('sw.js',root)]]);
+for(const asset of cachedAssets) {
+ const url=new URL(asset,root);
+ const path=decodeURIComponent(url.pathname.slice(root.pathname.length));
+ // Vite transforms the HTML/modules; other runtime files are copied from public.
+ if(path&&path!=='index.html'&&!path.startsWith('src/'))sharedResources.set(path,url);
+}
+async function publicInventory(directory,prefix='') {
+ const files=new Map();
+ for(const entry of await readdir(directory,{withFileTypes:true})) {
+  const path=prefix+entry.name;
+  const url=new URL(encodeURIComponent(entry.name)+(entry.isDirectory()?'/':''),directory);
+  if(entry.isDirectory()) {
+   for(const [name,file] of await publicInventory(url,path+'/'))files.set(name,file);
+  } else {
+   assert.ok(entry.isFile(),'Public distribution resources are regular files: '+path);
+   files.set(path,url);
+  }
+ }
+ return files;
+}
+const publicResources=await publicInventory(new URL('public/',root));
+assert.deepEqual([...publicResources.keys()].sort(),[...sharedResources.keys()].sort(),'Public distribution contains exactly the shared native runtime assets and worker');
+for(const [path,sourceURL] of sharedResources) {
+ const [source,copy]=await Promise.all([readFile(sourceURL),readFile(publicResources.get(path))]);
+ assert.deepEqual(copy,source,'Native and bundled distributions share identical bytes: '+path);
+}
+console.log('PASS: '+sharedResources.size+' shared runtime assets have matching native/public inventories and bytes');
