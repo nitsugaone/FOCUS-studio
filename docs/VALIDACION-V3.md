@@ -1,9 +1,15 @@
 # Validación FOCUS Studio v3
 
 ## Comprobaciones automatizadas
-Ejecutar `node tests/studio.test.mjs`. Pruebas con DOM y Web Audio simulados; no sustituyen pruebas en dispositivos.
+Ejecutar `node --test tests/*.test.mjs` para la suite completa. El test de estudio usa DOM y Web Audio simulados. Las pruebas de navegador y renderizado real se detallan en [PRUEBAS-AUTOMATICAS.md](PRUEBAS-AUTOMATICAS.md); no sustituyen pruebas físicas.
 
-## Escucha pendiente antes de integrar
+## Registro de pruebas en dispositivos reales
+
+Se informó funcionamiento en pruebas manuales anteriores, pero el repositorio no contiene modelo, sistema operativo, navegador, versiones ni modalidad navegador/PWA. Se solicitaron esos datos para completar el registro. No se asigna un resultado a equipos concretos sin esa información.
+
+Para cada prueba registrar: fecha, modelo, versión del sistema, navegador y versión, navegador o PWA instalada, uso de auriculares, duración del bloqueo y resultado al regresar. Los perfiles Chromium/WebKit de CI son automatizados sobre Linux y no constituyen pruebas de teléfonos físicos.
+
+## Protocolo de escucha y validación física
 1. Con el mismo volumen de sistema y maestro, comparar 5 minutos de cada ambiente. Registrar comodidad y volumen percibido; corregir diferencias molestas.
 2. Cambiar de ambiente durante reproducción y recorrer brillo/evolución de mínimo a máximo. No debe haber clics ni saltos de volumen.
 3. Escuchar 45–60 minutos con evolución 0, 35 y 100. Registrar fatiga, monotonía y distracciones.
@@ -14,7 +20,7 @@ Ejecutar `node tests/studio.test.mjs`. Pruebas con DOM y Web Audio simulados; no
 
 ## Límites conocidos
 - Síntesis ambiental aproximada; no son grabaciones reales de lluvia u océano.
-- La capa marrón conserva el buffer original de 16 segundos; la textura blanca usa un buffer de 19 segundos.
+- Con AudioWorklet, ruido y crepitaciones se generan continuamente. La ruta de respaldo usa buffers sintetizados: marrón de 16 segundos y blanco/crepitaciones de 19 segundos.
 - Notas y actualizaciones lentas dependen de temporizadores del navegador, que pueden limitarse en segundo plano.
 - No hay biometría ni promesas de eficacia clínica.
 - Los datos históricos existentes se conservan, incluso si una versión anterior añadió demostraciones.
