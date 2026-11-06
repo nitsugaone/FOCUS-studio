@@ -76,3 +76,13 @@ El script deriva la raíz desde `import.meta.url`, comprueba la ruta absoluta an
 La prueba nueva ejecuta una copia del script real en un fixture temporal con espacios en sus rutas. Verifica ejecución desde otra carpeta, repetición, preservación de fuentes y servidor, enlaces anidados, y rechazo de un archivo o enlace como `dist`. Un subproceso repite la prueba completa con TMPDIR/TMP/TEMP apuntando a un enlace dentro del fixture, para verificar raíces temporales con alias sin omitir las comprobaciones. La prueba completa y el comando npm se ejecutaron correctamente en Windows. Los fixtures comprueban enlaces de directorio y junctions según la plataforma. CI vuelve a ejecutar la suite completa en Linux.
 
 Se mantienen las 29 suites anteriores y los casos de navegador sin cambios. No se modifican motor, ambientes, interfaz, archivos fuente de producción, workers, dependencias ni formatos de datos. El lockfile no cambia porque solo se sustituye un comando npm.
+
+## Entrada npm común para validación
+
+Las validaciones ya existían, pero la raíz no ofrecía `npm test` y la documentación/CI invocaban directamente distintas rutas. Se añaden tres alias a `package.json`: `npm test` para la suite Node existente, `npm run validate:build` para el validador existente y `npm run test:browser` para delegar en el paquete de Playwright.
+
+CI usa esos mismos puntos de entrada. La instalación de Playwright conserva su carpeta `tools/browser-tests/` y su lockfile; el alias se ejecuta desde la raíz y npm delega el trabajo al paquete correspondiente. No se modifican pruebas, perfiles, matriz, temporizadores, reintentos ni destinos `source/build`. Los comandos internos directos siguen funcionando.
+
+Se comprobó en Windows, con fixtures de comandos y sin instalar dependencias, el descubrimiento de archivos de prueba, la carpeta delegada, la conservación de `FOCUS_TEST_TARGET`, el reenvío de argumentos y la propagación de un fallo esperado. La validación real de Node, Vite, recursos offline y Playwright se ejecuta en CI sobre Linux. Los fixtures locales no se incorporan al repositorio.
+
+No se añaden dependencias, lockfiles ni scripts auxiliares de implementación. Motor, ambientes, interfaz, módulos de la aplicación, workers y formatos de datos permanecen intactos.

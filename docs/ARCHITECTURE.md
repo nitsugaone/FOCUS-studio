@@ -120,20 +120,21 @@ Las dependencias de desarrollo están bloqueadas mediante dos lockfiles, uno en 
 ```sh
 npm ci --ignore-scripts --no-audit --no-fund
 npm run lint
-node --test tests/*.test.mjs
+npm test
 npm run build -- --base=/FOCUS-studio/
-node scripts/validate-build.mjs
+npm run validate:build
 ```
 
-En `tools/browser-tests/`, con los navegadores de Playwright disponibles, ejecutar en PowerShell:
+Las herramientas y navegadores de Playwright se instalan en `tools/browser-tests/`, con su propio lockfile. Una vez disponibles, ejecutar desde la raíz en PowerShell:
 
 ```powershell
-npm ci --ignore-scripts --no-audit --no-fund
 $env:FOCUS_TEST_TARGET = 'source'
-npm test
+npm run test:browser
 $env:FOCUS_TEST_TARGET = 'build'
-npm test
+npm run test:browser
 ```
+
+Los scripts de `package.json` son la entrada común usada por documentación y CI. `npm test` conserva el comando Node original y no necesita las dependencias del build; `npm run validate:build` lee un `dist/` ya generado. `npm run test:browser` delega al paquete de navegador mediante `npm --prefix`, conservando su carpeta de trabajo, el entorno y los argumentos. La instalación de navegador en CI sigue en esa carpeta; no cambia la matriz, perfiles, tiempos ni reintentos.
 
 El build debe existir antes de probar la segunda variante. CI usa la imagen Playwright indicada en el workflow. Estas pruebas cubren coordinación y renderizado Web Audio; la escucha, volumen percibido y bloqueo de pantalla en equipos físicos corresponden a [la guía de validación](VALIDACION-V3.md).
 

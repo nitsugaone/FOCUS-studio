@@ -71,7 +71,7 @@ Para producir y comprobar el build con la subruta del sitio:
 ```sh
 npm run lint
 npm run build -- --base=/FOCUS-studio/
-node scripts/validate-build.mjs
+npm run validate:build
 npm run preview
 ```
 
@@ -86,29 +86,34 @@ Vite informa la dirección local al iniciar. El build queda en `dist/`; no mezcl
 Desde la raíz:
 
 ```sh
-node --test tests/*.test.mjs
+npm test
 ```
 
-La suite Node funciona sin instalar las dependencias del build. Para probar también compilación y recursos offline:
+Este comando ejecuta `node --test tests/*.test.mjs`; la suite Node no requiere instalar las dependencias del build. Para comprobar también tipos, compilación y recursos offline:
 
 ```sh
 npm ci --ignore-scripts --no-audit --no-fund
 npm run lint
 npm run build -- --base=/FOCUS-studio/
-node scripts/validate-build.mjs
+npm run validate:build
 ```
 
-Pruebas de navegador, desde `tools/browser-tests/`:
+Instalar las herramientas de navegador desde `tools/browser-tests/`:
 
 ```sh
 npm ci --ignore-scripts --no-audit --no-fund
 npx playwright install chromium webkit
-npm test
 ```
 
-El destino predeterminado es fuente. Para probar `dist/`, que debe existir, establecer `FOCUS_TEST_TARGET=build` antes de `npm test`: en PowerShell, `$env:FOCUS_TEST_TARGET = 'build'`; en una shell POSIX, `FOCUS_TEST_TARGET=build npm test`.
+Después, desde la raíz:
 
-La [CI](.github/workflows/quality.yml) ejecuta las 30 suites Node, el build Vite, su comprobación offline y los mismos 210 casos de navegador contra fuente y build (420 ejecuciones en seis perfiles). Consulte [la guía de pruebas](docs/PRUEBAS-AUTOMATICAS.md) y [el protocolo de escucha](docs/VALIDACION-V3.md). Las pruebas automatizadas no verifican la calidad percibida, la fatiga ni el bloqueo de un teléfono físico.
+```sh
+npm run test:browser
+```
+
+El destino predeterminado es fuente. Para probar `dist/`, que debe existir, establecer `FOCUS_TEST_TARGET=build` antes del comando: en PowerShell, `$env:FOCUS_TEST_TARGET = 'build'`; en una shell POSIX, `FOCUS_TEST_TARGET=build npm run test:browser`. El comando delega en el paquete de `tools/browser-tests/`, conservando el destino y los argumentos de Playwright que se pasen después de `--`.
+
+La [CI](.github/workflows/quality.yml) usa los mismos comandos de la raíz: 30 suites Node, build Vite, validación offline y los mismos 210 casos de navegador contra fuente y build (420 ejecuciones en seis perfiles). Consulte [la guía de pruebas](docs/PRUEBAS-AUTOMATICAS.md) y [el protocolo de escucha](docs/VALIDACION-V3.md). Las pruebas automatizadas no verifican la calidad percibida, la fatiga ni el bloqueo de un teléfono físico.
 
 ## PWA, actualizaciones y despliegue
 
