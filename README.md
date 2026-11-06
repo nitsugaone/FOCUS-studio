@@ -77,6 +77,10 @@ npm run preview
 
 Vite informa la dirección local al iniciar. El build queda en `dist/`; no mezclar sus archivos con los módulos fuente. El build usa el mismo `index.html` y `src/main.js`. Vite, TypeScript y los tipos de Node son las únicas dependencias directas y se usan como herramientas de desarrollo; sus versiones resueltas están fijadas en el lockfile.
 
+### Limpiar la compilación
+
+`npm run clean` elimina únicamente `dist/` de este proyecto, usando Node en Windows y sistemas POSIX. No requiere herramientas Unix ni borra `server.js`. Se puede repetir si `dist/` ya no existe; rechaza un archivo o enlace en lugar del directorio de salida. Conserva fuentes, dependencias y datos del navegador.
+
 ## Pruebas
 
 Desde la raíz:
@@ -104,7 +108,7 @@ npm test
 
 El destino predeterminado es fuente. Para probar `dist/`, que debe existir, establecer `FOCUS_TEST_TARGET=build` antes de `npm test`: en PowerShell, `$env:FOCUS_TEST_TARGET = 'build'`; en una shell POSIX, `FOCUS_TEST_TARGET=build npm test`.
 
-La [CI](.github/workflows/quality.yml) ejecuta las 29 suites Node, el build Vite, su comprobación offline y los mismos 210 casos de navegador contra fuente y build (420 ejecuciones en seis perfiles). Consulte [la guía de pruebas](docs/PRUEBAS-AUTOMATICAS.md) y [el protocolo de escucha](docs/VALIDACION-V3.md). Las pruebas automatizadas no verifican la calidad percibida, la fatiga ni el bloqueo de un teléfono físico.
+La [CI](.github/workflows/quality.yml) ejecuta las 30 suites Node, el build Vite, su comprobación offline y los mismos 210 casos de navegador contra fuente y build (420 ejecuciones en seis perfiles). Consulte [la guía de pruebas](docs/PRUEBAS-AUTOMATICAS.md) y [el protocolo de escucha](docs/VALIDACION-V3.md). Las pruebas automatizadas no verifican la calidad percibida, la fatiga ni el bloqueo de un teléfono físico.
 
 ## PWA, actualizaciones y despliegue
 
