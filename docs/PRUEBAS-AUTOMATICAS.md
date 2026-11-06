@@ -7,35 +7,42 @@
 Desde la raíz:
 
 ```sh
-node --test tests/*.test.mjs
+npm test
 npm ci --ignore-scripts --no-audit --no-fund
 npm run lint
 npm run build -- --base=/FOCUS-studio/
-node scripts/validate-build.mjs
+npm run validate:build
 ```
 
-Node ejecuta las 30 suites de arranque modular, arquitectura, señal, interfaz simulada, sesiones, persistencia y mantenimiento. No requiere instalar los paquetes del build. `npm run lint` comprueba la configuración TypeScript de las herramientas. Vite genera `dist/`; la validación comprueba la subruta publicada, manifest y los recursos precargados realmente emitidos.
+`npm test` conserva el comando Node original, `node --test tests/*.test.mjs`. Node ejecuta las 30 suites de arranque modular, arquitectura, señal, interfaz simulada, sesiones, persistencia y mantenimiento. No requiere instalar los paquetes del build. `npm run lint` comprueba la configuración TypeScript de las herramientas. Vite genera `dist/`; la validación comprueba la subruta publicada, manifest y los recursos precargados realmente emitidos.
 
 La prueba de limpieza ejecuta el script real en un proyecto temporal con rutas que contienen espacios y desde un directorio ajeno. Comprueba repetición, preservación de fuentes/servidor, enlaces anidados y rechazo de un archivo o enlace como `dist`. Repite la comprobación con una carpeta temporal accedida mediante enlace. No limpia el build del checkout de CI.
 
 ## Navegadores
 
-Desde `tools/browser-tests/`:
+Instalar herramientas y navegadores desde `tools/browser-tests/`:
 
 ```sh
 npm ci --ignore-scripts --no-audit --no-fund
 npx playwright install chromium webkit
-npm test
 ```
 
-El destino predeterminado es fuente. Para comprobar la compilación, crear antes `dist/` y ejecutar:
+Ejecutar desde la raíz:
+
+```sh
+npm run test:browser
+```
+
+El destino predeterminado es fuente. Para comprobar la compilación, crear antes `dist/` y ejecutar desde la raíz:
 
 ```powershell
 $env:FOCUS_TEST_TARGET = 'build'
-npm test
+npm run test:browser
 ```
 
-Para volver a fuente en PowerShell: `$env:FOCUS_TEST_TARGET = 'source'`. En una shell POSIX: `FOCUS_TEST_TARGET=build npm test`.
+Para volver a fuente en PowerShell: `$env:FOCUS_TEST_TARGET = 'source'`. En una shell POSIX: `FOCUS_TEST_TARGET=build npm run test:browser`.
+
+El alias delega en `npm --prefix tools/browser-tests test --`: npm conserva la carpeta de trabajo del paquete de navegador, el entorno y los argumentos posteriores a `--`. El comando interno `npm test` desde esa carpeta sigue disponible. CI instala las dependencias allí y ejecuta el alias desde la raíz; no instala herramientas de navegador en el paquete principal.
 
 La dependencia de Playwright está fijada en el lockfile de esta carpeta. CI usa la imagen `mcr.microsoft.com/playwright:v1.64.1-noble`, con navegadores y dependencias Linux preinstalados. Ejecuta Chromium a 320/390/768/1440 px y WebKit a 390/1440 px: los mismos 210 casos en fuente y build, 420 ejecuciones.
 
