@@ -105,6 +105,8 @@ Para Pages con módulos nativos, [sw.js](../sw.js) y [public/sw.js](../public/sw
 
 El build de [vite.config.ts](../vite.config.ts) usa [build-offline-worker.mjs](../scripts/build-offline-worker.mjs). Después de emitir archivos, genera la precarga de los recursos reales de `dist/` y una versión derivada de su contenido, sin rutas fuente inexistentes ni mapas de fuentes. El hook HTML mantiene el manifest en la raíz pública.
 
+`public/` contiene solo recursos de la distribución: manifest, iconos, capturas usadas por el manifest y copias del worker/worklet. Los HTML de plantilla y sus imágenes sin consumidores no pertenecen a esta carpeta, ya que Vite los copiaría y el generador offline los precargaría. Las ilustraciones SVG originales de `docs/screenshots/` se conservan como documentación fuera del build. Al retirar recursos no referenciados de `public/`, la versión del caché compilado cambia automáticamente por contenido; la precarga fuente se mantiene si no usaba esos recursos.
+
 [validate-build.mjs](../scripts/validate-build.mjs) verifica el bundle real, subruta de despliegue, manifest, accesos PWA y cada recurso offline. El servidor de pruebas monta tanto fuente como build bajo `/FOCUS-studio/`; selecciona `dist/` con `FOCUS_TEST_TARGET=build`.
 
 ## Validación y mantenimiento
