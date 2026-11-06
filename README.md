@@ -206,7 +206,7 @@ FOCUS-studio/
 ├── tests/                 # Suites Node y adaptadores de prueba
 ├── tools/browser-tests/   # Playwright, configuración, casos y lockfile
 ├── scripts/               # Servidor de pruebas, hook offline, validación y generación de maquetas
-├── public/                # Recursos copiados al build; incluye copia del worklet y worker
+├── public/                # Distribución Vite: manifest, iconos, capturas, worklet y worker
 ├── icons/                 # Iconos de instalación
 ├── screenshots/           # PNG de maqueta referenciados por el manifest
 ├── docs/                  # Arquitectura, pruebas, guías e imágenes

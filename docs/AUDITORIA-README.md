@@ -47,3 +47,22 @@ Una captura en navegador y WebKit sobre Linux no acreditan funcionamiento en un 
 El 6 de noviembre de 2026 se revisaron las referencias del árbol vigente antes de retirar `src/main.tsx`, `src/App.tsx` y `src/index.css`. Sus referencias ejecutables formaban una entrada JSX aislada que `index.html` no carga. Se retiran juntos esos archivos, los plugins React/Tailwind de Vite y sus dependencias de plantilla; se conservan el arranque ES6, el plugin offline y la opción existente `DISABLE_HMR`.
 
 Las dependencias directas pasan de 19 a 3 herramientas de desarrollo: Vite, TypeScript y los tipos de Node. El lockfile se regenera con npm, en modo offline y sin ejecutar scripts, conservando las versiones de todos los paquetes retenidos; sus entradas de paquetes, incluida la raíz, pasan de 277 a 64. El chequeo de tipos existente se incorpora a CI antes del build. Se conservan las maquetas y recursos públicos, así como el motor, ambientes, UI, workers, tests y formatos de datos.
+
+## Limpieza posterior de recursos públicos sin consumidores
+
+El 6 de noviembre de 2026 se enumeró el árbol vigente y se revisaron sus 112 archivos de texto, incluidos manifest, workers, entradas, configuración, scripts, pruebas, documentación y lockfiles. No se encontraron referencias a los nombres de estos ocho archivos ni a sus rutas de distribución:
+
+- `public/assets/aistudio/focus_mejorado-v2_f743e6fc.html` (40449 bytes).
+- `public/assets/aistudio/image_1adba20b.png` (10710 bytes).
+- `public/assets/aistudio/image_22dad260.png` (171554 bytes).
+- `public/assets/aistudio/image_50f68474.png` (23506 bytes).
+- `public/assets/aistudio/image_5c7d4fbb.png` (65017 bytes).
+- `public/assets/aistudio/image_5f483b7d.png` (11095 bytes).
+- `public/docs/screenshots/hero-preview.svg` (11680 bytes).
+- `public/docs/screenshots/mixer-preview.svg` (9981 bytes).
+
+El HTML de AI Studio era una página v2 autónoma sin atributos de recursos externos y las cinco imágenes tampoco tenían consumidores. Las dos copias SVG de `public/docs/screenshots/` eran idénticas por SHA a los originales conservados en `docs/screenshots/`.
+
+Se retiran solo esas copias de distribución: 343 992 bytes de archivos heredados, aproximadamente 336 KiB. El colector de `scripts/build-offline-worker.mjs` incluía automáticamente todo lo emitido por Vite, por lo que los ocho archivos entraban al precaché compilado aunque no los usara la app. La plantilla del worker y el colector no se modifican; la versión del caché compilado se deriva de su contenido y cambia al reconstruir.
+
+Se conservan los originales de documentación, la captura real, las imágenes referenciadas por ambos manifests, los iconos y el worklet. La precarga fuente no contenía los archivos retirados: se mantienen idénticos `sw.js` y `public/sw.js`, sin cambiar su versión ni la aplicación activa. Motor, ambientes, UI, enlaces, copias de seguridad y tests permanecen intactos.
