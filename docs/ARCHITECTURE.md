@@ -115,6 +115,8 @@ El build de [vite.config.ts](../vite.config.ts) usa [build-offline-worker.mjs](.
 
 La [CI de calidad](../.github/workflows/quality.yml) ejecuta Node, build y los mismos 210 casos de navegador en fuente y build: 420 ejecuciones en seis perfiles Chromium/WebKit. Mantiene artefactos de build y reportes separados por variante.
 
+El job adicional `windows` repite `npm test`, instalación con lockfile, tipos, build y validación offline en Windows Server 2025 con Node 24. Ejecuta `npm run clean` sobre su propio build y verifica ausencia de `dist/` y presencia de la entrada/manifest del proyecto. Es independiente de los jobs Linux existentes, que conservan nombres, dependencias, perfiles, artefactos y parámetros; no añade una ejecución de Playwright ni una validación física de audio en Windows.
+
 Las dependencias de desarrollo están bloqueadas mediante dos lockfiles, uno en la raíz y otro en `tools/browser-tests/`. Para reproducir los comandos de CI desde la raíz:
 
 ```sh

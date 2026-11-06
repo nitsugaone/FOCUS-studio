@@ -22,6 +22,34 @@ jobs:
           node-version: '24'
       - name: Run regression and signal tests
         run: npm test
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Run Node checks on Windows
+        run: npm test
+      - name: Install application build dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check build configuration types
+        run: npm run lint
+      - name: Build for the deployed subpath
+        run: npm run build -- --base=/FOCUS-studio/
+      - name: Validate emitted bundle and offline assets
+        run: npm run validate:build
+      - name: Clean the Windows build output
+        run: npm run clean
+      - name: Verify cleanup preserves the checkout
+        shell: pwsh
+        run: |
+          if (Test-Path -LiteralPath 'dist') { throw 'Build output was not removed' }
+          if (-not (Test-Path -LiteralPath 'src/main.js' -PathType Leaf)) { throw 'Application entry is missing' }
+          if (-not (Test-Path -LiteralPath 'package.json' -PathType Leaf)) { throw 'Project manifest is missing' }
   build:
     needs: unit
     runs-on: ubuntu-24.04

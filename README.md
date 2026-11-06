@@ -113,7 +113,7 @@ npm run test:browser
 
 El destino predeterminado es fuente. Para probar `dist/`, que debe existir, establecer `FOCUS_TEST_TARGET=build` antes del comando: en PowerShell, `$env:FOCUS_TEST_TARGET = 'build'`; en una shell POSIX, `FOCUS_TEST_TARGET=build npm run test:browser`. El comando delega en el paquete de `tools/browser-tests/`, conservando el destino y los argumentos de Playwright que se pasen después de `--`.
 
-La [CI](.github/workflows/quality.yml) usa los mismos comandos de la raíz: 30 suites Node, build Vite, validación offline y los mismos 210 casos de navegador contra fuente y build (420 ejecuciones en seis perfiles). Consulte [la guía de pruebas](docs/PRUEBAS-AUTOMATICAS.md) y [el protocolo de escucha](docs/VALIDACION-V3.md). Las pruebas automatizadas no verifican la calidad percibida, la fatiga ni el bloqueo de un teléfono físico.
+La [CI](.github/workflows/quality.yml) usa los mismos comandos de la raíz: 30 suites Node, build Vite, validación offline y los mismos 210 casos de navegador contra fuente y build (420 ejecuciones en seis perfiles). Un chequeo independiente en Windows Server 2025 repite las 30 pruebas Node, tipos, build y validación offline, ejecuta la limpieza y comprueba que se conservan la entrada de la aplicación y el manifiesto del proyecto. Los casos de navegador siguen ejecutándose en Linux. Consulte [la guía de pruebas](docs/PRUEBAS-AUTOMATICAS.md) y [el protocolo de escucha](docs/VALIDACION-V3.md). Las pruebas automatizadas no verifican la calidad percibida, la fatiga ni el bloqueo de un teléfono físico.
 
 ## PWA, actualizaciones y despliegue
 
