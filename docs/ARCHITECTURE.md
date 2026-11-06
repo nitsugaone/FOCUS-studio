@@ -2,7 +2,7 @@
 
 FOCUS carga `src/main.js` desde el HTML raíz mediante un módulo ES6. El punto de entrada llama a `startFocusApp`; los IDs, clases y atributos accesibles del HTML son el contrato de los controladores y las pruebas de navegador.
 
-GitHub Pages sirve este HTML y sus módulos nativos. El repositorio también dispone de un build Vite, validado de forma independiente. El scaffold React/TypeScript y sus dependencias de desarrollo no son el punto de entrada del sitio de Pages.
+GitHub Pages sirve este HTML y sus módulos nativos. El repositorio también dispone de un build Vite, validado de forma independiente. Ambas rutas parten del mismo `index.html` y `src/main.js`. La configuración de Vite conserva el plugin offline; no requiere plugins React/Tailwind ni una entrada JSX. Las dependencias directas son Vite, TypeScript y los tipos de Node, todas de desarrollo.
 
 ## Responsabilidades y dependencias
 
@@ -115,6 +115,7 @@ Las dependencias de desarrollo están bloqueadas mediante dos lockfiles, uno en 
 
 ```sh
 npm ci --ignore-scripts --no-audit --no-fund
+npm run lint
 node --test tests/*.test.mjs
 npm run build -- --base=/FOCUS-studio/
 node scripts/validate-build.mjs

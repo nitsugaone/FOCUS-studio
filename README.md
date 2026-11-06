@@ -69,12 +69,13 @@ npm run dev
 Para producir y comprobar el build con la subruta del sitio:
 
 ```sh
+npm run lint
 npm run build -- --base=/FOCUS-studio/
 node scripts/validate-build.mjs
 npm run preview
 ```
 
-Vite informa la dirección local al iniciar. El build queda en `dist/`; no mezclar sus archivos con los módulos fuente. El scaffold React/TypeScript sigue en el repositorio y sus paquetes en el lockfile, pero `src/main.tsx` no es la entrada del HTML oficial.
+Vite informa la dirección local al iniciar. El build queda en `dist/`; no mezclar sus archivos con los módulos fuente. El build usa el mismo `index.html` y `src/main.js`. Vite, TypeScript y los tipos de Node son las únicas dependencias directas y se usan como herramientas de desarrollo; sus versiones resueltas están fijadas en el lockfile.
 
 ## Pruebas
 
@@ -88,6 +89,7 @@ La suite Node funciona sin instalar las dependencias del build. Para probar tamb
 
 ```sh
 npm ci --ignore-scripts --no-audit --no-fund
+npm run lint
 npm run build -- --base=/FOCUS-studio/
 node scripts/validate-build.mjs
 ```
@@ -200,7 +202,6 @@ FOCUS-studio/
 │   ├── storage/           # Persistencia, mezclas, informes y copias
 │   ├── session/           # Reloj, ciclos, progreso y enlaces
 │   ├── ui/                # Controladores y vistas
-│   └── *.tsx, index.css   # Scaffold React/TypeScript, fuera de la entrada oficial
 ├── audio/                 # Procesador AudioWorklet en JavaScript; sin audio grabado
 ├── tests/                 # Suites Node y adaptadores de prueba
 ├── tools/browser-tests/   # Playwright, configuración, casos y lockfile

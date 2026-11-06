@@ -30,7 +30,7 @@ Fecha: 6 de noviembre de 2026. Estado revisado: commit `1d0e6963ac16c883b5d18711
 
 Se enumeró el árbol Git completo y se leyó el contenido de sus 116 archivos de texto, incluidos código, HTML, documentación, configuración, workflow, manifest, lockfiles, worker y recursos públicos de plantilla. La búsqueda de `.env.example`, `metadata.json`, `test.png`, `GEMINI_API_KEY` y `APP_URL` encontró únicamente las declaraciones del propio ejemplo y la excepción `!.env.example` de `.gitignore`. Se eliminan juntos el ejemplo y esa excepción. No hay consumidores de los tres archivos eliminados en las dos rutas de ejecución.
 
-No se eliminan el scaffold React/TypeScript, paquetes, lockfiles, maquetas del manifest ni recursos públicos: su retirada excede la limpieza mínima solicitada.
+En la auditoría inicial no se eliminaron el scaffold React/TypeScript, paquetes, lockfiles, maquetas del manifest ni recursos públicos: excedía la limpieza mínima de esa revisión. La limpieza posterior de la entrada React inactiva se documenta a continuación.
 
 ## Base de comparación
 
@@ -41,3 +41,9 @@ La [CI del commit base](https://github.com/nitsugaone/FOCUS-studio/actions/runs/
 El 6 de noviembre de 2026 el usuario precisó: celulares Android y PC, todas las pruebas desde navegador web. Ese alcance y el funcionamiento informado previamente se registran en [VALIDACION-V3.md](VALIDACION-V3.md), sin asignar cada comprobación a equipos concretos. Después precisó que el PC usa Windows y Chrome. No informó modelos, versiones, navegador de Android, fecha de ejecución ni duración del bloqueo; esos datos quedan sin especificar. No se atribuyen pruebas a una PWA instalada. La clasificación de la tabla conserva el estado del commit auditado.
 
 Una captura en navegador y WebKit sobre Linux no acreditan funcionamiento en un teléfono físico.
+
+## Limpieza posterior de la entrada React inactiva
+
+El 6 de noviembre de 2026 se revisaron las referencias del árbol vigente antes de retirar `src/main.tsx`, `src/App.tsx` y `src/index.css`. Sus referencias ejecutables formaban una entrada JSX aislada que `index.html` no carga. Se retiran juntos esos archivos, los plugins React/Tailwind de Vite y sus dependencias de plantilla; se conservan el arranque ES6, el plugin offline y la opción existente `DISABLE_HMR`.
+
+Las dependencias directas pasan de 19 a 3 herramientas de desarrollo: Vite, TypeScript y los tipos de Node. El lockfile se regenera con npm, en modo offline y sin ejecutar scripts, conservando las versiones de todos los paquetes retenidos; sus entradas de paquetes, incluida la raíz, pasan de 277 a 64. El chequeo de tipos existente se incorpora a CI antes del build. Se conservan las maquetas y recursos públicos, así como el motor, ambientes, UI, workers, tests y formatos de datos.

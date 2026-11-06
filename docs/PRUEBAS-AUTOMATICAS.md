@@ -9,11 +9,12 @@ Desde la raíz:
 ```sh
 node --test tests/*.test.mjs
 npm ci --ignore-scripts --no-audit --no-fund
+npm run lint
 npm run build -- --base=/FOCUS-studio/
 node scripts/validate-build.mjs
 ```
 
-Node ejecuta las 29 suites existentes de arranque modular, arquitectura, señal, interfaz simulada, sesiones y persistencia. No requiere instalar los paquetes del build. Vite genera `dist/`; la validación comprueba la subruta publicada, manifest y los recursos precargados realmente emitidos.
+Node ejecuta las 29 suites existentes de arranque modular, arquitectura, señal, interfaz simulada, sesiones y persistencia. No requiere instalar los paquetes del build. `npm run lint` comprueba la configuración TypeScript de las herramientas. Vite genera `dist/`; la validación comprueba la subruta publicada, manifest y los recursos precargados realmente emitidos.
 
 ## Navegadores
 
