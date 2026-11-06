@@ -36,6 +36,8 @@ No se eliminan el scaffold React/TypeScript, paquetes, lockfiles, maquetas del m
 
 La [CI del commit base](https://github.com/nitsugaone/FOCUS-studio/actions/runs/42104446634) terminó correctamente: 29 suites Node, build Vite 8.3.5, validación de 23 URLs offline y 210 casos de navegador por cada destino. El PR de esta auditoría debe volver a ejecutar el mismo workflow, sin editar tests, motor, escenas, formatos ni configuración de CI.
 
-## Información pendiente
+## Información recibida después de la auditoría
 
-El registro físico de pantalla bloqueada requiere los datos solicitados al usuario. Una captura en navegador y WebKit sobre Linux no acreditan funcionamiento en un iPhone o Android real.
+El 6 de noviembre de 2026 el usuario precisó: celulares Android y PC, todas las pruebas desde navegador web. Ese alcance y el funcionamiento informado previamente se registran en [VALIDACION-V3.md](VALIDACION-V3.md), sin asignar cada comprobación a equipos concretos. No informó modelos, versiones, navegadores, sistema operativo del PC, fecha de ejecución ni duración del bloqueo; esos datos quedan sin especificar. No se atribuyen pruebas a una PWA instalada. La clasificación de la tabla conserva el estado del commit auditado.
+
+Una captura en navegador y WebKit sobre Linux no acreditan funcionamiento en un teléfono físico.
