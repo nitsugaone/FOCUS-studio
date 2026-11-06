@@ -86,3 +86,13 @@ CI usa esos mismos puntos de entrada. La instalación de Playwright conserva su 
 Se comprobó en Windows, con fixtures de comandos y sin instalar dependencias, el descubrimiento de archivos de prueba, la carpeta delegada, la conservación de `FOCUS_TEST_TARGET`, el reenvío de argumentos y la propagación de un fallo esperado. La validación real de Node, Vite, recursos offline y Playwright se ejecuta en CI sobre Linux. Los fixtures locales no se incorporan al repositorio.
 
 No se añaden dependencias, lockfiles ni scripts auxiliares de implementación. Motor, ambientes, interfaz, módulos de la aplicación, workers y formatos de datos permanecen intactos.
+
+## Comprobación permanente de herramientas en Windows
+
+La comprobación manual de mantenimiento en Windows no estaba cubierta de forma permanente: el workflow solo usaba runners Linux. Se añade un job independiente `windows` con Node 24 y la etiqueta explícita `windows-2025`, publicada en [la lista oficial de imágenes de GitHub](https://github.com/actions/runner-images/blob/main/README.md#available-images).
+
+El job ejecuta las mismas 30 pruebas Node, instala con el lockfile existente, comprueba tipos, compila para `/FOCUS-studio/` y valida los recursos offline. Después ejecuta el comando de limpieza existente y comprueba que el build desapareció mientras que `src/main.js` y `package.json` siguen presentes.
+
+No se cambian los nombres ni las dependencias de los jobs existentes. Los artefactos para navegador continúan proviniendo del build Linux y los 210 casos por destino siguen en la imagen Playwright Linux original. No se modifican pruebas, perfiles, tiempos ni reintentos existentes. El nuevo job tiene su propio límite de diez minutos.
+
+Es una comprobación automatizada de herramientas/filesystem de Windows Server; no se atribuyen nuevas pruebas de navegador Chrome en Windows ni de teléfonos físicos. Motor, ambientes, interfaz, módulos, scripts de implementación, workers, dependencias y formatos permanecen intactos.

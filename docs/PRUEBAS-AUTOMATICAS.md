@@ -18,6 +18,23 @@ npm run validate:build
 
 La prueba de limpieza ejecuta el script real en un proyecto temporal con rutas que contienen espacios y desde un directorio ajeno. Comprueba repetición, preservación de fuentes/servidor, enlaces anidados y rechazo de un archivo o enlace como `dist`. Repite la comprobación con una carpeta temporal accedida mediante enlace. No limpia el build del checkout de CI.
 
+## Herramientas en Windows
+
+El job independiente `windows` usa Node 24 en `windows-2025`, un [runner documentado por GitHub](https://github.com/actions/runner-images/blob/main/README.md#available-images). Ejecuta desde la raíz:
+
+```sh
+npm test
+npm ci --ignore-scripts --no-audit --no-fund
+npm run lint
+npm run build -- --base=/FOCUS-studio/
+npm run validate:build
+npm run clean
+```
+
+Comprueba después que `dist/` ya no existe y que `src/main.js` y `package.json` siguen siendo archivos. Las 30 pruebas Node incluyen los fixtures de limpieza con enlaces, junctions, rutas con espacios y alias temporales. No se sustituyen las comprobaciones Linux ni sus artefactos; ambos sistemas trabajan en checkouts separados.
+
+Este job valida herramientas y filesystem de Windows Server, no ejecuta Playwright en Windows ni acredita reproducción en un PC o teléfono físico.
+
 ## Navegadores
 
 Instalar herramientas y navegadores desde `tools/browser-tests/`:
