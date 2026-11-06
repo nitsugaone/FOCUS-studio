@@ -35,6 +35,8 @@ jobs:
           node-version: '24'
       - name: Install application build dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check build configuration types
+        run: npm run lint
       - name: Build the production application for its deployed subpath
         run: npm run build -- --base=/FOCUS-studio/
       - name: Validate emitted bundle and offline assets
