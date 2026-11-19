@@ -1,5 +1,5 @@
 import {SCENES} from './scenes.js';
-import {entryEnvelope,scheduleSessionEntry,sessionEnvelope,scheduleSessionClosing,windCoefficients,createWindGust,createStereoBrownBuffer,createWarmReverbImpulse,createCrackleBuffer,stereoCoefficients,createStereoField,balanceCoefficients,createChannelBalance,noteDelaySeconds} from './dsp.js';
+import {entryEnvelope,scheduleSessionEntry,sessionEnvelope,scheduleSessionClosing,windCoefficients,createWindGust,createStereoBrownBuffer,createWarmReverbImpulse,createCrackleBuffer,stereoCoefficients,createStereoField,createBinauralPair,balanceCoefficients,createChannelBalance,noteDelaySeconds} from './dsp.js';
 
 // All audio resources and automation belong to this engine. No DOM or storage.
 export class FocusAudioEngine {
@@ -17,10 +17,17 @@ export class FocusAudioEngine {
         param.setTargetAtTime(value, ctx.currentTime, timeConstant);
       };
 
+      function updateBinauralGain(smooth=0.06) {
+        const width=studio.stereoWidth??100;
+        const gain=SCENES[studio.scene].binaural*level('noise')*width/100;
+        ramp(nodes.binauralGain.gain,gain,gain===0?0.06:smooth);
+      }
+
       function applyScene(smooth=1.5) {
         if (!ctx || !nodes.textureGain) return;
         nodes.stereoField?.setWidth(studio.stereoWidth);
         nodes.channelBalance?.setBalance(studio.balance);
+        updateBinauralGain(smooth);
         const scene=SCENES[studio.scene], evolution=studio.evolution/100;
         const drift=1+0.12*evolution*Math.sin(accumulatedMs/110000);
         ramp(nodes.lp.frequency,scene.cutoff*(0.65+studio.brightness/100)*drift,smooth);
@@ -102,15 +109,19 @@ export class FocusAudioEngine {
         nodes.fade.gain.value = 0;
         nodes.master = ctx.createGain();
         nodes.master.gain.value = level('master');
+        const sceneMix = ctx.createGain();
+        nodes.stereoField=createStereoField(ctx,sceneMix,nodes.master,studio.stereoWidth);
+        nodes.binauralGain=ctx.createGain();
+        nodes.binauralGain.gain.value=0;
+        const binaural=createBinauralPair(ctx,nodes.binauralGain);
+        nodes.binauralGain.connect(nodes.master);
         nodes.sessionGain = ctx.createGain();
         nodes.master.connect(nodes.sessionGain);
         nodes.closingGain=ctx.createGain();
         nodes.closingGain.gain.value=1;
         nodes.sessionGain.connect(nodes.closingGain);
         nodes.closingGain.connect(nodes.fade);
-        nodes.balanceInput=ctx.createGain();
-        nodes.stereoField=createStereoField(ctx,nodes.fade,nodes.balanceInput,studio.stereoWidth);
-        nodes.channelBalance=createChannelBalance(ctx,nodes.balanceInput,nodes.comp,studio.balance);
+        nodes.channelBalance=createChannelBalance(ctx,nodes.fade,nodes.comp,studio.balance);
         nodes.comp.connect(ctx.destination);
 
         // MediaStreamAudioDestinationNode para supervivencia del audio con pantalla apagada en móviles
@@ -154,7 +165,7 @@ export class FocusAudioEngine {
         nodes.textureGain.connect(nodes.noiseGain);
         nodes.brownGain.connect(nodes.lp);
         nodes.lp.connect(nodes.noiseGain);
-        nodes.noiseGain.connect(nodes.master);
+        nodes.noiseGain.connect(sceneMix);
 
         // CAPA 2: Drone armónico con apertura estéreo y filtro pasa-bajos cálido
         nodes.droneFilter = ctx.createBiquadFilter();
@@ -173,7 +184,7 @@ export class FocusAudioEngine {
         nodes.droneGain = ctx.createGain();
         nodes.droneGain.gain.value = level('drone');
         nodes.droneFilter.connect(nodes.droneGain);
-        nodes.droneGain.connect(nodes.master);
+        nodes.droneGain.connect(sceneMix);
 
         const droneDefs = [
           { type: 'sine',     frequency: 55,  detune: 0,  amplitude: 0.32, pan: 0.0 },   // Sub-fundamental
@@ -205,7 +216,7 @@ export class FocusAudioEngine {
         // CAPA 3: Notas pentatónicas con bus de reverberación paralela
         nodes.notesGain = ctx.createGain();
         nodes.notesGain.gain.value = level('notes');
-        nodes.notesGain.connect(nodes.master);
+        nodes.notesGain.connect(sceneMix);
 
         nodes.reverb = ctx.createConvolver();
         nodes.reverb.buffer = createWarmReverbImpulse(ctx);
@@ -220,6 +231,7 @@ export class FocusAudioEngine {
         nodes.droneLfo.start();
         nodes.droneOscs.forEach((osc) => osc.start());
         nodes.windGust.start();
+        binaural.start();
       }
 
       function playNote() {
@@ -332,7 +344,10 @@ export class FocusAudioEngine {
       this.updateLevel=(id,value)=>{
         levels[id]=value;
         const params={master:nodes.master,noise:nodes.noiseGain,drone:nodes.droneGain,notes:nodes.notesGain};
-        if(params[id]&&ctx&&ctx.state!=='closed')ramp(params[id].gain,level(id),0.06);
+        if(params[id]&&ctx&&ctx.state!=='closed') {
+          ramp(params[id].gain,level(id),0.06);
+          if(id==='noise')updateBinauralGain();
+        }
       };
       this.close=()=>{
         playing=false;clearTimeout(noteTimer);clearTimeout(suspendTimer);

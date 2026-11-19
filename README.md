@@ -26,9 +26,10 @@ La entrada oficial es `index.html` → `src/main.js`, con módulos ES6 en `src/`
 
 Hay tres buses de mezcla —textura, drone y notas— además del maestro. Cada ambiente combina sus ramas de forma distinta:
 
-- **Textura:** ruido marrón y blanco estéreo, filtrado y modulado; viento con ráfagas y una rama independiente de crepitaciones. Fogón suave silencia las capas continuas y deja las crepitaciones.
-- **Drone:** tres osciladores con afinación según el ambiente, filtrado y paneo. No es una garantía de estimulación binaural.
+- **Textura:** ruido marrón y blanco estéreo, filtrado y modulado; viento con ráfagas y una rama independiente de crepitaciones. Fogón suave suprime el ruido continuo y conserva las crepitaciones.
+- **Drone:** tres osciladores con afinación según el ambiente, filtrado y paneo.
 - **Notas:** osciladores con armónico y envío a reverberación convolutiva generada en el navegador. Su selección y afinación dependen del ambiente y la evolución.
+- **Par binaural:** todos los ambientes añaden una capa tenue de 180 Hz a la izquierda y 186 Hz a la derecha, para escuchar con auriculares estéreo. Su nivel sigue el volumen de textura y baja al reducir la amplitud estéreo. Al configurar la amplitud estéreo en 0 %, la capa se silencia. Los 6 Hz son la diferencia entre tonos y se usan como ajuste sonoro.
 - **Salida:** entrada/cierre de sesión, amplitud estéreo, balance y compresor. El grafo se crea al iniciar audio, no al abrir la página.
 
 La selección de notas usa grados pentatónicos menores relativos a la raíz del ambiente. La frecuencia real se calcula como `raíz × multiplicador`, con los multiplicadores `[2, 2.378414, 2.66968, 3, 3.563595, 4, 4.756828]`. No hay una única lista fija de frecuencias para los seis ambientes.
