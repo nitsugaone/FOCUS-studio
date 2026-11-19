@@ -16,14 +16,20 @@ export async function buildOfflineWorker(outputDirectory,workerPath=new URL('../
  }
  const files=await collect();
  if(!files.includes('index.html'))throw Error('Offline build requires an emitted index.html');
- const template=await readFile(workerPath,'utf8'),digest=createHash('sha256').update(template);
+ const template=await readFile(workerPath,'utf8');
+ const cacheDeclaration=/^const CACHE_NAME = '[^'\r\n]+';/gm;
+ const assetsDeclaration=/^const ASSETS_TO_CACHE = \[[\s\S]*?\];/gm;
+ for(const [name,pattern] of [['CACHE_NAME',cacheDeclaration],['ASSETS_TO_CACHE',assetsDeclaration]]) {
+  const count=[...template.matchAll(pattern)].length;
+  if(count!==1)throw Error('Offline worker template requires exactly one '+name+' declaration (found '+count+')');
+ }
+ const digest=createHash('sha256').update(template);
  for(const file of files)digest.update(file).update(await readFile(join(directory,file)));
  const version=digest.digest('hex').slice(0,16);
  const assets=['./',...files.map(file=>'./'+file)];
  const source=template
-  .replace(/const CACHE_NAME = '[^']+';/,"const CACHE_NAME = 'focus-audio-build-"+version+"';")
-  .replace(/const ASSETS_TO_CACHE = \[[\s\S]*?\];/,'const ASSETS_TO_CACHE = '+JSON.stringify(assets,null,2)+';');
- if(source===template)throw Error('Offline worker template could not be updated');
+  .replace(cacheDeclaration,()=>"const CACHE_NAME = 'focus-audio-build-"+version+"';")
+  .replace(assetsDeclaration,()=>'const ASSETS_TO_CACHE = '+JSON.stringify(assets,null,2)+';');
  await writeFile(join(directory,'sw.js'),source);
  return assets;
 }
