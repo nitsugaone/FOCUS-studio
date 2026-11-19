@@ -488,6 +488,33 @@ test('stereo field renders identity, mono and intermediate widths with real Web 
   expect(value.excess).toBeLessThan(0.000001);
   if(value.width===0||value.channels===1)expect(value.channelDiff).toBeLessThan(0.000001);
  }
+ await test.step('Binaural pair keeps 180 and 186 Hz on separate channels',async()=>{
+  const source=extractFunctions(await readApplicationSource(),['createBinauralPair']);
+  const tracks=await page.evaluate(async source=>{
+   const create=new Function(source+'return createBinauralPair;')();
+   const Context=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+   const rate=44100,context=new Context(2,rate,rate),volume=context.createGain();
+   volume.gain.value=.004;volume.connect(context.destination);
+   create(context,volume).start();
+   const buffer=await context.startRendering();
+   return [0,1].map(channel=>{
+    const samples=buffer.getChannelData(channel);
+    return [180,186].map(frequency=>{
+     let real=0,imaginary=0;
+     for(let frame=0;frame<samples.length;frame++){
+      const phase=2*Math.PI*frequency*frame/rate;
+      real+=samples[frame]*Math.cos(phase);
+      imaginary+=samples[frame]*Math.sin(phase);
+     }
+     return 2*Math.hypot(real,imaginary)/samples.length;
+    });
+   });
+  },source);
+  expect(tracks[0][0]).toBeCloseTo(.004,5);
+  expect(tracks[0][1]).toBeLessThan(.000001);
+  expect(tracks[1][0]).toBeLessThan(.000001);
+  expect(tracks[1][1]).toBeCloseTo(.004,5);
+ });
 });
 
 

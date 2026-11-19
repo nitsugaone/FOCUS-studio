@@ -162,6 +162,19 @@
         return {setWidth};
       }
 
+      function createBinauralPair(context,output) {
+        const stereo=context.createChannelMerger(2);
+        const tones=[180,186].map((frequency,channel)=>{
+          const tone=context.createOscillator();
+          tone.type='sine';
+          tone.frequency.value=frequency;
+          tone.connect(stereo,0,channel);
+          return tone;
+        });
+        stereo.connect(output);
+        return {start(){tones.forEach(tone=>tone.start());}};
+      }
+
       function balanceCoefficients(value) {
         if(!Number.isInteger(value)||value<-100||value>100)throw Error('Balance inválido.');
         return {left:Math.min(1,1-value/100),right:Math.min(1,1+value/100)};
@@ -196,4 +209,4 @@
         if(!Number.isFinite(interval)||interval<=0||!Number.isFinite(evolution)||evolution<0||evolution>100||!Object.prototype.hasOwnProperty.call(factors,pace)||!Number.isFinite(random)||random<0||random>1)throw Error('Ritmo de notas inválido.');
         return interval*factors[pace]*(1+random*evolution/100);
       }
-export {entryEnvelope,scheduleSessionEntry,sessionEnvelope,scheduleSessionClosing,windCoefficients,createWindGust,createStereoBrownBuffer,createWarmReverbImpulse,createCrackleBuffer,stereoCoefficients,createStereoField,balanceCoefficients,balanceLabel,createChannelBalance,noteDelaySeconds};
+export {entryEnvelope,scheduleSessionEntry,sessionEnvelope,scheduleSessionClosing,windCoefficients,createWindGust,createStereoBrownBuffer,createWarmReverbImpulse,createCrackleBuffer,stereoCoefficients,createStereoField,createBinauralPair,balanceCoefficients,balanceLabel,createChannelBalance,noteDelaySeconds};

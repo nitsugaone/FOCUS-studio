@@ -106,7 +106,9 @@ element('apply-update').events.click();
 checks.push({check:'Updating is blocked during playback',pass:element('apply-update').disabled===true&&updateMessages===0});
 checks.push({check:'Dock announces playback state',pass:element('mobile-toggle').attributes['aria-pressed']==='true'});
 checks.push({check:'Dock timer matches main timer',pass:element('mobile-timer').textContent===element('timer').textContent});
-checks.push({check:'Audio startup: two noise sources, two LFOs, three drones, crackles, two wind LFOs and two note oscillators',pass:sources.length===(continuous?9:12)});
+const binauralSources=sources.filter(source=>[180,186].includes(source.frequency.value));
+checks.push({check:'Audio startup includes the existing scene sources and two distinct binaural tones',pass:
+ sources.length-binauralSources.length===(continuous?9:12)&&binauralSources.map(source=>source.frequency.value).join(',')==='180,186'});
 checks.push({check:'Mobile panels start collapsed',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===false)});
 const activeSources=sources.length;
 const beforeSearch=JSON.stringify([...memory]),searchTimer=element('timer').textContent;
