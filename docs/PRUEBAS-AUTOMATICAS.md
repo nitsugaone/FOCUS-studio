@@ -77,6 +77,8 @@ Cubren, entre otros:
 - Ciclos, duración, entrada, cierre y extensión.
 - Renderizado Web Audio y reconciliación al volver a una página visible.
 
+La comprobación de calibración renderiza los seis ambientes con el motor de producción en Web Audio. Compara una mezcla con su referencia de ruido equivalente, a niveles predeterminados, para detectar si el par de 180/186 Hz sube demasiado, invade el canal contrario o recorta picos. La prueba utiliza la ruta de ruido por buffers y una semilla fija para que las dos señales se puedan comparar.
+
 ## Artefactos y límites
 
 CI conserva durante siete días el build y los reportes de navegador, incluidas capturas reales de revisión, capturas de fallos y trazas cuando corresponden. No se comparan con una imagen de referencia.

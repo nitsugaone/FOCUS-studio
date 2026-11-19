@@ -1,4 +1,5 @@
 import {readApplicationSource,extractFunctions} from '../../../tests/support/application-source.mjs';
+import {measureBinauralCalibration} from '../support/binaural-calibration.mjs';
 import {test,expect} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
 
@@ -514,6 +515,21 @@ test('stereo field renders identity, mono and intermediate widths with real Web 
   expect(tracks[0][1]).toBeLessThan(.000001);
   expect(tracks[1][0]).toBeLessThan(.000001);
   expect(tracks[1][1]).toBeCloseTo(.004,5);
+ });
+ await test.step('The binaural pair stays below the ambience in all presets',async()=>{
+  const results=await measureBinauralCalibration(page);
+  expect(results.map(value=>value.scene).sort()).toEqual(['fire','ocean','rain','space','speech','wind']);
+  for(const {scene,ratio,peak,channels} of results) {
+   const description=scene+' '+JSON.stringify({ratio,peak,channels});
+   expect(ratio,description).toBeLessThan(.13);
+   expect(peak,description).toBeLessThan(.95);
+   for(const channel of [0,1]){
+    expect(channels[channel][channel],description).toBeGreaterThan(.00003);
+    expect(channels[channel][1-channel],description).toBeLessThan(channels[channel][channel]*.04);
+   }
+  }
+  const fire=results.find(value=>value.scene==='fire');
+  for(const other of results.filter(value=>value.scene!=='fire'))expect(fire.addedRms).toBeLessThan(other.addedRms);
  });
 });
 
