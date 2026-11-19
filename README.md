@@ -36,6 +36,8 @@ La selección de notas usa grados pentatónicos menores relativos a la raíz del
 
 `AudioWorklet` genera ruido y crepitaciones de forma continua; si no está disponible o falla su carga se usan buffers sintetizados de respaldo. La carpeta `audio/` contiene el programa `noise-processor.js`, no grabaciones.
 
+En la [prueba de escucha A/B](https://nitsugaone.github.io/FOCUS-studio/escucha/) podés comparar los seis ambientes con y sin la capa binaural desde el celular o la PC.
+
 ### Segundo plano y pantalla bloqueada
 
 El motor conecta su salida a un `MediaStreamAudioDestinationNode`; `PlaybackController` entrega ese stream al elemento `<audio id="bg-audio">`. Media Session y Wake Lock se usan cuando el navegador los ofrece. Esta estrategia no garantiza continuidad en todos los sistemas.

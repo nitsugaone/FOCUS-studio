@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1">
+ <meta name="color-scheme" content="dark">
+ <meta name="theme-color" content="#10151d">
+ <base href="../">
+ <title>FOCUS · Comparación de escucha</title>
+ <style>
+  html{background:#10151d;color:#eff2fa;font:17px/1.55 system-ui,sans-serif}
+  body{margin:0}
+  main{max-width:37rem;margin:7vh auto;padding:0 1.25rem 2rem}
+  a{color:#c2d4ff}
+  h1{font-size:clamp(1.85rem,6vw,2.8rem);line-height:1.12;margin:1rem 0}
+  p{color:#cdd4e4}
+  select,button{font:inherit;box-sizing:border-box;min-height:44px;border-radius:.45rem;padding:.35rem .75rem}
+  select{display:block;width:100%;margin:.25rem 0 1rem}
+  button{border:0;background:#c2d4ff;color:#10151d;cursor:pointer}
+  fieldset{border:1px solid #626f87;border-radius:.6rem;padding:.35rem .8rem;margin:0 0 1rem}
+  fieldset label{display:inline-flex;align-items:center;min-height:44px;gap:.5rem;margin-right:1rem}
+  summary{cursor:pointer}
+ </style>
+ <script type="module" src="./escucha/listening.js"></script>
+</head>
+<body>
+ <main>
+  <a href="./">Volver a Focus</a>
+  <h1>Compará los seis ambientes</h1>
+  <p>Usá auriculares estéreo y empezá con volumen bajo. Escuchá A y B durante unos 30 segundos cada una, al mismo volumen. Elegí la que te resulte más relajante o menos molesta antes de revelar la respuesta.</p>
+  <label for="scene">Ambiente</label>
+  <select id="scene">
+   <option value="rain">Lluvia cálida</option>
+   <option value="ocean">Océano profundo</option>
+   <option value="space">Espacio</option>
+   <option value="speech">Cubrir conversaciones</option>
+   <option value="fire">Fogón suave</option>
+   <option value="wind">Viento entre hojas</option>
+  </select>
+  <fieldset>
+   <legend>Versión</legend>
+   <label><input type="radio" name="version" value="A" checked>A</label>
+   <label><input type="radio" name="version" value="B">B</label>
+  </fieldset>
+  <button id="play" type="button" disabled>Reproducir</button>
+  <p id="status" role="status">Preparando la prueba…</p>
+  <details>
+   <summary>Revelar qué versión usa la capa</summary>
+   <p id="answer"></p>
+   <p>La asignación se elige al abrir la página. Podés alternar A y B sin interrumpir el ambiente.</p>
+  </details>
+  <noscript><p>Activá JavaScript para reproducir la prueba.</p></noscript>
+ </main>
+</body>
+</html>
