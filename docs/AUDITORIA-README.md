@@ -96,3 +96,13 @@ El job ejecuta las mismas 30 pruebas Node, instala con el lockfile existente, co
 No se cambian los nombres ni las dependencias de los jobs existentes. Los artefactos para navegador continúan proviniendo del build Linux y los 210 casos por destino siguen en la imagen Playwright Linux original. No se modifican pruebas, perfiles, tiempos ni reintentos existentes. El nuevo job tiene su propio límite de diez minutos.
 
 Es una comprobación automatizada de herramientas/filesystem de Windows Server; no se atribuyen nuevas pruebas de navegador Chrome en Windows ni de teléfonos físicos. Motor, ambientes, interfaz, módulos, scripts de implementación, workers, dependencias y formatos permanecen intactos.
+
+## Paridad de recursos entre fuente y build
+
+El 6 de noviembre de 2026 se compararon las nueve copias de `public/` con sus equivalentes nativos por SHA de blob: worker, worklet, manifest, cuatro iconos y dos capturas. Todas coincidían; no se detectó una divergencia de contenido. La prueba de grafo solo comparaba explícitamente ambos workers y comprobaba la existencia de los recursos fuente.
+
+Se amplía esa prueba existente para derivar el inventario compartido desde los recursos enviados por el handler real de instalación a `cache.addAll`, excluyendo HTML y módulos transformados por Vite, y agregar el worker. Se exige el inventario exacto de `public/` y la igualdad byte a byte con cada original. Se conservan todas las aserciones anteriores y las 30 suites Node.
+
+El script de prueba completo se ejecutó además en un fixture temporal de Windows: pasó con copias iguales, falló al alterar un byte binario, al retirar una copia y al agregar un archivo sobrante, y volvió a pasar tras restaurarlo. Este fixture no se incorpora al repositorio. CI valida el árbol real en Linux y Windows y mantiene los 210 casos de navegador por distribución.
+
+No se modifican recursos, motor, ambientes, interfaz, workers, versión de caché, configuración de CI, dependencias ni formatos de datos. La comprobación protege el contrato de distribución actual, sin cambiar su comportamiento.

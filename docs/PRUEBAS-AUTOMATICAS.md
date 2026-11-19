@@ -18,6 +18,8 @@ npm run validate:build
 
 La prueba de limpieza ejecuta el script real en un proyecto temporal con rutas que contienen espacios y desde un directorio ajeno. Comprueba repetición, preservación de fuentes/servidor, enlaces anidados y rechazo de un archivo o enlace como `dist`. Repite la comprobación con una carpeta temporal accedida mediante enlace. No limpia el build del checkout de CI.
 
+`tests/module-graph.test.mjs` también comprueba las dos distribuciones: deriva los recursos compartidos desde la precarga fuente real y el worker, exige el mismo inventario en `public/` y compara bytes sin decodificar los binarios. Cubre manifest, worklet, worker, iconos y capturas; un archivo ausente, extra o distinto hace fallar la suite Node en ambos sistemas.
+
 ## Herramientas en Windows
 
 El job independiente `windows` usa Node 24 en `windows-2025`, un [runner documentado por GitHub](https://github.com/actions/runner-images/blob/main/README.md#available-images). Ejecuta desde la raíz:
