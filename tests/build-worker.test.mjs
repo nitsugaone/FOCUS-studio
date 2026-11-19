@@ -3,8 +3,10 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import assert from 'node:assert/strict';
 import {buildOfflineWorker,focusOfflinePlugin} from '../scripts/build-offline-worker.mjs';
-const directory=await mkdtemp(join(tmpdir(),'focus-offline-build-'));
+const fixture=await mkdtemp(join(tmpdir(),'focus-offline-build-'));
+const directory=join(fixture,'dist');
 try {
+ await mkdir(directory);
  await mkdir(join(directory,'assets'));
  await mkdir(join(directory,'audio'));
  await writeFile(join(directory,'index.html'),'<script type="module" src="./assets/app-123.js"></script>');
@@ -26,5 +28,22 @@ try {
  await buildOfflineWorker(directory);assert.equal(await readFile(join(directory,'sw.js'),'utf8'),source,'Repeated build is deterministic');
  await writeFile(join(directory,'assets/app-123.js'),'console.log("changed");');
  await buildOfflineWorker(directory);assert.notEqual(await readFile(join(directory,'sw.js'),'utf8'),source,'Built cache version follows emitted content');
- console.log('PASS: Vite output hook precaches emitted bundle and worklet, excludes source paths/maps and versions the build');
-} finally {await rm(directory,{recursive:true,force:true});}
+ const workerPath=join(directory,'sw.js');
+ const emitted=await readFile(workerPath);
+ const invalidTemplate=join(fixture,'template.js');
+ const cache="const CACHE_NAME = 'focus-audio-test';\n";
+ const precache="const ASSETS_TO_CACHE = ['./'];\n";
+ for(const [marker,count,invalid] of [
+  ['CACHE_NAME',0,precache],
+  ['CACHE_NAME',2,cache.repeat(2)+precache],
+  ['ASSETS_TO_CACHE',0,cache],
+  ['ASSETS_TO_CACHE',2,cache+precache.repeat(2)]
+ ]) {
+  await writeFile(invalidTemplate,invalid);
+  await assert.rejects(buildOfflineWorker(directory,invalidTemplate),{
+   message:'Offline worker template requires exactly one '+marker+' declaration (found '+count+')'
+  });
+  assert.deepEqual(await readFile(workerPath),emitted,'Invalid template preserves the emitted worker: '+marker+' × '+count);
+ }
+ console.log('PASS: Vite output hook precaches emitted bundle and worklet, excludes source paths/maps, versions the build and rejects invalid templates');
+} finally {await rm(fixture,{recursive:true,force:true});}
