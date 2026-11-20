@@ -108,15 +108,6 @@
       align-items: center;
       gap: 10px;
     }
-    .badge-pill {
-      padding: 8px 11px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: rgba(18, 23, 34, .45);
-      color: var(--muted);
-      font-size: 11px;
-      letter-spacing: .04em;
-    }
     .status-pill {
       display: inline-flex;
       align-items: center;
@@ -453,7 +444,6 @@
 
     .footer { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; padding: 18px 4px 0; color: #6f7990; font-size: 11px; line-height: 1.6; }
     .footer p { margin: 0; }
-    .footer a { color: #a9baff; }
     .keyboard-note { text-align: right; }
     .key { padding: 2px 5px; border: 1px solid var(--line-strong); border-radius: 5px; color: var(--muted); font-size: 10px; }
     .error-message { display: none; margin: 14px 0 0; padding: 10px 12px; border: 1px solid rgba(255,180,174,.22); border-radius: 10px; background: rgba(255,100,100,.06); color: var(--danger); font-size: 12px; line-height: 1.5; }
@@ -465,7 +455,6 @@
       .player-card { min-height: 510px; }
       .sound-orbit { width: 190px; }
       .mixer-card { padding: 25px 22px; }
-      .badge-pill { display: none; }
     }
     @media (max-width: 440px) {
       .topbar { align-items: flex-start; }
@@ -496,6 +485,10 @@
 .player-heading,.quick-scene,.player-card .master-block,.player-card .session {width:100%}
 .quick-scene.studio-controls {margin:0;text-align:left}
 .player-card .master-block {margin:0}
+.binaural-info {width:100%;text-align:left;padding:10px 13px;border:1px solid var(--line-strong);border-radius:12px;background:rgba(155,180,255,.07)}
+.binaural-info p {margin:0;color:var(--muted);font-size:13px;line-height:1.4}
+.binaural-info strong {display:block;color:var(--text);font-size:14px}
+.binaural-info a {display:inline-flex;align-items:center;min-height:44px;color:#b7c8ff;font-size:13px;line-height:1.3}
 .player-card .intro {margin-top:8px}
 .player-card .sound-orbit {width:180px;margin:4px 0}
 .studio-controls {margin-bottom:0}
@@ -563,7 +556,7 @@ summary:focus-visible {outline:2px solid var(--accent);outline-offset:-4px}
 /* Layout follows available space, independently of touch capability. */
 body {display:block}
 .app {width:min(100%,1280px);margin-inline:auto}
-.layout {grid-template-columns:minmax(300px,.85fr) minmax(0,1.45fr);gap:clamp(18px,2.5vw,32px)}
+.layout {grid-template-columns:minmax(0,1.25fr) minmax(0,.85fr);gap:clamp(18px,2.5vw,32px)}
 .settings-group,.settings-content,.history-content,.quick-scene {min-width:0}
 select,input {max-width:100%}
 .settings-content {overflow-wrap:anywhere}
@@ -582,7 +575,6 @@ select,input {max-width:100%}
   .layer-description {line-height:1.55}
 }
 @media (min-width:1200px) {
-  .mixer-card>.studio-controls {grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);align-items:start;gap:18px}
   .mixer-card #studio-status,.mixer-card #session-feedback {grid-column:1/-1}
   .settings-content .presets {display:grid;grid-template-columns:1fr;gap:8px}
 }
@@ -669,11 +661,11 @@ body[data-focus-view="true"] .mixer-card,
 body[data-focus-view="true"] .history-card,
 body[data-focus-view="true"] .install-card,
 body[data-focus-view="true"] .footer,
-body[data-focus-view="true"] .badge-pill,
 body[data-focus-view="true"] .brand-subtitle,
 body[data-focus-view="true"] .player-heading .eyebrow,
 body[data-focus-view="true"] .player-heading .intro,
 body[data-focus-view="true"] .quick-scene,
+body[data-focus-view="true"] .binaural-info,
 body[data-focus-view="true"] #favorite-mixes,
 body[data-focus-view="true"] #resume-status,
 body[data-focus-view="true"] .session-plan label,
@@ -730,7 +722,6 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         </div>
       </div>
       <div class="top-indicators">
-        <span class="badge-pill">DSP Estéreo Activo</span>
         <div class="status-pill" id="status-pill" data-playing="false" role="status" aria-live="polite">
           <span class="status-dot" aria-hidden="true"></span>
           <span id="status-text">En pausa</span>
@@ -743,9 +734,8 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
         <div class="focus-view-toolbar"><button id="focus-view-toggle" type="button" class="subtle-button" aria-pressed="false">Vista de concentración</button></div>
         <p id="focus-view-scene" hidden></p>
         <div class="player-heading">
-          <p class="eyebrow">Inmersión Cognitiva</p>
           <h1 id="main-title">Entrá en foco.</h1>
-          <p class="intro">Elegí tu ambiente y empezá tu sesión.</p>
+          <p class="intro">Elegí un ambiente y tocá Iniciar.</p>
         </div>
 
 
@@ -774,6 +764,11 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
             <svg class="play-icon" id="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.8c0-.8.9-1.3 1.6-.9l9 6.2a1.1 1.1 0 0 1 0 1.8l-9 6.2c-.7.5-1.6 0-1.6-.9V5.8Z"/></svg>
             <span class="play-label" id="play-label">Iniciar</span>
           </button>
+        </div>
+
+        <div class="binaural-info" id="binaural-info">
+          <p><strong>Tono binaural incluido</strong>Usá auriculares estéreo para apreciarlo.</p>
+          <a href="https://nitsugaone.github.io/FOCUS-studio/escucha/">Comparar ambientes con y sin la capa binaural</a>
         </div>
 
         <div class="master-block">
@@ -844,8 +839,8 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
       <section class="card mixer-card" aria-labelledby="mixer-title">
         <div class="section-head">
           <div>
-            <h2 id="mixer-title">Tu espacio</h2>
-            <p class="section-description">Personalizá el sonido y guardá tus mezclas.</p>
+            <h2 id="mixer-title">Ajustes y mezclas</h2>
+            <p class="section-description">El sonido ya está listo. Ajustalo a tu gusto cuando quieras.</p>
           </div>
           <span class="mix-symbol" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M4 7h8M16 7h4M4 17h4M12 17h8M12 4v6M8 14v6"/></svg>
@@ -900,7 +895,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
             <div class="layer-top">
               <div class="layer-title">
                 <span class="layer-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 9c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 13c2-2 4-2 6 0s4 2 6 0 4-2 6 0M5 17c1.5-1.5 3-1.5 4.5 0s3 1.5 4.5 0 3-1.5 4.5 0"/></svg></span>
-                <div><p class="layer-name">Textura ambiental</p><p class="layer-description">Fondo continuo según el ambiente elegido</p></div>
+                <div><p class="layer-name">Sonido del ambiente</p><p class="layer-description">Lluvia, olas, crepitaciones u otros sonidos del ambiente</p></div>
               </div>
               <output class="volume-value" id="out-noise" for="vol-noise">70%</output>
             </div>
@@ -911,7 +906,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
             <div class="layer-top">
               <div class="layer-title">
                 <span class="layer-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h3l2-6 4 12 3-9 2 3h4"/></svg></span>
-                <div><p class="layer-name">Drone armónico cálido</p><p class="layer-description">Sub-bajo + quinta justa con filtro respiratorio</p></div>
+                <div><p class="layer-name">Tonos de fondo</p><p class="layer-description">Tonos graves y sostenidos</p></div>
               </div>
               <output class="volume-value" id="out-drone" for="vol-drone">60%</output>
             </div>
@@ -922,7 +917,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
             <div class="layer-top">
               <div class="layer-title">
                 <span class="layer-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13M9 9l11-2M6 21a3 2 0 1 0 0-4 3 2 0 0 0 0 4ZM17 18a3 2 0 1 0 0-4 3 2 0 0 0 0 4Z"/></svg></span>
-                <div><p class="layer-name">Notas pentatónicas espaciales</p><p class="layer-description">Paneo estéreo y cámara de reverberación suave</p></div>
+                <div><p class="layer-name">Notas suaves</p><p class="layer-description">Notas que aparecen de vez en cuando</p></div>
               </div>
               <output class="volume-value" id="out-notes" for="vol-notes">55%</output>
             </div>
@@ -1090,9 +1085,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
       </div>
     </details>
     <footer class="footer">
-      <p>Síntesis 100% local en Web Audio API. Guardá tus mezclas y retomá tu ambiente.<br>
-        <a href="https://nitsugaone.github.io/FOCUS-studio/escucha/">Comparar ambientes con y sin la capa binaural</a>
-      </p>
+      <p>Tus mezclas se guardan en este dispositivo.</p>
       <p class="keyboard-note"><span class="key">Tab</span> navegar · <span class="key">Espacio</span> iniciar/pausar · <span class="key">M</span> silenciar</p>
     </footer>
   </main>

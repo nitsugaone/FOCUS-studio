@@ -3,9 +3,7 @@ export function createResponsiveController({window,$}) {
         if (!('matchMedia' in window)) return;
         const compact = window.matchMedia('(max-width: 900px)');
         const updatePanels = () => {
-          ['sound-settings','mix-settings','history-card'].forEach(id => {
-            $(id).open = !compact.matches;
-          });
+          $('history-card').open = !compact.matches;
         };
         updatePanels();
         if (compact.addEventListener) compact.addEventListener('change',updatePanels);
