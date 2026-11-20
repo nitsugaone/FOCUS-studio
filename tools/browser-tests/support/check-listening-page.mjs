@@ -1,6 +1,9 @@
 import {expect} from '@playwright/test';
 
 export async function checkListeningPage(page,{build=false}={}) {
+ const link=page.getByRole('link',{name:'Comparar ambientes con y sin la capa binaural',exact:true});
+ await expect(link).toBeVisible();
+ await expect(link).toHaveAttribute('href','https://nitsugaone.github.io/FOCUS-studio/escucha/');
  if(build) {
   const response=await page.goto('./escucha/');
   expect(response?.status()).toBe(404);
