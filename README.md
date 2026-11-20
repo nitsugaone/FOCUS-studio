@@ -154,10 +154,10 @@ El build Vite genera su propio precaché con los archivos realmente emitidos y u
 | --- | --- |
 | `Espacio` | Iniciar o pausar fuera de controles editables o interactivos. |
 | `M` | Silenciar o restaurar el maestro, con la misma exclusión de controles. |
-| `Escape` | Salir de la vista de concentración y devolver el foco a su botón. |
+| `Escape` | Volver a Enfoque desde Estudio y devolver el foco a su botón. |
 | `Tab` / `Mayús+Tab` | Navegación de foco estándar del navegador; no es un atajo registrado por la app. |
 
-Espacio y M ignoran repeticiones de tecla. La vista de concentración se activa desde su botón; Escape la cierra.
+Espacio y M ignoran repeticiones de tecla. Enfoque es la vista inicial. Personalizar mezcla abre Estudio y Escape vuelve a Enfoque.
 
 ## Uso de los controles
 
