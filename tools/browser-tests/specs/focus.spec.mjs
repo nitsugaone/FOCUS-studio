@@ -34,6 +34,10 @@ test.beforeEach(async({page},info)=>{
  page.on('pageerror',error=>pageErrors.push(error.message));
  await page.goto('./');
  await expect(page.locator('#toggle')).toBeVisible();
+ if(!info.title.startsWith('layout adapts')&&!info.title.startsWith('focus view')) {
+  await page.locator('#focus-view-toggle').click();
+  await expect(page.locator('.mixer-card')).toBeVisible();
+ }
 });
 test.afterEach(async({page})=>{expect(errors.get(page)).toEqual([]);});
 
@@ -45,6 +49,21 @@ async function noOverflow(page) {
 }
 
 test('layout adapts without horizontal overflow and produces a review screenshot',async({page},info)=>{
+ await noOverflow(page);
+ await expect(page.locator('body')).toHaveAttribute('data-focus-view','true');
+ await expect(page.locator('#focus-view-toggle')).toHaveText('Personalizar mezcla');
+ await expect(page.locator('#session-options')).toHaveJSProperty('open',false);
+ await expect(page.locator('.mixer-card')).toBeHidden();
+ await expect(page.locator('#soundscape')).toBeHidden();
+ await expect(page.locator('.quick-states button')).toHaveCount(4);
+ await expect(page.locator('.quick-states button').last()).toBeVisible();
+ const landingPlay=await page.locator('#toggle').boundingBox(),cards=await page.locator('.quick-states').boundingBox();
+ const viewport=page.viewportSize();
+ expect(landingPlay.y+landingPlay.height).toBeLessThanOrEqual(viewport.height);
+ if(viewport.width===320)expect(cards.y+cards.height).toBeLessThanOrEqual(viewport.height+1);
+ await page.screenshot({path:info.outputPath('layout.png'),fullPage:true,animations:'disabled'});
+ await page.locator('#focus-view-toggle').click();
+ await expect(page.locator('.quick-states')).toBeHidden();
  await noOverflow(page);
  await expect(page.locator('#session-feedback')).toBeHidden();
  const {width,height}=page.viewportSize(),compact=width<=900;
@@ -65,7 +84,6 @@ test('layout adapts without horizontal overflow and produces a review screenshot
   expect(bounds.y).toBeGreaterThanOrEqual(play.y+play.height-1);
   expect(bounds.y+bounds.height).toBeLessThanOrEqual(height+1);
  }
- await page.screenshot({path:info.outputPath('layout.png'),fullPage:true,animations:'disabled'});
 });
 
 test('audio, dock and resizing share one playback state',async({page})=>{
@@ -235,51 +253,60 @@ test('guided cycles wait for explicit start and restore a paused break',async({p
 });
 
 
-test('focus view preserves playback, volume and progress and exits with Escape',async({page},info)=>{
- await page.locator('[data-minutes="25"]').click();
- await page.locator('#toggle').click();
+test('focus view starts with one tap and preserves playback through Studio',async({page},info)=>{
+ const mode=page.locator('#focus-view-toggle'),options=page.locator('#session-options');
+ await expect(mode).toHaveText('Personalizar mezcla');
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await expect(options).toHaveJSProperty('open',false);
+ await options.locator('summary').focus();
+ await page.keyboard.press('Space');
+ await expect(options).toHaveJSProperty('open',true);
+ await expect(page.locator('#status-text')).toHaveText('En pausa');
+ await page.locator('#session-plan').selectOption('25-5');
+ const rain=page.locator('[data-quick-scene="rain"]'),ocean=page.locator('[data-quick-scene="ocean"]');
+ await rain.click();
  await expect(page.locator('#status-text')).toHaveText('Sonando');
+ await expect(rain).toHaveAttribute('aria-pressed','true');
  await page.clock.fastForward(60000);
  await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
  const timer=await page.locator('#timer').textContent();
- const settings=await page.evaluate(()=>localStorage.getItem('focus-audio-settings-v2'));
- await page.locator('#focus-view-toggle').click();
- await expect(page.locator('#focus-view-toggle')).toHaveAttribute('aria-pressed','true');
- await expect(page.locator('#focus-view-toggle')).toHaveText('Ver todos los controles');
- await expect(page.locator('.mixer-card')).toBeHidden();
- await expect(page.locator('#soundscape')).toBeHidden();
- await expect(page.locator('#session-plan')).toBeHidden();
- await expect(page.locator('#history-card')).toBeHidden();
- await expect(page.locator('#backup-panel')).toBeHidden();
- await expect(page.locator('#focus-view-scene')).toHaveText('Lluvia cálida');
- await expect(page.locator('#play-label')).toHaveText('Pausar');
+ await ocean.click();
+ await expect(ocean).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('#status-text')).toHaveText('Sonando');
  await expect(page.locator('#timer')).toHaveText(timer);
+ await expect(page.locator('#focus-view-scene')).toHaveText('Océano profundo');
+ const settings=await page.evaluate(()=>localStorage.getItem('focus-audio-settings-v2'));
+ await mode.click();
+ await expect(mode).toHaveText('Volver a Enfoque');
+ await expect(page.locator('.mixer-card')).toBeVisible();
+ await expect(page.locator('#soundscape')).toHaveValue('ocean');
+ await expect(page.locator('#timer')).toHaveText(timer);
+ await expect(page.locator('#play-label')).toHaveText('Pausar');
  expect(await page.evaluate(()=>localStorage.getItem('focus-audio-settings-v2'))).toBe(settings);
- await expect(page.locator('.orbit')).toHaveCSS('animation-name','none');
- await noOverflow(page);
- await page.screenshot({path:info.outputPath('focus-view.png'),fullPage:true,animations:'disabled'});
  await page.locator('#vol-master').focus();
  await page.keyboard.press('ArrowLeft');
  const volume=await page.locator('#vol-master').inputValue();
  await page.keyboard.press('Escape');
- await expect(page.locator('#focus-view-toggle')).toBeFocused();
- await expect(page.locator('#focus-view-toggle')).toHaveAttribute('aria-pressed','false');
- await expect(page.locator('.mixer-card')).toBeVisible();
- await expect(page.locator('#soundscape')).toBeVisible();
+ await expect(mode).toBeFocused();
+ await expect(mode).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('.mixer-card')).toBeHidden();
+ await expect(page.locator('#vol-master')).toBeHidden();
  await expect(page.locator('#play-label')).toHaveText('Pausar');
+ await expect(options).toHaveJSProperty('open',true);
  await expect(page.locator('#timer')).toHaveText(timer);
- await expect(page.locator('#vol-master')).toHaveValue(volume);
+ await expect(page.locator('.orbit')).toHaveCSS('animation-name','none');
+ await noOverflow(page);
+ await page.screenshot({path:info.outputPath('focus-view.png'),fullPage:true,animations:'disabled'});
  await page.locator('#toggle').click();
- await page.locator('#focus-view-toggle').click();
- await expect(page.locator('#play-label')).toHaveText('Iniciar');
- await page.locator('#focus-view-toggle').click();
- await expect(page.locator('.mixer-card')).toBeVisible();
- await page.locator('#focus-view-toggle').click();
+ await mode.click();
  await page.reload();
- await expect(page.locator('#focus-view-toggle')).toHaveAttribute('aria-pressed','false');
- await expect(page.locator('.mixer-card')).toBeVisible();
+ await expect(mode).toHaveText('Volver a Enfoque');
  await expect(page.locator('#status-text')).toHaveText('En pausa');
  await expect(page.locator('#vol-master')).toHaveValue(volume);
+ await mode.click();
+ await page.reload();
+ await expect(mode).toHaveText('Personalizar mezcla');
+ await expect(options).toHaveJSProperty('open',false);
 });
 
 test('custom duration validates, survives mixes and backup, and completes without autoplay',async({page})=>{

@@ -668,11 +668,7 @@ body[data-focus-view="true"] .quick-scene,
 body[data-focus-view="true"] .binaural-info,
 body[data-focus-view="true"] #favorite-mixes,
 body[data-focus-view="true"] #resume-status,
-body[data-focus-view="true"] .session-plan label,
-body[data-focus-view="true"] #session-plan,
-body[data-focus-view="true"] #cycle-hint,
-body[data-focus-view="true"] .timer-modes,
-body[data-focus-view="true"] .session-actions {display:none}
+body[data-focus-view="true"] .master-block {display:none}
 body[data-focus-view="true"] .orbit,
 body[data-focus-view="true"] .sound-orbit::before,
 body[data-focus-view="true"] .sound-orbit::after {animation:none}
@@ -699,8 +695,6 @@ body[data-focus-view="true"] .custom-duration {display:none}
 .shared-mix-actions {display:flex;flex-wrap:wrap;gap:10px}
 #shared-mix-preview[hidden],#share-link-panel[hidden] {display:none}
 #shared-mix-status:empty,#share-link-status:empty {display:none}
-body[data-focus-view="true"] #shared-mix-preview,
-body[data-focus-view="true"] #shared-mix-status {display:none}
 
 label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48px;line-height:1.5}
 #preserve-mix {flex-shrink:0;accent-color:var(--accent)}
@@ -708,9 +702,54 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
 .rest-sound-setting {display:grid;gap:8px;width:100%;text-align:left}
 #rest-sound {width:100%;min-width:0;min-height:44px;padding:10px;border:1px solid var(--line-strong);border-radius:10px;background:var(--panel-strong);font-size:16px}
 #rest-sound-setting[hidden],body[data-focus-view="true"] .rest-sound-setting {display:none}
+
+/* The listening view is the entry point. Studio shares the player and session. */
+.quick-states {display:none}
+#session-options {width:100%;min-width:0}
+#session-options>summary {display:none}
+.session-options-content {display:grid;gap:18px}
+body[data-focus-view="true"] .app {max-width:680px}
+body[data-focus-view="true"] .player-card {
+  gap:14px;padding:16px 14px 24px;border-color:transparent;box-shadow:none;
+  background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+body[data-focus-view="true"] .player-card::before {top:28%;opacity:.8}
+body[data-focus-view="true"] .player-card .sound-orbit {width:clamp(112px,24vw,158px);margin:0}
+body[data-focus-view="true"] .focus-view-toolbar {justify-content:center}
+body[data-focus-view="true"] #focus-view-toggle {border-color:transparent;background:transparent}
+body[data-focus-view="true"] #focus-view-scene {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+body[data-focus-view="true"] .binaural-info {display:none}
+body[data-focus-view="true"] .quick-states {
+  display:grid;width:100%;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:530px;
+}
+.quick-state {
+  min-width:0;min-height:70px;padding:11px 12px;text-align:left;color:var(--text);
+  font:inherit;line-height:1.35;border:1px solid transparent;border-radius:16px;
+  background:linear-gradient(140deg,#202a40,#161d2b);cursor:pointer;
+  transition:background .35s,border-color .35s,filter .35s;
+}
+.quick-state[data-quick-scene="ocean"] {background:linear-gradient(140deg,#1b3038,#151e2c)}
+.quick-state[data-quick-scene="rain"] {background:linear-gradient(140deg,#272943,#191e32)}
+.quick-state[data-quick-scene="fire"] {background:linear-gradient(140deg,#352a36,#201d2a)}
+.quick-state strong,.quick-state span {display:block}
+.quick-state strong {font-size:14px;font-weight:650}
+.quick-state span {margin-top:4px;color:#c1c9da;font-size:12px}
+.quick-state:hover {filter:brightness(1.14)}
+.quick-state[aria-pressed="true"] {border-color:#a9baff}
+.quick-state:disabled {cursor:wait}
+body[data-focus-view="true"] #session-options {max-width:530px}
+body[data-focus-view="true"] #session-options>summary {
+ display:list-item;min-height:44px;padding:10px 12px;cursor:pointer;text-align:center;color:var(--muted);
+}
+body[data-focus-view="true"] #session-options[open] .session-options-content {padding:8px 10px}
+@media(max-width:380px) {
+ body[data-focus-view="true"] .player-card {gap:10px;padding-inline:4px}
+ .quick-state {min-height:64px;padding:9px 10px}
+}
+@media(prefers-reduced-motion:reduce) {.quick-state{transition:none}}
 </style>
 </head>
-<body>
+<body data-focus-view="true">
   <audio id="bg-audio" playsinline loop style="display:none"></audio>
   <main class="app">
     <header class="topbar">
@@ -731,7 +770,7 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
 
     <div class="layout">
       <section class="card player-card" id="player-card" aria-labelledby="main-title">
-        <div class="focus-view-toolbar"><button id="focus-view-toggle" type="button" class="subtle-button" aria-pressed="false">Vista de concentración</button></div>
+        <div class="focus-view-toolbar"><button id="focus-view-toggle" type="button" class="subtle-button" aria-pressed="true">Personalizar mezcla</button></div>
         <p id="focus-view-scene" hidden></p>
         <div class="player-heading">
           <h1 id="main-title">Entrá en foco.</h1>
@@ -766,6 +805,13 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           </button>
         </div>
 
+        <div class="quick-states" aria-label="Ambientes para empezar" role="group">
+          <button class="quick-state" type="button" data-quick-scene="speech" aria-pressed="false"><strong>Trabajo profundo</strong><span>Para cubrir conversaciones</span></button>
+          <button class="quick-state" type="button" data-quick-scene="ocean" aria-pressed="false"><strong>Lectura</strong><span>Oleaje pausado</span></button>
+          <button class="quick-state" type="button" data-quick-scene="rain" aria-pressed="true"><strong>Lluvia nocturna</strong><span>Lluvia cálida</span></button>
+          <button class="quick-state" type="button" data-quick-scene="fire" aria-pressed="false"><strong>Pausa junto al fuego</strong><span>Leña y crujidos</span></button>
+        </div>
+
         <div class="binaural-info" id="binaural-info">
           <p><strong>Tono binaural incluido</strong>Usá auriculares estéreo para apreciarlo.</p>
           <a href="https://nitsugaone.github.io/FOCUS-studio/escucha/">Comparar ambientes con y sin la capa binaural</a>
@@ -773,13 +819,16 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
 
         <div class="master-block">
           <div class="control-heading">
-            <label class="control-label" for="vol-master">Volumen maestro</label>
+            <label class="control-label" for="vol-master">Volumen general</label>
             <output class="volume-value" id="out-master" for="vol-master">75%</output>
           </div>
           <input class="range" id="vol-master" type="range" min="0" max="100" value="75" aria-label="Volumen maestro">
         </div>
 
 
+        <details id="session-options">
+          <summary>Temporizador</summary>
+          <div class="session-options-content">
         <div class="session-plan">
           <label for="session-plan">Organizá tu sesión</label>
           <select id="session-plan">
@@ -825,6 +874,8 @@ label[for="preserve-mix"] {display:flex;align-items:center;gap:8px;min-height:48
           </div>
           <p id="extension-status" class="daily-note" role="status"></p>
         </div>
+          </div>
+        </details>
           <div class="studio-controls" id="session-feedback" hidden>
             <label for="session-rating">¿Cuánto te ayudó esta sesión?</label>
             <select id="session-rating"><option value="1">1 · Poco</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5 · Mucho</option></select>

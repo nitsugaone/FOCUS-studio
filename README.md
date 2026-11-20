@@ -6,6 +6,8 @@ PWA de seis ambientes para concentración y estudio, sintetizados localmente con
 
 ## Ambientes y sesiones
 
+Al abrir Focus aparece **Enfoque**, con reproducción, cuatro tarjetas que arrancan el sonido al tocar y un temporizador opcional. **Personalizar mezcla** abre el Estudio con todos los ambientes, volúmenes y mezclas guardadas. La vista elegida se conserva al recargar esa pestaña.
+
 - Lluvia cálida, océano profundo, espacio, cubrir conversaciones, fogón suave y viento entre hojas.
 - Evolución, brillo, melodía, amplitud estéreo, balance y niveles de maestro, textura, drone y notas.
 - Sesión libre, duración de 1 a 180 minutos y ciclos guiados con descansos. El avance entre tramos requiere una acción explícita.
@@ -152,10 +154,10 @@ El build Vite genera su propio precaché con los archivos realmente emitidos y u
 | --- | --- |
 | `Espacio` | Iniciar o pausar fuera de controles editables o interactivos. |
 | `M` | Silenciar o restaurar el maestro, con la misma exclusión de controles. |
-| `Escape` | Salir de la vista de concentración y devolver el foco a su botón. |
+| `Escape` | Volver a Enfoque desde Estudio y devolver el foco a su botón. |
 | `Tab` / `Mayús+Tab` | Navegación de foco estándar del navegador; no es un atajo registrado por la app. |
 
-Espacio y M ignoran repeticiones de tecla. La vista de concentración se activa desde su botón; Escape la cierra.
+Espacio y M ignoran repeticiones de tecla. Enfoque es la vista inicial. Personalizar mezcla abre Estudio y Escape vuelve a Enfoque.
 
 ## Uso de los controles
 

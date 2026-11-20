@@ -1,12 +1,9 @@
-# Vista de concentración v3.8
+# Enfoque y Estudio
 
-El botón Vista de concentración muestra una sola tarjeta con reproducción, volumen maestro, tiempo, ambiente actual y estado de los ciclos. Oculta el mezclador, historial, instalación, copias y controles de configuración. No usa pantalla completa del navegador ni solicita permisos nuevos.
+Enfoque es la primera pantalla de Focus. Tocá una tarjeta para escuchar Trabajo profundo, Lectura, Lluvia nocturna o Pausa junto al fuego. También podés tocar Iniciar para seguir con el ambiente seleccionado. Cambiar de tarjeta durante la escucha mantiene la sesión en marcha.
 
-Ver todos los controles o Escape vuelve a la vista completa. Escape funciona también desde el control de volumen y devuelve el foco al botón de la vista. Las animaciones del paisaje quedan detenidas en esta vista; el audio sigue igual. Los controles ocultos quedan fuera de la navegación con Tab.
+Abrí **Temporizador** si querés usar un tiempo fijo o un ciclo Pomodoro. La reproducción funciona con el temporizador cerrado.
 
-La vista empieza desactivada al recargar; no se guarda en mezclas ni copias. Entrar o salir no inicia ni pausa la reproducción, no cambia volúmenes y no reinicia el reloj. Las sesiones y ciclos conservan su comportamiento. Las valoraciones y los errores aparecen en la tarjeta del reproductor para seguir disponibles durante la vista de concentración.
+**Personalizar mezcla** abre Estudio, donde están los seis ambientes, el volumen general, los ajustes de sonido, las mezclas y el comparador binaural. **Volver a Enfoque** o Escape devuelve la pantalla simple. El cambio de vista conserva la reproducción y el reloj, y la elección se mantiene al recargar la misma pestaña.
 
-## Verificación
-La suite de navegador cubre entrar mientras suena, conservar el reloj y ajustes, cambiar volumen, salir con Escape desde el deslizador, volver mediante botón, recargar sin autoplay y completar un tramo con la valoración visible en esta vista. Incluye capturas en seis configuraciones de Chromium/WebKit entre 320 y 1440 píxeles. El resultado de GitHub Actions se registra en el PR.
-
-Las pruebas de navegador no sustituyen una comprobación en un teléfono físico.
+Las pruebas de navegador comprueban el inicio con una tarjeta, la selección de temporizador, la continuidad al cambiar de vista y el diseño a partir de 320 px. La escucha en dispositivos físicos se registra en [Validación FOCUS Studio](VALIDACION-V3.md).

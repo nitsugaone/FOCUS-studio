@@ -4,7 +4,7 @@ import {balanceLabel,entryEnvelope,sessionEnvelope} from '../audio/dsp.js';
 
 // Existing studio controls with current application state and audio/storage adapters.
 export function createStudioController({
-  $,clock,engine,storage,defaults,getStudio,setStudio,cycleTools,resetCycle,getCycleState,getPlaybackState,isSilentRest,studioKey,
+  $,clock,engine,storage,quickSceneCards=[],defaults,getStudio,setStudio,cycleTools,resetCycle,getCycleState,getPlaybackState,isSilentRest,studioKey,
   updateRange,persistSettings,syncFocusHistoryProgress,syncUI
 }) {
   function showStorageError() {
@@ -34,8 +34,10 @@ export function createStudioController({
 
   function syncSceneLabels() {
     const studio=getStudio();
-    const label=isSilentRest()?'Descanso en silencio':SCENES[studio.scene].label;
+    const silent=isSilentRest();
+    const label=silent?'Descanso en silencio':SCENES[studio.scene].label;
     $('mobile-scene').textContent=label;$('focus-view-scene').textContent=label;
+    for(const card of quickSceneCards)card.setAttribute('aria-pressed',String(!silent&&card.dataset.quickScene===studio.scene));
   }
 
   function syncRestSoundUI() {
@@ -106,8 +108,27 @@ export function createStudioController({
     const levelsSaved=persistSettings(),studioSaved=writeLocal(studioKey,getStudio());
     return {sessionSaved,levelsSaved,studioSaved};
   }
+  function selectScene(name) {
+    if(!Object.prototype.hasOwnProperty.call(SCENES,name)) {
+      syncStudio();return false;
+    }
+    const studio=getStudio(),preset=SCENES[name];
+    if(name===studio.scene)return true;
+    engine.resetNotes();
+    studio.scene=name;
+    if(!studio.preserveMix) {
+      studio.melody=preset.melody!==false;
+      Object.entries(preset.mix).forEach(([layer,value])=>{$('vol-'+layer).value=value;updateRange(layer,false);});
+      persistSettings();
+    }
+    applyScene();writeLocal(studioKey,studio);
+    if(getPlaybackState().playing)engine.restartNotes();
+    return true;
+  }
+
   function initStudioControls() {
-    ['soundscape','evolution','brightness','melody','stereo-width','channel-balance','note-pace','fade-in','fade-out','preserve-mix','rest-sound'].forEach(id=>$(id).addEventListener('input',()=>{
+    $('soundscape').addEventListener('input',()=>selectScene($('soundscape').value));
+    ['evolution','brightness','melody','stereo-width','channel-balance','note-pace','fade-in','fade-out','preserve-mix','rest-sound'].forEach(id=>$(id).addEventListener('input',()=>{
       const studio=getStudio(),cycleState=getCycleState(),{playing,transitioning}=getPlaybackState();
       if(id==='fade-in') {
         const value=Number($('fade-in').value);
@@ -125,15 +146,6 @@ export function createStudioController({
         syncFocusHistoryProgress(true);studio.restSound=value;
       }
       if(id==='preserve-mix')studio.preserveMix=$('preserve-mix').checked;
-      if(id==='soundscape') {
-        engine.resetNotes();
-        studio.scene=$('soundscape').value;
-        if(!studio.preserveMix) {
-          studio.melody=SCENES[studio.scene].melody!==false;
-          Object.entries(SCENES[studio.scene].mix).forEach(([k,v])=>{$('vol-'+k).value=v;updateRange(k,false);});
-          persistSettings();
-        }
-      }
       if(id==='evolution')studio.evolution=Number($('evolution').value);
       if(id==='brightness')studio.brightness=Number($('brightness').value);
       if(id==='stereo-width')studio.stereoWidth=Number($('stereo-width').value);
@@ -149,7 +161,7 @@ export function createStudioController({
       }
       applyScene();writeLocal(studioKey,studio);
       if(id==='rest-sound')syncUI();
-      if(getPlaybackState().playing&&['soundscape','melody','note-pace'].includes(id))engine.restartNotes();
+      if(getPlaybackState().playing&&['melody','note-pace'].includes(id))engine.restartNotes();
     }));
     $('center-balance').addEventListener('click',()=>{
       const studio=getStudio();
@@ -158,5 +170,5 @@ export function createStudioController({
   }
 
   return {writeLocal,showStorageError,syncEntryUI,syncFadeUI,syncSceneLabels,syncRestSoundUI,syncStudio,initStudioControls,
-    configureAudio,scheduleAudioClosing,scheduleAudioEntry,applyScene,currentMix,applySavedMix,applySharedMix};
+    configureAudio,scheduleAudioClosing,scheduleAudioEntry,applyScene,selectScene,currentMix,applySavedMix,applySharedMix};
 }
