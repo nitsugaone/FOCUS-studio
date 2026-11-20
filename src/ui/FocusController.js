@@ -33,6 +33,7 @@ export function startFocusApp({
 
       const $ = (id) => document.getElementById(id);
       const modeLabelEl = $('session-mode-label');
+      const quickSceneCards=[...document.querySelectorAll('[data-quick-scene]')];
 
       const engine=new FocusAudioEngine({platform:window,clearTimeout});
       let playing = false;
@@ -55,9 +56,9 @@ export function startFocusApp({
       });
 
       const {writeLocal,showStorageError,syncEntryUI,syncFadeUI,syncSceneLabels,syncRestSoundUI,syncStudio,initStudioControls,
-        configureAudio,scheduleAudioClosing,scheduleAudioEntry,applyScene,
+        configureAudio,scheduleAudioClosing,scheduleAudioEntry,applyScene,selectScene,
         currentMix,applySavedMix,applySharedMix}=createStudioController({
-        $,clock,engine,storage,defaults:DEFAULTS,getStudio:()=>studio,setStudio:value=>{studio=value;},
+        $,clock,engine,storage,quickSceneCards,defaults:DEFAULTS,getStudio:()=>studio,setStudio:value=>{studio=value;},
         cycleTools,resetCycle,getCycleState:()=>cycleState,getPlaybackState:()=>({playing,transitioning}),
         isSilentRest,studioKey:STUDIO_KEY,updateRange,persistSettings,syncFocusHistoryProgress,syncUI
       });
@@ -176,10 +177,9 @@ export function startFocusApp({
       initHistoryControls();
 
       const {initInteractions}=createInteractionController({
-        document,$,isPlaying:()=>playing,play,pause,toggleMute,syncSceneLabels,
-        isEditableTarget:target=>target instanceof HTMLElement&&target.matches('input, button, textarea, select, a, [contenteditable="true"]')
+        window,document,$,quickSceneCards,getPlaybackState:()=>({playing,transitioning}),selectScene,play,pause,toggleMute,syncSceneLabels,
+        isEditableTarget:target=>target instanceof HTMLElement&&target.matches('input, button, textarea, select, summary, a, [contenteditable="true"]')
       });
-      initInteractions();
 
       initPageLifecycle({
         window,document,advanceSessionClock,applyScene,renderTimer,stopSessionClock,
@@ -203,4 +203,5 @@ export function startFocusApp({
       renderTimer();
       renderHistoryChart();
       syncUI();
+      initInteractions();
     }

@@ -6,6 +6,8 @@ PWA de seis ambientes para concentración y estudio, sintetizados localmente con
 
 ## Ambientes y sesiones
 
+Al abrir Focus aparece **Enfoque**, con reproducción, cuatro tarjetas que arrancan el sonido al tocar y un temporizador opcional. **Personalizar mezcla** abre el Estudio con todos los ambientes, volúmenes y mezclas guardadas. La vista elegida se conserva al recargar esa pestaña.
+
 - Lluvia cálida, océano profundo, espacio, cubrir conversaciones, fogón suave y viento entre hojas.
 - Evolución, brillo, melodía, amplitud estéreo, balance y niveles de maestro, textura, drone y notas.
 - Sesión libre, duración de 1 a 180 minutos y ciclos guiados con descansos. El avance entre tramos requiere una acción explícita.
