@@ -1,5 +1,6 @@
 import {readApplicationSource,extractFunctions} from '../../../tests/support/application-source.mjs';
 import {measureBinauralCalibration} from '../support/binaural-calibration.mjs';
+import {checkListeningPage} from '../support/check-listening-page.mjs';
 import {test,expect} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
 
@@ -530,6 +531,9 @@ test('stereo field renders identity, mono and intermediate widths with real Web 
   }
   const fire=results.find(value=>value.scene==='fire');
   for(const other of results.filter(value=>value.scene!=='fire'))expect(fire.addedRms).toBeLessThan(other.addedRms);
+ });
+ await test.step('Listening comparison reuses its pair in source and stays out of build',async()=>{
+  await checkListeningPage(page,{build:process.env.FOCUS_TEST_TARGET==='build'});
  });
 });
 

@@ -76,6 +76,7 @@ Cubren, entre otros:
 - Recarga y reproducción offline tras instalar la caché.
 - Ciclos, duración, entrada, cierre y extensión.
 - Renderizado Web Audio y reconciliación al volver a una página visible.
+- Página auxiliar de escucha en fuente: reproducción, pausa y alternancia sin recrear el audio. La prueba de build verifica que la página siga fuera de la distribución compilada.
 
 La comprobación de calibración renderiza los seis ambientes con el motor de producción en Web Audio. Compara una mezcla con su referencia de ruido equivalente, a niveles predeterminados, para detectar si el par de 180/186 Hz sube demasiado, invade el canal contrario o recorta picos. La prueba utiliza la ruta de ruido por buffers y una semilla fija para que las dos señales se puedan comparar.
 

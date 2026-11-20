@@ -12,8 +12,9 @@ const server=http.createServer(async(req,res)=>{
   const pathname=decodeURIComponent(new URL(req.url,'http://127.0.0.1').pathname);
   if(pathname==='/'){res.writeHead(302,{location:mount});res.end();return;}
   if(!pathname.startsWith(mount)){res.writeHead(404);res.end();return;}
-  const relative=pathname.slice(mount.length)||'index.html';
-  const allowed=built||['index.html','sw.js','manifest.json'].includes(relative)||['src/','audio/','icons/','screenshots/'].some(prefix=>relative.startsWith(prefix));
+  const requested=pathname.slice(mount.length);
+  const relative=requested==='escucha/'&&!built?'escucha/index.html':requested||'index.html';
+  const allowed=built||['index.html','sw.js','manifest.json','escucha/index.html','escucha/listening.js'].includes(relative)||['src/','audio/','icons/','screenshots/'].some(prefix=>relative.startsWith(prefix));
   const target=path.resolve(root,relative);
   if(!allowed||path.relative(root,target).startsWith('..')){res.writeHead(404);res.end();return;}
   const body=await readFile(target);
