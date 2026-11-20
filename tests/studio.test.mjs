@@ -5,7 +5,12 @@ import assert from 'node:assert/strict';
 function verify(html, workletMode='none') {
 
 const elems=new Map(), memory=new Map(), checks=[];
-function element(id){if(!elems.has(id))elems.set(id,{hidden:html.includes('id="'+id+'" hidden'),value:({'vol-master':75,'vol-noise':70,'vol-drone':60,'vol-notes':55,evolution:35,brightness:50,'session-rating':3}[id]??''),checked:true,dataset:{},style:{setProperty(){}},classList:{toggle(){}},events:{},attributes:{},focus(){this.focused=true},setAttribute(k,v){this.attributes[k]=v},addEventListener(k,fn){this.events[k]=fn},replaceChildren(){this.children=[]},append(child){(this.children??=[]).push(child)},add(){},click(){if(!this.disabled)return this.events.click?.()},remove(){},play(){return Promise.resolve()},pause(){}});return elems.get(id);}
+const panels=new Map();
+for(const [tag] of html.matchAll(/<details\b[^>]*>/g)){
+ const id=tag.match(/\bid="([^"]+)"/)?.[1];
+ if(id)panels.set(id,/\sopen(?:\s|=|>)/.test(tag));
+}
+function element(id){if(!elems.has(id))elems.set(id,{open:panels.get(id),hidden:html.includes('id="'+id+'" hidden'),value:({'vol-master':75,'vol-noise':70,'vol-drone':60,'vol-notes':55,evolution:35,brightness:50,'session-rating':3}[id]??''),checked:true,dataset:{},style:{setProperty(){}},classList:{toggle(){}},events:{},attributes:{},focus(){this.focused=true},setAttribute(k,v){this.attributes[k]=v},addEventListener(k,fn){this.events[k]=fn},replaceChildren(){this.children=[]},append(child){(this.children??=[]).push(child)},add(){},click(){if(!this.disabled)return this.events.click?.()},remove(){},play(){return Promise.resolve()},pause(){}});return elems.get(id);}
 const sources=[];let workletNode=null,moduleLoads=0;
 const continuous=workletMode==='success',offset=continuous?3:0;
 function param(){return {value:0,cancelScheduledValues(){},setTargetAtTime(v){if(!Number.isFinite(v))throw Error('Nonfinite audio parameter');this.value=v},setValueAtTime(v){this.value=v},linearRampToValueAtTime(v){this.value=v},exponentialRampToValueAtTime(v){this.value=v}};}
@@ -109,7 +114,7 @@ checks.push({check:'Dock timer matches main timer',pass:element('mobile-timer').
 const binauralSources=sources.filter(source=>[180,186].includes(source.frequency.value));
 checks.push({check:'Audio startup includes the existing scene sources and two distinct binaural tones',pass:
  sources.length-binauralSources.length===(continuous?9:12)&&binauralSources.map(source=>source.frequency.value).join(',')==='180,186'});
-checks.push({check:'Mobile panels start collapsed',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===false)});
+checks.push({check:'Sound and mix settings start collapsed, with history collapsed on mobile',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===false)});
 const activeSources=sources.length;
 const beforeSearch=JSON.stringify([...memory]),searchTimer=element('timer').textContent;
 element('mix-search').value='no coincide';element('mix-search').events.input();
@@ -146,11 +151,13 @@ element('stereo-width').value='0';element('stereo-width').events.input();
 checks.push({check:'Stereo width updates while playing without new sources or timer reset',pass:sources.length===activeSources&&element('timer').textContent===beforeWidthTimer&&JSON.parse(memory.get('focus-studio-v3')).stereoWidth===0});
 element('stereo-width').value='100';element('stereo-width').events.input();
 
+element('sound-settings').open=true;
 compactLayout.matches=false;layoutChange();
-checks.push({check:'Desktop panels open when the window becomes wide',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===true)});
+checks.push({check:'Wider layout opens history and preserves manually opened sound and closed mixes',pass:element('sound-settings').open===true&&element('mix-settings').open===false&&element('history-card').open===true});
 checks.push({check:'Resize preserves playback and audio graph',pass:element('play-label').textContent==='Pausar'&&sources.length===activeSources});
+element('sound-settings').open=false;element('mix-settings').open=true;
 compactLayout.matches=true;layoutChange();
-checks.push({check:'Return to mobile collapses panels',pass:['sound-settings','mix-settings','history-card'].every(id=>element(id).open===false)});
+checks.push({check:'Narrower layout closes history and preserves manually closed sound and opened mixes',pass:element('sound-settings').open===false&&element('mix-settings').open===true&&element('history-card').open===false});
 const windSources=sources.length;
 const windHighpass=continuous?workletNode.connections[3]:sources[0].connections[1];
 const windGust=windHighpass.connections[0].connections[0];

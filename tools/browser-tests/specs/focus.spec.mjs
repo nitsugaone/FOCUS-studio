@@ -47,13 +47,24 @@ async function noOverflow(page) {
 test('layout adapts without horizontal overflow and produces a review screenshot',async({page},info)=>{
  await noOverflow(page);
  await expect(page.locator('#session-feedback')).toBeHidden();
- const width=page.viewportSize().width,compact=width<=900;
- await expect(page.locator('#sound-settings')).toHaveJSProperty('open',!compact);
+ const {width,height}=page.viewportSize(),compact=width<=900;
+ await expect(page.locator('#sound-settings')).toHaveJSProperty('open',false);
+ await expect(page.locator('#mix-settings')).toHaveJSProperty('open',false);
+ await expect(page.locator('#history-card')).toHaveJSProperty('open',!compact);
  const player=await page.locator('#player-card').boundingBox(),mixer=await page.locator('.mixer-card').boundingBox();
  if(compact)expect(mixer.y).toBeGreaterThanOrEqual(player.y+player.height-1);
  else {expect(mixer.x).toBeGreaterThanOrEqual(player.x+player.width-1);expect(Math.abs(mixer.y-player.y)).toBeLessThan(2);}
  const play=await page.locator('#toggle').boundingBox();
- expect(play.y+play.height).toBeLessThanOrEqual(page.viewportSize().height);
+ expect(play.y+play.height).toBeLessThanOrEqual(height);
+ const binaural=page.locator('#binaural-info');
+ await expect(binaural).toBeVisible();
+ await expect(binaural.getByRole('link',{name:'Comparar ambientes con y sin la capa binaural'})).toBeVisible();
+ if(width===320) {
+  const bounds=await binaural.boundingBox();
+  expect(play.y).toBeGreaterThanOrEqual(-1);
+  expect(bounds.y).toBeGreaterThanOrEqual(play.y+play.height-1);
+  expect(bounds.y+bounds.height).toBeLessThanOrEqual(height+1);
+ }
  await page.screenshot({path:info.outputPath('layout.png'),fullPage:true,animations:'disabled'});
 });
 
@@ -61,13 +72,25 @@ test('audio, dock and resizing share one playback state',async({page})=>{
  await page.locator('#toggle').click();
  await expect(page.locator('#status-text')).toHaveText('Sonando');
  await expect(page.locator('#error-message')).toBeHidden();
+ const binaural=page.locator('#binaural-info');
+ await expect(binaural).toBeVisible();
+ await expect(binaural.getByRole('link',{name:'Comparar ambientes con y sin la capa binaural'})).toBeVisible();
  await expect.poll(()=>page.locator('#timer').textContent()).not.toBe('00:00:00');
+
+ await expand(page,'sound-settings');
  await page.setViewportSize({width:1100,height:900});
  await expect(page.locator('#sound-settings')).toHaveJSProperty('open',true);
+ await expect(page.locator('#mix-settings')).toHaveJSProperty('open',false);
+ await expect(page.locator('#history-card')).toHaveJSProperty('open',true);
  await expect(page.locator('#play-label')).toHaveText('Pausar');
  await noOverflow(page);
+
+ await page.locator('#sound-settings > summary').click();
+ await expand(page,'mix-settings');
  await page.setViewportSize({width:390,height:844});
  await expect(page.locator('#sound-settings')).toHaveJSProperty('open',false);
+ await expect(page.locator('#mix-settings')).toHaveJSProperty('open',true);
+ await expect(page.locator('#history-card')).toHaveJSProperty('open',false);
  await page.locator('footer').scrollIntoViewIfNeeded();
  await expect(page.locator('#mobile-player')).toBeVisible();
  await expect(page.locator('#mobile-toggle')).toHaveText('Pausar');
