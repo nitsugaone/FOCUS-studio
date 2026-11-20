@@ -10,7 +10,8 @@ export async function checkListeningPage(page,{build=false}={}) {
  await page.addInitScript(()=>{
   const Context=window.AudioContext||window.webkitAudioContext;
   if(!Context)return;
-  const tones=[],contexts=new Set(),connections=new WeakMap(),targets=new WeakMap();
+  const tones=[],contexts=new Set(),connections=new Map(),targets=new Map();
+  // Keep Web Audio wrappers alive so WebKit can return the same AudioParam identity.
 
   const connect=AudioNode.prototype.connect;
   AudioNode.prototype.connect=function(destination,...args) {
